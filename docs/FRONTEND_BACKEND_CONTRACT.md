@@ -41,9 +41,11 @@ export interface ArticleListItem {
   breaking_score: number;
   cluster_id: number | null;
   source: Pick<Source, 'id' | 'name' | 'country'>;
-  published_at: string | null;
+  published_at: string | null;     // from feed or null if unverified/missing
+  ingested_at: string;             // UTC ISO-8601 with trailing 'Z' (arrival time)
+  is_catchup: boolean;             // true if arrived during catch-up window
   fetched_at: string;
-  delayed?: boolean;       // true if from delayed free-tier source
+  delayed?: boolean;               // true if from delayed free-tier source
 }
 
 export interface ArticleFull extends ArticleListItem {
@@ -52,8 +54,36 @@ export interface ArticleFull extends ArticleListItem {
   body_english: string | null;
   language_detected: string | null;
   bookmarked: boolean;
-  anchor_phrases: AnchorPhrase[];   // NEW — from migration 002
+  anchor_phrases: AnchorPhrase[];   // from migration 003
   source: Source;
+}
+
+// ─── App Session (Category 1B) ────────────────────────────────────────────────
+export interface AppSession {
+  id: number;
+  started_at: string;              // UTC ISO-8601 with 'Z'
+  last_heartbeat_at: string;       // UTC ISO-8601 with 'Z'
+  ended_at: string | null;         // UTC ISO-8601 with 'Z'
+  end_reason: 'clean' | 'unclean' | 'crash' | 'sleep' | null;
+}
+
+// ─── Ingest Velocity Stats (Category 8) ────────────────────────────────────────
+export interface HourlySparklinePoint {
+  hour: string;                    // UTC ISO-8601 bucket
+  count: number;
+  is_app_off: boolean;             // true if app was off during this hour
+}
+
+export interface IngestStats {
+  rolling_24h: number;             // new unique articles saved in last 24h
+  duplicates_skipped: number;      // rejected duplicates in last 24h
+  catchup_count: number;           // arrivals marked is_catchup = 1 in last 24h
+  hourly_sparkline: HourlySparklinePoint[];
+  total_30d: number;               // 30-day cumulative count from ingest_daily
+  all_time: number;                // lifetime total from lifetime_counter
+  first_run_at: string;            // UTC ISO-8601 with 'Z'
+  total_running_sec: number;       // lifetime running seconds from app_sessions
+  total_away_sec: number;          // lifetime away seconds from app_sessions
 }
 
 // ─── Category ─────────────────────────────────────────────────────────────────
@@ -321,12 +351,23 @@ export interface StartupStatus {
 
 ---
 
-### Startup / Missed News
+### Startup / Missed News & Real-Time Foundation (Category 1B)
 
 | Method | Endpoint | Screen |
 |--------|----------|--------|
 | GET | `/api/startup-status` | App shell on mount |
 | POST | `/api/backfill` | MissedNewsModal action |
+| GET | `/api/time` | System clock sync & offset calculation |
+| GET | `/api/sessions/current` | Active session & away window recovery metrics |
+| GET | `/api/sessions/summary` | Cumulative running & away time |
+
+---
+
+### Ingest Telemetry & Velocity Counter (Category 8)
+
+| Method | Endpoint | Screen |
+|--------|----------|--------|
+| GET | `/api/stats/ingest` | TopBar feed counter & hover sparkline panel |
 
 ---
 
@@ -408,4 +449,12 @@ Frontend error handling:
 | Step 7 | PATCH /api/providers/:id | Enable/disable |
 | Step 7 | POST /api/providers/wizard | Add custom provider |
 | Step 7 | POST /api/providers/:id/key | Set API key (backend only; masked in response) |
+| Cat 1 | Migration 006 (dual timestamps) | `ingested_at` & `is_catchup` |
+| Cat 1B | GET /api/time | Frontend clock synchronization |
+| Cat 1B | GET /api/sessions/current | Welcome-back card away metrics |
+| Cat 1B | GET /api/sessions/summary | Lifetime running & away statistics |
+| Cat 6 | GET /api/tv/proxy | HLS streaming proxy with SSRF check |
+| Cat 6 | POST /api/tv/channels/youtube-preview | Official YouTube oEmbed preview |
+| Cat 8 | GET /api/stats/ingest | Rolling 24h count & sparkline telemetry |
+| Cat 11 | GET /api/control-room/telemetry | Operational status & source freshness |
 

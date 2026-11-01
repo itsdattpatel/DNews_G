@@ -7,8 +7,9 @@
 
 | Step | Category | Status | Proof / Evidence Required | Timestamp |
 | :--- | :--- | :---: | :--- | :--- |
-| **0** | **Documentation & Setup** | 🟡 `IN_REVIEW` | `/docs/PRD_A.md`, `/docs/PROGRESS.md`, `/docs/OPEN_QUESTIONS.md`, DB backup | 2026-11-01 |
+| **0** | **Documentation & Setup** | 🟡 `IN_REVIEW` | `/docs/PRD_A.md`, `/docs/PROGRESS.md`, `/docs/OPEN_QUESTIONS.md`, `/docs/DB_SCHEMA.md`, DB backup | 2026-11-01 |
 | **1** | **Dates on Every News Item** | ⚪ `PENDING` | Dual timestamps migration, relative live update tests, timezone tests, UI screenshot | - |
+| **1B** | **Real-Time Foundation** | ⚪ `PENDING` | `app_sessions` table, 30s heartbeat, Welcome-Back card, clock sync offset, hatched downtime sparkline | - |
 | **2** | **Auto-Advance (7 Seconds)** | ⚪ `PENDING` | 7s timer, left panel hover pause test, progress bar, play/pause controls, screenshot | - |
 | **3** | **Plain Mode (Zero AI)** | ⚪ `PENDING` | Plain mode switch, zero AI call test, rule-based category tagging, layout screenshot | - |
 | **4** | **Safety Net: Backups & Guards** | ⚪ `PENDING` | Automated DB backup test, test-data guard blocking test runs on real DB, export/import test | - |
@@ -38,3 +39,4 @@
 - Created `/docs/OPEN_QUESTIONS.md` logging critical questions regarding Category 8 (Rolling 24h counter definition), Category 2 (Auto-advance hover conditions), and Category 6 (YouTube handle resolution).
 - Initiated `/docs/PROGRESS.md` with explicit validation criteria per category.
 - Stored clean snapshot of database in `backups/`.
+

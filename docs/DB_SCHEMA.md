@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS articles (
   cluster_id        INTEGER REFERENCES clusters(id),
   bookmarked        INTEGER NOT NULL DEFAULT 0,
   anchor_phrases    TEXT DEFAULT NULL,   -- JSON array: [{"phrase":"...","sentence_index":0}, ...] (Migration 003)
+  ingested_at       TEXT,                -- Local arrival time in UTC ISO-8601 with trailing 'Z' (Migration 006)
+  is_catchup        INTEGER NOT NULL DEFAULT 0, -- 1 if ingested via catch-up / backfill (Migration 006)
   created_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -68,6 +70,7 @@ CREATE INDEX IF NOT EXISTS idx_articles_source   ON articles(source_id);
 CREATE INDEX IF NOT EXISTS idx_articles_cluster  ON articles(cluster_id);
 CREATE INDEX IF NOT EXISTS idx_articles_status   ON articles(status);
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_articles_ingested  ON articles(ingested_at DESC);
 CREATE INDEX IF NOT EXISTS idx_articles_breaking  ON articles(breaking_score DESC);
 ```
 
@@ -215,12 +218,64 @@ CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
--- Seeded at first run:
--- refresh_interval_minutes = 5
--- max_spiders = 6
--- alert_threshold = 75
--- auto_cleanup_enabled = 0
--- retention_days = 30
+```
+
+---
+
+### 2.11 `app_sessions` (Category 1B — Real-Time Foundation)
+
+Tracks backend runtimes and uptime/downtime gaps with 30s heartbeat precision.
+
+```sql
+CREATE TABLE IF NOT EXISTS app_sessions (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  started_at        TEXT NOT NULL, -- UTC ISO-8601 with 'Z'
+  last_heartbeat_at TEXT NOT NULL, -- UTC ISO-8601 with 'Z' (written every 30s)
+  ended_at          TEXT,          -- UTC ISO-8601 with 'Z'
+  end_reason        TEXT CHECK(end_reason IN ('clean', 'unclean', 'crash', 'sleep'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_started ON app_sessions(started_at DESC);
+```
+
+---
+
+### 2.12 `ingest_hourly` & `ingest_daily` (Category 8 — Live Feed Counter Telemetry)
+
+Historical arrival velocity buckets immune to the 30-day article retention purge.
+
+```sql
+-- Hourly aggregation for 24-hour sparklines
+CREATE TABLE IF NOT EXISTS ingest_hourly (
+  hour_bucket       TEXT PRIMARY KEY, -- 'YYYY-MM-DDTHH:00:00Z'
+  article_count     INTEGER NOT NULL DEFAULT 0,
+  duplicate_count   INTEGER NOT NULL DEFAULT 0,
+  catchup_count     INTEGER NOT NULL DEFAULT 0
+);
+
+-- Daily aggregation for 13+ months historical metrics
+CREATE TABLE IF NOT EXISTS ingest_daily (
+  date_bucket       TEXT PRIMARY KEY, -- 'YYYY-MM-DD'
+  article_count     INTEGER NOT NULL DEFAULT 0,
+  duplicate_count   INTEGER NOT NULL DEFAULT 0,
+  catchup_count     INTEGER NOT NULL DEFAULT 0
+);
+```
+
+---
+
+### 2.13 `lifetime_counter` (Category 8)
+
+Persistent single-row ledger for cumulative lifetime desk volume.
+
+```sql
+CREATE TABLE IF NOT EXISTS lifetime_counter (
+  id                INTEGER PRIMARY KEY CHECK (id = 1),
+  first_run_at      TEXT NOT NULL, -- UTC ISO-8601 with 'Z'
+  total_articles    INTEGER NOT NULL DEFAULT 0,
+  total_duplicates  INTEGER NOT NULL DEFAULT 0,
+  total_catchup     INTEGER NOT NULL DEFAULT 0
+);
 ```
 
 ---
@@ -264,6 +319,10 @@ END;
 - `002_tv_channels.sql`: TV broadcasting channels table
 - `003_anchor_phrases.sql`: Anchor phrases column for verbatim evidence linking
 - `004_remove_spider_settings.sql`: Remove spider keys from settings table, deprecating spider_type column safely without data loss
+- `005_evidence_highlight_settings.sql`: Evidence highlight and reading mode preference switches
+- `006_dual_timestamps.sql`: `ingested_at` and `is_catchup` columns for Category 1 dual dates
+- `007_realtime_foundation.sql`: `app_sessions` table and session heartbeat architecture (Category 1B)
+- `008_ingest_telemetry.sql`: `ingest_hourly`, `ingest_daily`, and `lifetime_counter` tables immune to cleanup (Category 8)
 - On startup `db.ts` reads DB version from `PRAGMA user_version`
 - Applies numbered migrations in order
 - Migration failures abort startup with a descriptive error
