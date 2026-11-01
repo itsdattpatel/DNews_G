@@ -189,7 +189,10 @@ export const AlertsCenter: React.FC = () => {
         </header>
 
         {/* Ink-Stamp Filter Tabs Bar */}
-        <section className="px-6 py-2.5 border-b-2 border-ink bg-paper flex items-center justify-between gap-3 overflow-x-auto no-scrollbar font-mono text-xs">
+        <section
+          data-lenis-prevent="true"
+          className="px-6 py-2.5 border-b-2 border-ink bg-paper flex items-center justify-between gap-3 overflow-x-auto overscroll-x-contain no-scrollbar font-mono text-xs"
+        >
           <div className="flex items-center gap-2">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.key;
@@ -226,7 +229,10 @@ export const AlertsCenter: React.FC = () => {
         </section>
 
         {/* Main Alerts Log Stage */}
-        <main className="flex-1 bg-paper p-4 sm:p-6 overflow-y-auto select-text">
+        <main
+          data-lenis-prevent="true"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-paper p-4 sm:p-6 select-text"
+        >
           {isLoading && (
             <div id="alerts-loading-state" className="space-y-3">
               {[1, 2, 3, 4, 5].map((i) => (

@@ -306,4 +306,98 @@
   100% { width: 100%; }
 }
 
+/* ── 5. Broadsheet Resizable Panels & Thin Scrollbars ── */
+
+/* Thin Broadsheet Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-paper-border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-paper-border);
+  border-radius: 3px;
+  transition: background-color 0.15s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-ink-secondary);
+}
+
+/* Vertical Resize Handle (Between Left Article & Right Summary) */
+.resize-handle-vertical {
+  width: 7px;
+  min-width: 7px;
+  background-color: var(--color-paper-border);
+  cursor: col-resize;
+  position: relative;
+  transition: background-color var(--duration-fast) var(--ease-paper), box-shadow var(--duration-fast) var(--ease-paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  outline: none;
+  z-index: 25;
+  user-select: none;
+}
+
+.resize-handle-vertical:hover,
+.resize-handle-vertical[data-resize-handle-active],
+.resize-handle-vertical:focus-visible {
+  background-color: var(--color-ink);
+  box-shadow: 0 0 0 1px var(--color-paper);
+}
+
+.resize-handle-grip-v {
+  width: 2px;
+  height: 28px;
+  background-color: var(--color-paper);
+  border-radius: 1px;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* Horizontal Resize Handle (Between Top Reader & Bottom Strip) */
+.resize-handle-horizontal {
+  height: 7px;
+  min-height: 7px;
+  background-color: var(--color-paper-border);
+  cursor: row-resize;
+  position: relative;
+  transition: background-color var(--duration-fast) var(--ease-paper), box-shadow var(--duration-fast) var(--ease-paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  outline: none;
+  z-index: 25;
+  user-select: none;
+}
+
+.resize-handle-horizontal:hover,
+.resize-handle-horizontal[data-resize-handle-active],
+.resize-handle-horizontal:focus-visible {
+  background-color: var(--color-ink);
+  box-shadow: 0 0 0 1px var(--color-paper);
+}
+
+.resize-handle-grip-h {
+  width: 32px;
+  height: 2px;
+  background-color: var(--color-paper);
+  border-radius: 1px;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+
 

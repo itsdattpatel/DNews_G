@@ -247,7 +247,10 @@ export const SourcesSettingsDesk: React.FC = () => {
         </header>
 
         {/* Scrollable Desk Stage */}
-        <main className="flex-1 overflow-y-auto p-6 space-y-8 bg-paper">
+        <main
+          data-lenis-prevent="true"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-8 bg-paper"
+        >
           {/* SECTION 1: AI INFERENCE PROVIDERS */}
           <section className="space-y-4">
             <div className="flex items-center justify-between border-b-2 border-ink pb-2">

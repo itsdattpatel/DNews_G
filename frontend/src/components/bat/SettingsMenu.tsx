@@ -127,7 +127,11 @@ export const SettingsMenu: React.FC = () => {
         </header>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-6 bg-paper font-serif text-sm">
+        <form
+          onSubmit={handleSave}
+          data-lenis-prevent="true"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-6 bg-paper font-serif text-sm"
+        >
           {/* Section 1: Edition Theme */}
           <div className="border-b border-paper-border pb-5">
             <label className="block font-serif font-bold text-ink mb-2">Edition Theme</label>

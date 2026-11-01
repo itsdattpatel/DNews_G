@@ -71,7 +71,8 @@ export const ArticlePanel: React.FC = () => {
     return (
       <div
         id="article-panel-loading"
-        className="flex-[3] h-full overflow-y-auto p-8 sm:p-12 border-r-2 border-ink bg-paper animate-pulse"
+        data-lenis-prevent="true"
+        className="w-full h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain p-8 sm:p-12 border-r border-paper-border bg-paper animate-pulse"
       >
         <div className="flex items-center gap-3 mb-6">
           <div className="h-6 w-20 bg-paper-border rounded-xs" />
@@ -101,7 +102,8 @@ export const ArticlePanel: React.FC = () => {
     return (
       <div
         id="article-panel-empty"
-        className="flex-[3] h-full flex flex-col items-center justify-center p-8 text-center border-r-2 border-ink bg-paper"
+        data-lenis-prevent="true"
+        className="w-full h-full min-h-0 min-w-0 flex flex-col items-center justify-center p-8 text-center border-r border-paper-border bg-paper"
       >
         <div className="p-4 border-2 border-ink rounded-xs bg-paper-alt mb-4 shadow-xs">
           <BookOpen size={36} className="text-ink" />
@@ -149,7 +151,8 @@ export const ArticlePanel: React.FC = () => {
     <div
       id="article-panel"
       ref={scrollContainerRef}
-      className="flex-[3] h-full relative overflow-y-auto p-6 sm:p-10 lg:p-12 border-r-2 border-ink bg-paper text-ink transition-colors duration-150"
+      data-lenis-prevent="true"
+      className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain p-6 sm:p-10 lg:p-12 border-r border-paper-border bg-paper text-ink transition-colors duration-150"
     >
       {/* 1. Broadsheet Kicker & Wire Byline Metadata */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-paper-border">

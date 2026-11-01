@@ -193,7 +193,10 @@ export const ArchiveChat: React.FC = () => {
           </form>
 
           {/* Prompt Chips */}
-          <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          <div
+            data-lenis-prevent="true"
+            className="mt-2.5 flex items-center gap-1.5 overflow-x-auto overscroll-x-contain pb-1 text-xs"
+          >
             <span className="font-ui text-[0.625rem] uppercase font-bold text-ink-muted shrink-0">
               Inquiries:
             </span>
@@ -214,7 +217,8 @@ export const ArchiveChat: React.FC = () => {
         <div
           id="archive-chat-body"
           ref={bodyRef}
-          className="flex-1 overflow-y-auto p-4 sm:p-6 relative bg-paper"
+          data-lenis-prevent="true"
+          className="flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain p-4 sm:p-6 relative bg-paper"
         >
           <div className="relative z-10 space-y-6">
             {/* Loading State */}

@@ -2,6 +2,7 @@
  * frontend/src/components/article/CardStrip.tsx
  * Bottom horizontal wire dispatch strip styled as broadsheet news cards.
  * Performance-optimized with React.memo, pure Tailwind design tokens, and zero inline styles.
+ * Supports horizontal two-finger swipe, vertical wheel tilt scroll, and non-overlapping arrow navigators.
  */
 import React, { useRef, memo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
@@ -11,7 +12,6 @@ import { ChevronLeft, ChevronRight, Flame, Star } from 'lucide-react';
 interface ArticleCardItemProps {
   article: Article;
   isSelected: boolean;
-  isScoutTarget: boolean;
   onSelect: (id: number) => void;
   onToggleBookmark: (id: number) => void;
 }
@@ -19,7 +19,6 @@ interface ArticleCardItemProps {
 const ArticleCardItem = memo<ArticleCardItemProps>(({
   article,
   isSelected,
-  isScoutTarget,
   onSelect,
   onToggleBookmark,
 }) => {
@@ -47,18 +46,9 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
           ? 'border-2 border-ink bg-paper shadow-md -translate-y-1 news-rule-t'
           : isBreaking
           ? 'border-2 border-accent bg-paper-alt hover:bg-paper hover:border-ink shadow-xs'
-          : isScoutTarget
-          ? 'border-2 border-dashed border-ink/50 bg-paper-alt/70'
           : 'border border-paper-border/80 bg-paper-alt/60 hover:bg-paper hover:border-ink hover:-translate-y-0.5'
       }`}
     >
-      {/* Scout Indicator */}
-      {isScoutTarget && !isSelected && (
-        <span className="absolute -top-2 right-3 px-1.5 py-0.5 rounded-xs font-mono text-[0.5625rem] font-bold uppercase tracking-wider bg-ink text-paper shadow-xs border border-ink">
-          Next Up
-        </span>
-      )}
-
       {/* Card Header: Outlet + Country + Breaking/Bookmark */}
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-1.5 overflow-hidden">
@@ -132,13 +122,18 @@ export const CardStrip: React.FC = () => {
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Identify next upcoming card in queue
-  const currentIndex = articles.findIndex((art) => art.id === selectedArticleId);
-  const nextIndex = currentIndex >= 0 && articles.length > 1 ? (currentIndex + 1) % articles.length : -1;
-
   const handleScroll = (offset: number) => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+    }
+  };
+
+  // Convert vertical wheel events to horizontal scrolling over cards strip
+  const handleWheel = (e: React.WheelEvent) => {
+    if (scrollContainerRef.current) {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && e.deltaY !== 0) {
+        scrollContainerRef.current.scrollLeft += e.deltaY;
+      }
     }
   };
 
@@ -147,49 +142,55 @@ export const CardStrip: React.FC = () => {
       id="card-strip-container"
       role="region"
       aria-label="Dispatch wire feed"
-      className="relative z-30 h-[180px] min-h-[180px] bg-paper-alt border-t-2 border-ink flex flex-col justify-center transition-colors duration-150 select-none"
+      className="relative z-30 w-full h-full min-h-0 min-w-0 bg-paper-alt border-t-2 border-ink flex items-center select-none overflow-hidden transition-colors duration-150"
     >
-      {/* Scroll controls */}
-      <button
-        onClick={() => handleScroll(-340)}
-        aria-label="Scroll wire left"
-        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-xs border border-ink bg-paper text-ink shadow-xs hover:bg-paper-alt transition-colors"
-      >
-        <ChevronLeft size={16} />
-      </button>
+      {/* Non-overlapping Left Scroll Pillar */}
+      <div className="shrink-0 px-2 h-full flex items-center justify-center bg-paper-alt border-r border-paper-border/60 z-10 shadow-xs">
+        <button
+          onClick={() => handleScroll(-340)}
+          aria-label="Scroll wire left"
+          className="p-1.5 rounded-xs border border-ink bg-paper text-ink shadow-xs hover:bg-ink hover:text-paper transition-colors"
+        >
+          <ChevronLeft size={16} />
+        </button>
+      </div>
 
-      <button
-        onClick={() => handleScroll(340)}
-        aria-label="Scroll wire right"
-        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-xs border border-ink bg-paper text-ink shadow-xs hover:bg-paper-alt transition-colors"
-      >
-        <ChevronRight size={16} />
-      </button>
-
-      {/* Cards Scroll Track */}
+      {/* Cards Scroll Track (Two-finger swipe + wheel support) */}
       <div
         id="card-strip-track"
         ref={scrollContainerRef}
+        onWheel={handleWheel}
+        data-lenis-prevent="true"
         role="feed"
         aria-busy="false"
-        className="flex items-center gap-3.5 px-12 py-3 overflow-x-auto overflow-y-hidden no-scrollbar h-full"
+        className="flex-1 flex items-center gap-3.5 px-4 py-2 overflow-x-auto overscroll-x-contain h-full"
       >
         {articles.length === 0 ? (
           <div className="font-ui text-xs text-ink-muted italic m-auto">
             No dispatches match the current filter. Live radar scanning wire...
           </div>
         ) : (
-          articles.map((art, index) => (
+          articles.map((art) => (
             <ArticleCardItem
               key={art.id}
               article={art}
               isSelected={art.id === selectedArticleId}
-              isScoutTarget={index === nextIndex}
               onSelect={selectArticleById}
               onToggleBookmark={toggleBookmark}
             />
           ))
         )}
+      </div>
+
+      {/* Non-overlapping Right Scroll Pillar */}
+      <div className="shrink-0 px-2 h-full flex items-center justify-center bg-paper-alt border-l border-paper-border/60 z-10 shadow-xs">
+        <button
+          onClick={() => handleScroll(340)}
+          aria-label="Scroll wire right"
+          className="p-1.5 rounded-xs border border-ink bg-paper text-ink shadow-xs hover:bg-ink hover:text-paper transition-colors"
+        >
+          <ChevronRight size={16} />
+        </button>
       </div>
     </footer>
   );

@@ -39,6 +39,7 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
    - `@fontsource/inter`
    - `@fontsource/ibm-plex-mono`
 10. `@playwright/test` (devDependencies only) — E2E screenshot validation
+11. `react-resizable-panels` (pinned v2.1.7) — Accessible panel splitting with keyboard handles & persistent layout (MIT)
 
 ### 2.2 DEFERRED List (DO NOT install until their respective Step is approved)
 - `react-globe.gl` + `three` (Step 9: Globe / Map)
@@ -54,6 +55,7 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 | Package | npm name | URL | License | Decision | Why |
 |---------|----------|-----|---------|----------|-----|
 | shadcn/ui | (copy-paste, no npm install) | https://ui.shadcn.com | MIT | ✅ APPROVED | Copy-paste approach, full control, no runtime dependency. Use for Dialog, Dropdown, Tabs, Switch, Slider. |
+| react-resizable-panels | `react-resizable-panels` (2.1.7) | https://github.com/bvaughn/react-resizable-panels | MIT | ✅ APPROVED | Accessible resizable panel groups with keyboard support and persistent sizes. |
 | Radix UI Primitives | `@radix-ui/react-*` | https://radix-ui.com | MIT | ✅ APPROVED | Headless a11y primitives. Basis of shadcn/ui. |
 | React Bits | (copy-paste) | https://reactbits.dev | MIT | ✅ APPROVED | Animated text and motion snippets. Inspect license per snippet before use. |
 | Magic UI | (copy-paste) | https://magicui.design | MIT | ✅ APPROVED | Shimmer, blur-fade, typing effects. Copy-paste only. |

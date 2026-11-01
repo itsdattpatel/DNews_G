@@ -3,7 +3,7 @@
  * Continuous horizontal marquee ticker for breaking world dispatches.
  * Pauses on hover; clicking a dispatch focuses that story in the Main Reader.
  */
-import React from 'react';
+import React, { useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Radio } from 'lucide-react';
 
@@ -11,6 +11,7 @@ export const NewsTicker: React.FC = () => {
   const articles = useAppStore((s) => s.articles);
   const setSelectedArticle = useAppStore((s) => s.setSelectedArticle);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
+  const marqueeContainerRef = useRef<HTMLDivElement>(null);
 
   // Take the latest 10 articles for the ticker wire
   const tickerItems = articles.slice(0, 12);
@@ -20,6 +21,15 @@ export const NewsTicker: React.FC = () => {
   const handleClickArticle = (article: typeof tickerItems[0]) => {
     setSelectedArticle(article);
     setCurrentView('reader');
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (marqueeContainerRef.current) {
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (delta !== 0) {
+        marqueeContainerRef.current.scrollLeft += delta;
+      }
+    }
   };
 
   return (
@@ -35,8 +45,14 @@ export const NewsTicker: React.FC = () => {
         </span>
       </div>
 
-      {/* Marquee Content */}
-      <div className="flex-1 overflow-hidden relative group">
+      {/* Marquee Content with pause on hover and manual swipe/wheel */}
+      <div
+        id="news-ticker-scroll-track"
+        ref={marqueeContainerRef}
+        onWheel={handleWheel}
+        data-lenis-prevent="true"
+        className="flex-1 overflow-x-auto overscroll-x-contain no-scrollbar relative group"
+      >
         <div className="inline-flex gap-8 whitespace-nowrap animate-marquee group-hover:[animation-play-state:paused] py-1 cursor-pointer">
           {/* Duplicate loop to allow seamless CSS marquee */}
           {[...tickerItems, ...tickerItems].map((item, index) => (

@@ -293,7 +293,10 @@ export const TVView: React.FC = () => {
         {/* 2. Main Content Split View */}
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-paper">
           {/* Left Column: Video Broadcast Frame (65%) */}
-          <main className="flex-1 flex flex-col p-4 sm:p-5 overflow-y-auto border-b lg:border-b-0 lg:border-r-2 border-ink">
+          <main
+            data-lenis-prevent="true"
+            className="flex-1 min-h-0 min-w-0 flex flex-col p-4 sm:p-5 overflow-y-auto overscroll-contain border-b lg:border-b-0 lg:border-r-2 border-ink"
+          >
             {/* Broadsheet Video Monitor */}
             <div className="w-full aspect-video bg-black border-2 border-ink rounded-xs overflow-hidden relative shadow-md flex items-center justify-center">
               <video
@@ -451,7 +454,10 @@ export const TVView: React.FC = () => {
                 <Compass size={11} />
                 <span>Quick Broadcast Switcher:</span>
               </div>
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <div
+                data-lenis-prevent="true"
+                className="flex items-center gap-2 overflow-x-auto overscroll-x-contain pb-1"
+              >
                 {channels.slice(0, 10).map((ch) => (
                   <button
                     key={ch.id}
@@ -542,7 +548,10 @@ export const TVView: React.FC = () => {
             </div>
 
             {/* Channels Scroll List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+            <div
+              data-lenis-prevent="true"
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-1.5"
+            >
               {filteredChannels.length === 0 ? (
                 <div className="p-8 text-center space-y-2">
                   <Tv size={28} className="text-ink-muted mx-auto" />

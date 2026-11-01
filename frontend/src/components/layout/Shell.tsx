@@ -27,7 +27,7 @@ import { WatchlistDesk } from '../watchlist/WatchlistDesk';
 import { CategoryRailView } from '../category/CategoryRailView';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { useAppStore } from '../../store/useAppStore';
-import { useLenisScroll } from '../../hooks/useLenisScroll';
+import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle, type ImperativePanelGroupHandle } from 'react-resizable-panels';
 
 export const Shell: React.FC = () => {
   const currentView = useAppStore((s) => s.currentView);
@@ -95,8 +95,40 @@ export const Shell: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isBatMenuOpen, setBatMenuOpen, nextArticle, prevArticle, setCurrentView]);
 
-  const mainScrollRef = useRef<HTMLElement | null>(null);
-  useLenisScroll(mainScrollRef);
+  // Resizable Panels State & Handlers
+  const panelSizesH = useAppStore((s) => s.panelSizesH);
+  const panelSizesV = useAppStore((s) => s.panelSizesV);
+  const setPanelSizesH = useAppStore((s) => s.setPanelSizesH);
+  const setPanelSizesV = useAppStore((s) => s.setPanelSizesV);
+
+  const stripPanelRef = useRef<ImperativePanelHandle>(null);
+  const horizontalGroupRef = useRef<ImperativePanelGroupHandle>(null);
+  const verticalGroupRef = useRef<ImperativePanelGroupHandle>(null);
+
+  const handleHorizontalLayout = (sizes: number[]) => {
+    if (sizes.length === 2 && sizes[0] && sizes[1]) {
+      setPanelSizesH([sizes[0], sizes[1]]);
+    }
+  };
+
+  const handleVerticalLayout = (sizes: number[]) => {
+    if (sizes.length === 2 && sizes[0] && sizes[1]) {
+      setPanelSizesV([sizes[0], sizes[1]]);
+    }
+  };
+
+  const handleResetH = () => {
+    horizontalGroupRef.current?.setLayout([60, 40]);
+    setPanelSizesH([60, 40]);
+  };
+
+  const handleResetV = () => {
+    if (stripPanelRef.current?.isCollapsed()) {
+      stripPanelRef.current.expand();
+    }
+    verticalGroupRef.current?.setLayout([78, 22]);
+    setPanelSizesV([78, 22]);
+  };
 
   return (
     <div
@@ -117,35 +149,102 @@ export const Shell: React.FC = () => {
       {/* 3. Main Split View or Section Desks */}
       <main
         id="main-split-container"
-        ref={mainScrollRef}
-        className="flex-1 flex overflow-hidden relative"
+        className="flex-1 w-full h-full min-h-0 min-w-0 flex overflow-hidden relative"
       >
         {currentView === 'category' ? (
           <ErrorBoundary panelName="Category Rail Desk">
             <CategoryRailView />
           </ErrorBoundary>
         ) : (
-          /* Main Reader View (Default) */
-          <div className="flex-1 flex overflow-hidden w-full h-full">
-            {/* Left Panel: Article Column (60%) */}
-            <ErrorBoundary panelName="Article Reader Desk">
-              <ArticlePanel />
-            </ErrorBoundary>
+          /* Main Reader View with Accessible Resizable Panels */
+          <PanelGroup
+            ref={verticalGroupRef}
+            direction="vertical"
+            id="reader-vertical-group"
+            onLayout={handleVerticalLayout}
+            className="w-full h-full min-h-0 min-w-0 flex flex-col"
+          >
+            {/* Top Reader Desk: Article + Summary */}
+            <Panel
+              id="reader-top-panel"
+              defaultSize={panelSizesV[0]}
+              minSize={50}
+              maxSize={90}
+              className="min-h-0 min-w-0"
+            >
+              <PanelGroup
+                ref={horizontalGroupRef}
+                direction="horizontal"
+                id="reader-horizontal-group"
+                onLayout={handleHorizontalLayout}
+                className="w-full h-full min-h-0 min-w-0 flex"
+              >
+                {/* Left Panel: Article Column */}
+                <Panel
+                  id="reader-article-panel"
+                  defaultSize={panelSizesH[0]}
+                  minSize={30}
+                  maxSize={75}
+                  className="min-h-0 min-w-0 h-full"
+                >
+                  <ErrorBoundary panelName="Article Reader Desk">
+                    <ArticlePanel />
+                  </ErrorBoundary>
+                </Panel>
 
-            {/* Right Panel: Summary Column & Evidence Desk (40%) */}
-            <ErrorBoundary panelName="Summary Wire Desk">
-              <SummaryPanel />
-            </ErrorBoundary>
-          </div>
+                {/* Vertical Drag Handle between Article & Summary */}
+                <PanelResizeHandle
+                  id="handle-article-summary"
+                  onDoubleClick={handleResetH}
+                  aria-label="Resize article and summary columns (Double-click to reset)"
+                  className="resize-handle-vertical"
+                >
+                  <div className="resize-handle-grip-v" />
+                </PanelResizeHandle>
+
+                {/* Right Panel: Summary Column */}
+                <Panel
+                  id="reader-summary-panel"
+                  defaultSize={panelSizesH[1]}
+                  minSize={25}
+                  maxSize={70}
+                  className="min-h-0 min-w-0 h-full"
+                >
+                  <ErrorBoundary panelName="Summary Wire Desk">
+                    <SummaryPanel />
+                  </ErrorBoundary>
+                </Panel>
+              </PanelGroup>
+            </Panel>
+
+            {/* Horizontal Drag Handle between Reading Desk & Bottom Card Strip */}
+            <PanelResizeHandle
+              id="handle-desk-strip"
+              onDoubleClick={handleResetV}
+              aria-label="Resize wire dispatch strip (Double-click to reset, drag down to snap-collapse)"
+              className="resize-handle-horizontal"
+            >
+              <div className="resize-handle-grip-h" />
+            </PanelResizeHandle>
+
+            {/* Bottom Strip: Snap-collapsible Wire Cards */}
+            <Panel
+              id="reader-bottom-strip-panel"
+              ref={stripPanelRef}
+              defaultSize={panelSizesV[1]}
+              minSize={12}
+              maxSize={45}
+              collapsible={true}
+              collapsedSize={0}
+              className="min-h-0 min-w-0"
+            >
+              <ErrorBoundary panelName="Dispatch Wire Strip">
+                <CardStrip />
+              </ErrorBoundary>
+            </Panel>
+          </PanelGroup>
         )}
       </main>
-
-      {/* 4. Bottom Horizontal Dispatch Strip (rendered on reader view) */}
-      {currentView !== 'category' && (
-        <ErrorBoundary panelName="Dispatch Wire Strip">
-          <CardStrip />
-        </ErrorBoundary>
-      )}
 
       {/* 5. Continuous News Ticker (z-30) */}
       <ErrorBoundary panelName="Bottom Ticker">

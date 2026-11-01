@@ -107,6 +107,13 @@ interface AppState {
   // API & Sources Settings Desk (Step 14)
   isSourcesOpen: boolean;
   setSourcesOpen: (open: boolean) => void;
+
+  // Resizable Panels State (Persistent layout)
+  panelSizesH: [number, number];
+  panelSizesV: [number, number];
+  setPanelSizesH: (sizes: [number, number]) => void;
+  setPanelSizesV: (sizes: [number, number]) => void;
+  resetPanelSizes: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -126,6 +133,45 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   isBatMenuOpen: false,
   setBatMenuOpen: (open) => set({ isBatMenuOpen: open }),
+
+  // Resizable Panels State
+  panelSizesH: (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('news_desk_panel_sizes_h');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return [60, 40];
+  })(),
+  panelSizesV: (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('news_desk_panel_sizes_v');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return [78, 22];
+  })(),
+  setPanelSizesH: (sizes) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('news_desk_panel_sizes_h', JSON.stringify(sizes));
+    }
+    set({ panelSizesH: sizes });
+  },
+  setPanelSizesV: (sizes) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('news_desk_panel_sizes_v', JSON.stringify(sizes));
+    }
+    set({ panelSizesV: sizes });
+  },
+  resetPanelSizes: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('news_desk_panel_sizes_h', JSON.stringify([60, 40]));
+      localStorage.setItem('news_desk_panel_sizes_v', JSON.stringify([78, 22]));
+    }
+    set({ panelSizesH: [60, 40], panelSizesV: [78, 22] });
+  },
 
   nextArticle: () => {
     const { articles, selectedArticleId } = get();
@@ -337,9 +383,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await fetch('/api/startup-status');
       if (res.ok) {
         const data = (await res.json()) as StartupStatus;
+        const dismissed =
+          typeof window !== 'undefined' &&
+          (sessionStorage.getItem('missed_news_dismissed') === 'true' ||
+            localStorage.getItem('missed_news_dismissed') === 'true');
         set({
           startupStatus: data,
-          isMissedNewsModalOpen: Boolean(data.detected && data.missed_minutes >= 5),
+          isMissedNewsModalOpen: Boolean(!dismissed && data.detected && data.missed_minutes >= 5),
         });
       }
     } catch (err) {

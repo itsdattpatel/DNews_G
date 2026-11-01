@@ -71,7 +71,8 @@ export const SummaryPanel: React.FC = () => {
     return (
       <div
         id="summary-panel-loading"
-        className="flex-[2] h-full overflow-y-auto p-6 sm:p-8 bg-paper-alt border-ink animate-pulse flex flex-col justify-between"
+        data-lenis-prevent="true"
+        className="w-full h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain p-6 sm:p-8 bg-paper-alt border-ink animate-pulse flex flex-col justify-between"
       >
         <div>
           <div className="flex items-center justify-between pb-4 border-b border-paper-border mb-6">
@@ -93,7 +94,8 @@ export const SummaryPanel: React.FC = () => {
     return (
       <div
         id="summary-panel-empty"
-        className="flex-[2] h-full flex flex-col items-center justify-center p-8 text-center bg-paper-alt text-ink"
+        data-lenis-prevent="true"
+        className="w-full h-full min-h-0 min-w-0 flex flex-col items-center justify-center p-8 text-center bg-paper-alt text-ink"
       >
         <div className="p-4 border-2 border-ink rounded-xs bg-paper mb-4 shadow-xs">
           <Sparkles size={32} className="text-ink" />
@@ -112,7 +114,8 @@ export const SummaryPanel: React.FC = () => {
     <div
       id="summary-panel"
       ref={containerRef}
-      className="flex-[2] h-full relative overflow-y-auto p-6 sm:p-8 bg-paper-alt text-ink flex flex-col justify-between transition-colors duration-150 select-none"
+      data-lenis-prevent="true"
+      className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain p-6 sm:p-8 bg-paper-alt text-ink flex flex-col justify-between transition-colors duration-150 select-none"
     >
       <div className="relative z-10 flex flex-col gap-6">
         {/* 1. Header & Actions Bar */}

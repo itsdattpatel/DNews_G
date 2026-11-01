@@ -4,7 +4,7 @@
  * Offers options: Yes (backfill via GDELT) / Skip / Settings.
  * Adheres strictly to DESIGN_SYSTEM.md editorial newspaper guidelines.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import type { BackfillResponse } from '../../types';
 import './MissedNewsModal.css';
@@ -19,6 +19,27 @@ export const MissedNewsModal: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BackfillResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const handleSkip = () => {
+    try {
+      sessionStorage.setItem('missed_news_dismissed', 'true');
+      localStorage.setItem('missed_news_dismissed', 'true');
+    } catch {
+      // ignore
+    }
+    setMissedNewsModalOpen(false);
+  };
+
+  useEffect(() => {
+    if (!isMissedNewsModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleSkip();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMissedNewsModalOpen]);
 
   if (!isMissedNewsModalOpen || !startupStatus) {
     return null;
@@ -39,12 +60,8 @@ export const MissedNewsModal: React.FC = () => {
     }
   };
 
-  const handleSkip = () => {
-    setMissedNewsModalOpen(false);
-  };
-
   const handleOpenSettings = () => {
-    setMissedNewsModalOpen(false);
+    handleSkip();
     setSettingsOpen(true);
   };
 
@@ -65,6 +82,9 @@ export const MissedNewsModal: React.FC = () => {
       role="dialog"
       aria-modal="true"
       aria-labelledby="missed-news-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleSkip();
+      }}
     >
       <div className="missed-news-modal" id="missed-news-modal">
         {/* Header */}

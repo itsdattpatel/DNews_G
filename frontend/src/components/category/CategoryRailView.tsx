@@ -94,7 +94,8 @@ export const CategoryRailView: React.FC = () => {
   return (
     <div
       id="category-rail-view"
-      className="flex-1 w-full h-full overflow-y-auto bg-paper text-ink p-6 sm:p-8 lg:p-10 select-none flex flex-col gap-6"
+      data-lenis-prevent="true"
+      className="flex-1 w-full h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain bg-paper text-ink p-6 sm:p-8 lg:p-10 select-none flex flex-col gap-6"
     >
       {/* 1. Header Section: Masthead Kicker & Category Title */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b-2 border-ink">
@@ -126,9 +127,10 @@ export const CategoryRailView: React.FC = () => {
       {/* 2. Ink-Stamp Category Tab Rail */}
       <div
         id="category-tab-rail"
+        data-lenis-prevent="true"
         role="tablist"
         aria-label="Category Desks"
-        className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1"
+        className="flex items-center gap-2 overflow-x-auto overscroll-x-contain no-scrollbar py-1"
       >
         {CATEGORIES.map((cat) => {
           const isActive = cat === 'All' ? selectedCategory === null : selectedCategory === cat;
