@@ -8,7 +8,7 @@ import { FEATURES } from '../../../config/features';
 import { PROVIDER_CHAIN } from '../../../config/ai-providers';
 import { routeAIRequest } from '../ai/router';
 import { buildEnrichmentPrompt, type EnrichmentInput } from '../ai/prompts';
-import { parseEnrichmentResponse, type EnrichmentResult } from '../ai/schema';
+import { parseEnrichmentResponse, validateAnchorPhrases, type EnrichmentResult } from '../ai/schema';
 import type { DbArticle } from '../db/types';
 import { emitSseEvent } from '../routes/sse';
 import { runClusteringPass } from './cluster';
@@ -92,6 +92,7 @@ async function processBatch(batch: ArticleRow[]): Promise<void> {
       summary       = @summary,
       breaking_score = @breaking_score,
       spider_type   = @spider_type,
+      anchor_phrases = @anchor_phrases,
       ai_processed_at = datetime('now'),
       status        = 'done'
     WHERE id = @id
@@ -110,6 +111,10 @@ async function processBatch(batch: ArticleRow[]): Promise<void> {
       const article = batch[r.article_index];
       if (!article) continue;
 
+      // Count summary sentences and validate anchor phrases verbatim
+      const summarySentences = (r.summary.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || []).length;
+      const validAnchors = validateAnchorPhrases(r.anchor_phrases || [], r.body_english, summarySentences);
+
       updateArticle.run({
         id: article.id,
         title_english: r.title_english,
@@ -117,6 +122,7 @@ async function processBatch(batch: ArticleRow[]): Promise<void> {
         summary: r.summary,
         breaking_score: r.breaking_score,
         spider_type: r.spider_type,
+        anchor_phrases: validAnchors.length > 0 ? JSON.stringify(validAnchors) : null,
       });
 
       for (const kw of r.keywords) {

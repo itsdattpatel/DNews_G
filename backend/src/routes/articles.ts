@@ -131,6 +131,13 @@ articlesRouter.get('/:id', (req: Request, res: Response) => {
     body_original: row.body_original,
     body_english: row.body_english,
     language_detected: row.language_detected,
+    anchor_phrases: (() => {
+      try {
+        return (row as any).anchor_phrases ? JSON.parse((row as any).anchor_phrases) : [];
+      } catch {
+        return [];
+      }
+    })(),
     source: {
       id: row.source_id,
       name: row.source_name,

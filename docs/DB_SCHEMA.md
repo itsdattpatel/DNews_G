@@ -1,4 +1,4 @@
-﻿# Database Schema — AI World News Desk
+# Database Schema — AI World News Desk
 *Version 1.0 · 2026-10-30 · SQLite 3.39+ with FTS5*
 
 ---
@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS articles (
     CHECK(spider_type IN ('Reader','Scout','Weaver','RedAlert','Archive','Swarm')),
   cluster_id        INTEGER REFERENCES clusters(id),
   bookmarked        INTEGER NOT NULL DEFAULT 0,
+  anchor_phrases    TEXT DEFAULT NULL,   -- JSON array: [{"phrase":"...","sentence_index":0}, ...] (Migration 003)
   created_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

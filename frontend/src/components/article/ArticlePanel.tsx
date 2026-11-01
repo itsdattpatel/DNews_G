@@ -7,6 +7,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { ExternalLink, Globe2, Languages, Clock, BookOpen } from 'lucide-react';
+import { SpiderCrawler } from '../spider/SpiderCrawler';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
@@ -140,8 +141,18 @@ export const ArticlePanel: React.FC = () => {
     <div
       id="article-panel"
       ref={scrollContainerRef}
-      className="flex-[3] h-full overflow-y-auto p-6 sm:p-10 lg:p-12 border-r-2 border-ink bg-paper text-ink transition-colors duration-150"
+      className="flex-[3] h-full relative overflow-y-auto p-6 sm:p-10 lg:p-12 border-r-2 border-ink bg-paper text-ink transition-colors duration-150"
     >
+      {/* Procedural SpiderCrawler walking on DOM words */}
+      <SpiderCrawler
+        containerRef={scrollContainerRef}
+        anchorPhrases={article.anchor_phrases || []}
+        summaryCount={paragraphs.length}
+        mode={article.breaking_score >= 75 ? 'breaking' : 'reading'}
+        onPhraseActivate={(idx) => setActiveSentenceIndex(idx)}
+        onPhraseLand={(_, idx) => setActiveSentenceIndex(idx)}
+      />
+
       {/* 1. Broadsheet Kicker & Wire Byline Metadata */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-paper-border">
         <div className="flex flex-wrap items-center gap-2.5">

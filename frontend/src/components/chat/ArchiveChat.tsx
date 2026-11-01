@@ -6,7 +6,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import type { SearchResponse, SearchResultItem } from '../../types';
-import { ArchiveSpider } from '../../spider/spiderTypes/Archive';
 import './ArchiveChat.css';
 
 export const ArchiveChat: React.FC = () => {
@@ -19,51 +18,8 @@ export const ArchiveChat: React.FC = () => {
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const spiderRef = useRef<ArchiveSpider | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const lastTimeRef = useRef<number>(performance.now());
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const citationRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  // Initialize or cleanup ArchiveSpider
-  useEffect(() => {
-    if (!isArchiveChatOpen) {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      spiderRef.current = null;
-      return;
-    }
-
-    const spider = new ArchiveSpider(120, 80);
-    spiderRef.current = spider;
-    lastTimeRef.current = performance.now();
-
-    const loop = (currentTime: number) => {
-      const dt = Math.min((currentTime - lastTimeRef.current) / 1000, 0.1);
-      lastTimeRef.current = currentTime;
-
-      const canvas = canvasRef.current;
-      if (canvas && spiderRef.current) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          spiderRef.current.update(dt);
-          spiderRef.current.render(ctx);
-        }
-      }
-
-      animationFrameRef.current = requestAnimationFrame(loop);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(loop);
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [isArchiveChatOpen]);
 
   // Adjust canvas size to body dimensions
   const updateCanvasBounds = useCallback(() => {
@@ -121,25 +77,8 @@ export const ArchiveChat: React.FC = () => {
       const data: SearchResponse = await res.json();
       setSearchResponse(data);
 
-      // Give DOM time to lay out citations, then feed coordinates to ArchiveSpider
       setTimeout(() => {
         updateCanvasBounds();
-        if (spiderRef.current && bodyRef.current) {
-          const bodyRect = bodyRef.current.getBoundingClientRect();
-          const targets = citationRefs.current
-            .filter((el): el is HTMLDivElement => Boolean(el))
-            .map((el) => {
-              const r = el.getBoundingClientRect();
-              return {
-                x: r.left - bodyRect.left + 24,
-                y: r.top - bodyRect.top + r.height / 2,
-              };
-            });
-
-          if (targets.length > 0) {
-            spiderRef.current.setScanTargets(targets);
-          }
-        }
       }, 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

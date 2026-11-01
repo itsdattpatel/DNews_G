@@ -5,9 +5,22 @@
  */
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { WeaverSpider } from '../../spider/spiderTypes/Weaver';
-import type { Point2D } from '../../canvas/ik';
 import './CompareCoverage.css';
+
+interface Point2D {
+  x: number;
+  y: number;
+}
+
+export function generateSilkPath(from: Point2D, to: Point2D): string {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const cx1 = from.x + dx * 0.25;
+  const cy1 = from.y + dy * 0.1;
+  const cx2 = from.x + dx * 0.75;
+  const cy2 = to.y - dy * 0.1;
+  return `M ${from.x} ${from.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${to.x} ${to.y}`;
+}
 
 interface EnrichedClusterArticle {
   id: number;
@@ -151,7 +164,7 @@ export const CompareCoverage: React.FC = () => {
         const to = points[i + 1];
         if (from && to) {
           threads.push({
-            d: WeaverSpider.generateSilkPath(from, to),
+            d: generateSilkPath(from, to),
             color: PALETTE[colorIdx] ?? '#38bdf8',
             keyword: kw,
           });

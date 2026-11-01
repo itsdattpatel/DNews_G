@@ -1,10 +1,10 @@
 /**
  * frontend/src/__tests__/unit/compare-timeline.test.ts
- * Unit tests for Compare Coverage, Weaver Spider, and Story Timeline (Phase 7).
+ * Unit tests for Compare Coverage, clustering, and Story Timeline (Phase 7).
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useAppStore } from '../../store/useAppStore';
-import { WeaverSpider } from '../../spider/spiderTypes/Weaver';
+import { generateSilkPath } from '../../components/compare/CompareCoverage';
 
 describe('Story Clustering & Compare Coverage Views (Phase 7)', () => {
   beforeEach(() => {
@@ -29,24 +29,14 @@ describe('Story Clustering & Compare Coverage Views (Phase 7)', () => {
     expect(useAppStore.getState().timelineClusterId).toBe(99);
   });
 
-  it('WeaverSpider generates curved catenary silk bezier paths between keyword coordinates (P7-06)', () => {
+  it('generates curved catenary silk bezier paths between keyword coordinates (P7-06)', () => {
     const from = { x: 100, y: 150 };
     const to = { x: 400, y: 220 };
 
-    const path = WeaverSpider.generateSilkPath(from, to);
+    const path = generateSilkPath(from, to);
     expect(path).toContain('M 100 150');
     expect(path).toContain('C ');
     expect(path).toContain('400 220');
-
-    const weaver = new WeaverSpider(50, 50);
-    weaver.setThreads([
-      { keyword: 'summit', from, to, color: '#38bdf8' },
-    ]);
-
-    const lines = weaver.getWeftLines();
-    expect(lines).toHaveLength(1);
-    expect(lines[0]?.keyword).toBe('summit');
-    expect(lines[0]?.color).toBe('#38bdf8');
   });
 
   it('identifies shared keywords across multiple outlet articles (P7-05)', () => {

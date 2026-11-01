@@ -1,4 +1,4 @@
-﻿/**
+/**
  * backend/src/ai/prompts.ts
  * All prompt templates in one place. No logic here — only strings.
  */
@@ -23,6 +23,7 @@ Each object must have these exact keys (no extras, no omissions):
   "breaking_score": <integer 0-100 — urgency and novelty; 100 = unprecedented breaking news>,
   "species_tags":   <string[] — animal or plant species mentioned; empty array if none>,
   "location_tags":  <string[] — countries and cities mentioned>,
+  "anchor_phrases": <array of objects [{"phrase": string, "sentence_index": integer}] — each phrase MUST appear verbatim in body_english (case-sensitive) and support summary sentence at sentence_index (0-based)>,
   "spider_type":    <string — exactly one of "Reader"|"Scout"|"Weaver"|"RedAlert"|"Archive"|"Swarm"
                     Selection rules (apply in order):
                     1. If breaking_score >= 75 → "RedAlert"

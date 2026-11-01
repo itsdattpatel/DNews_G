@@ -7,8 +7,6 @@ import React, { useRef, memo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import type { Article } from '../../types';
 import { ChevronLeft, ChevronRight, Flame, Star } from 'lucide-react';
-import { ScoutBadge } from '../spider/ScoutBadge';
-import { SpiderGlyph } from '../spider/SpiderGlyph';
 
 interface ArticleCardItemProps {
   article: Article;
@@ -55,7 +53,11 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
       }`}
     >
       {/* Scout Indicator */}
-      {isScoutTarget && !isSelected && <ScoutBadge />}
+      {isScoutTarget && !isSelected && (
+        <span className="absolute -top-2 right-3 px-1.5 py-0.5 rounded-xs font-mono text-[0.5625rem] font-bold uppercase tracking-wider bg-ink text-paper shadow-xs border border-ink">
+          Next Up
+        </span>
+      )}
 
       {/* Card Header: Outlet + Country + Breaking/Bookmark */}
       <div className="flex items-center justify-between w-full">
@@ -116,9 +118,8 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
           ))}
         </div>
 
-        <span className="inline-flex items-center gap-1 font-mono text-[0.5625rem] text-ink-muted">
-          <SpiderGlyph size={10} color="currentColor" />
-          <span>{article.spider_type || 'Reader'}</span>
+        <span className="font-mono text-[0.5625rem] text-ink-muted">
+          {article.spider_type || 'Reader'}
         </span>
       </div>
     </div>

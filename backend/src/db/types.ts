@@ -1,4 +1,4 @@
-﻿/**
+/**
  * backend/src/db/types.ts
  * TypeScript interfaces mirroring every DB table row.
  */
@@ -52,6 +52,7 @@ export interface DbArticle {
   spider_type: SpiderType;
   cluster_id: number | null;
   bookmarked: number;
+  anchor_phrases?: string | null;
   created_at: string;
 }
 

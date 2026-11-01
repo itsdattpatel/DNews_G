@@ -6,8 +6,7 @@
  */
 import React, { useState, useRef, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Star, Sparkles, Layers, Clock } from 'lucide-react';
-import { SpiderCanvas } from '../spider/SpiderCanvas';
+import { Star, Layers, Clock, Sparkles } from 'lucide-react';
 
 export const SummaryPanel: React.FC = () => {
   const article = useAppStore((s) => s.selectedArticle);
@@ -80,15 +79,6 @@ export const SummaryPanel: React.FC = () => {
       ref={containerRef}
       className="flex-[2] h-full relative overflow-y-auto p-6 sm:p-8 bg-paper-alt text-ink flex flex-col justify-between transition-colors duration-150 select-none"
     >
-      {/* Retain SpiderCanvas for procedural mount (Step 5 will replace this) */}
-      <SpiderCanvas
-        containerRef={containerRef}
-        keywords={article.keywords || []}
-        spiderType={article.spider_type}
-        breakingScore={article.breaking_score}
-        onKeywordActive={(idx) => setActiveKeywordIndex(idx)}
-      />
-
       <div className="relative z-10 flex flex-col gap-6">
         {/* 1. Header & Actions Bar */}
         <div className="flex items-center justify-between pb-4 border-b border-paper-border">
@@ -179,16 +169,18 @@ export const SummaryPanel: React.FC = () => {
             </span>
             <div className="flex flex-wrap gap-1.5">
               {article.keywords.map((kw, i) => (
-                <span
+                <button
                   key={i}
-                  className={`font-mono text-[0.6875rem] px-2 py-0.5 rounded-xs border transition-colors ${
+                  type="button"
+                  onClick={() => setActiveKeywordIndex(activeKeywordIndex === i ? -1 : i)}
+                  className={`font-mono text-[0.6875rem] px-2 py-0.5 rounded-xs border cursor-pointer transition-colors ${
                     activeKeywordIndex === i
                       ? 'border-ink bg-ink text-paper font-bold'
                       : 'border-paper-border bg-paper text-ink-secondary hover:border-ink hover:text-ink'
                   }`}
                 >
                   #{kw}
-                </span>
+                </button>
               ))}
             </div>
           </div>
