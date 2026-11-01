@@ -15,6 +15,7 @@ import { watchlistRouter } from './routes/watchlist';
 import { searchRouter } from './routes/search';
 import { exportRouter } from './routes/export';
 import { tvRouter } from './routes/tv';
+import { sourcesRouter } from './routes/sources';
 import { getStartupGap } from './fetch/scheduler';
 import { backfillMissedWindow } from './fetch/backfill';
 
@@ -36,6 +37,7 @@ export function createApp(): Express {
   app.use('/api/search', searchRouter);
   app.use('/api/export', exportRouter);
   app.use('/api/tv', tvRouter);
+  app.use('/api/sources', sourcesRouter);
 
   // Health / Startup status
   app.get('/api/startup-status', (_req, res) => {

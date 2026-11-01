@@ -1,749 +1,392 @@
 /**
  * frontend/src/components/bat/SettingsMenu.tsx
- * Slide-out control center drawer for news sources, AI chain, spider controls, and sound settings.
+ * Screen (l): Desk Preferences & Settings Drawer (v2.0 Broadsheet).
+ * Controls theme switching (Paper vs Night), wire polling intervals, alert thresholds,
+ * procedural spider crawler settings, sound effects, and retention auto-cleanup.
  */
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { X, Sliders, Activity, Volume2, VolumeX, ShieldAlert, Database, Bell, Trash2, Plus, Calendar, BookmarkCheck, FileText, Download, Radio } from 'lucide-react';
-import { QuotaMeter } from '../quota/QuotaMeter';
-import { getNotificationPermission, requestNotificationPermission, isNotificationSupported } from '../../utils/notifications';
-import type { WatchlistItem } from '../../types';
+import type { AppSettings, ThemeMode } from '../../types';
+import {
+  Sliders,
+  X,
+  Volume2,
+  VolumeX,
+  Sun,
+  Moon,
+  Clock,
+  Flame,
+  Bug,
+  Database,
+  Save,
+  RotateCcw,
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 export const SettingsMenu: React.FC = () => {
   const isSettingsOpen = useAppStore((s) => s.isSettingsOpen);
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
-  const setBriefingOpen = useAppStore((s) => s.setBriefingOpen);
-  const settings = useAppStore((s) => s.settings);
-  const updateSettings = useAppStore((s) => s.updateSettings);
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() => getNotificationPermission());
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const storeSettings = useAppStore((s) => s.settings);
+  const updateStoreSettings = useAppStore((s) => s.updateSettings);
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
 
-  const handleDownloadPdf = async () => {
-    setIsExportingPdf(true);
-    try {
-      const res = await fetch('/api/export/pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: new Date().toISOString().slice(0, 10) }),
-      });
-      if (!res.ok) throw new Error('PDF export failed');
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `AI_World_News_Desk_${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Failed to download PDF:', err);
-      alert('Unable to generate PDF at this moment. Please try again.');
-    } finally {
-      setIsExportingPdf(false);
-    }
-  };
+  // Local draft state for form edits
+  const [formData, setFormData] = useState<AppSettings>(storeSettings);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
-  const [newTopic, setNewTopic] = useState('');
-  const [newKeywords, setNewKeywords] = useState('');
-  const [newPriority, setNewPriority] = useState<'low' | 'normal' | 'high'>('normal');
-  const [isAddingTopic, setIsAddingTopic] = useState(false);
-
-  const fetchWatchlist = async () => {
-    try {
-      const res = await fetch('/api/watchlist');
-      if (res.ok) {
-        const data = await res.json();
-        setWatchlist(data.items || []);
-      }
-    } catch (err) {
-      console.error('Failed to fetch watchlist:', err);
-    }
-  };
-
+  // Sync draft state whenever settings drawer opens
   useEffect(() => {
     if (isSettingsOpen) {
-      fetchWatchlist();
+      setFormData(storeSettings);
     }
-  }, [isSettingsOpen]);
+  }, [isSettingsOpen, storeSettings]);
 
-  const handleAddWatchlist = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTopic.trim()) return;
-    try {
-      const kws = newKeywords.split(',').map((k) => k.trim()).filter(Boolean);
-      const res = await fetch('/api/watchlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic: newTopic.trim(),
-          keywords: kws,
-          priority: newPriority,
-        }),
-      });
-      if (res.ok) {
-        setNewTopic('');
-        setNewKeywords('');
-        setIsAddingTopic(false);
-        fetchWatchlist();
+  // Keyboard navigation: Close on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isSettingsOpen) {
+        setSettingsOpen(false);
       }
-    } catch (err) {
-      console.error('Failed to add watchlist item:', err);
-    }
-  };
-
-  const handleToggleWatchlist = async (id: number, currentEnabled: boolean) => {
-    try {
-      const res = await fetch(`/api/watchlist/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !currentEnabled }),
-      });
-      if (res.ok) fetchWatchlist();
-    } catch (err) {
-      console.error('Failed to toggle watchlist item:', err);
-    }
-  };
-
-  const handleDeleteWatchlist = async (id: number) => {
-    try {
-      const res = await fetch(`/api/watchlist/${id}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) fetchWatchlist();
-    } catch (err) {
-      console.error('Failed to delete watchlist item:', err);
-    }
-  };
-
-  const handleRequestNotif = async () => {
-    const res = await requestNotificationPermission();
-    setNotifPermission(res);
-  };
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSettingsOpen, setSettingsOpen]);
 
   if (!isSettingsOpen) return null;
+
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSaving(true);
+    try {
+      await updateStoreSettings(formData);
+      toast.success('Desk preferences saved.');
+      setSettingsOpen(false);
+    } catch (err) {
+      console.error('[SettingsMenu] Failed to save settings:', err);
+      toast.error('Failed to update desk settings.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleThemeToggle = (newTheme: ThemeMode) => {
+    setTheme(newTheme);
+    setFormData((prev) => ({ ...prev, theme: newTheme }));
+    toast.info(`Theme switched to ${newTheme === 'night' ? 'Night Edition' : 'Paper Edition'}.`);
+  };
 
   return (
     <div
       id="settings-drawer-backdrop"
-      onClick={() => setSettingsOpen(false)}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.65)',
-        backdropFilter: 'blur(8px)',
-        zIndex: 50,
-        display: 'flex',
-        justifyContent: 'flex-start',
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-drawer-heading"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-ink/75 backdrop-blur-xs select-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setSettingsOpen(false);
       }}
     >
-      <div
-        id="settings-drawer-panel"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '380px',
-          maxWidth: '85vw',
-          height: '100%',
-          backgroundColor: '#0d1322',
-          borderRight: '1px solid var(--border)',
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
-          animation: 'slideRight 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
-      >
-        {/* Drawer Header */}
-        <div
-          style={{
-            padding: '20px 24px',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: 'rgba(17, 24, 39, 0.6)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '1.4rem' }}>🦇</span>
+      <div className="flex flex-col w-full max-w-xl max-h-[90vh] bg-paper text-ink border-2 border-ink shadow-overlay overflow-hidden relative">
+        {/* Masthead Header */}
+        <header className="px-6 py-4 border-b-2 border-ink bg-paper-alt flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 border border-ink bg-paper text-ink">
+              <Sliders className="w-5 h-5 text-accent" />
+            </div>
             <div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.01em' }}>
-                System Controls
-              </h3>
-              <p style={{ fontSize: '0.72rem', color: '#64748b' }}>AI World News Desk Radar</p>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] tracking-widest uppercase bg-ink text-paper px-1.5 py-0.5 font-bold">
+                  DESK CONFIG
+                </span>
+                <h2
+                  id="settings-drawer-heading"
+                  className="font-masthead text-xl tracking-tight text-ink font-black uppercase"
+                >
+                  Desk Preferences
+                </h2>
+              </div>
+              <p className="font-serif text-xs text-ink-secondary italic mt-0.5">
+                Editorial wire polling intervals, spider crawler mechanics & sound
+              </p>
             </div>
           </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              id="close-settings-btn"
+              onClick={() => setSettingsOpen(false)}
+              className="p-1.5 border border-paper-border hover:border-ink hover:bg-paper text-ink transition-colors"
+              aria-label="Close Desk Preferences"
+              title="Close (Esc)"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </header>
+
+        {/* Scrollable Form Body */}
+        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-6 bg-paper font-serif text-sm">
+          {/* Section 1: Edition Theme */}
+          <div className="border-b border-paper-border pb-5">
+            <label className="block font-serif font-bold text-ink mb-2">Edition Theme</label>
+            <div className="flex items-center gap-3 font-mono text-xs">
+              <button
+                type="button"
+                id="btn-theme-paper"
+                onClick={() => handleThemeToggle('paper')}
+                className={`flex items-center gap-2 px-3 py-1.5 border transition-all ${
+                  theme === 'paper'
+                    ? 'border-ink bg-ink text-paper font-bold shadow-xs'
+                    : 'border-paper-border bg-paper hover:border-ink text-ink'
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5" />
+                <span>Paper Edition (Day)</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-theme-night"
+                onClick={() => handleThemeToggle('night')}
+                className={`flex items-center gap-2 px-3 py-1.5 border transition-all ${
+                  theme === 'night'
+                    ? 'border-ink bg-ink text-paper font-bold shadow-xs'
+                    : 'border-paper-border bg-paper hover:border-ink text-ink'
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5" />
+                <span>Night Edition (Dark)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Section 2: Wire Polling & Refresh Interval */}
+          <div className="border-b border-paper-border pb-5">
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="refresh-interval-select" className="font-serif font-bold text-ink flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-ink-secondary" />
+                <span>Telegraph Refresh Interval</span>
+              </label>
+              <span className="font-mono text-xs text-ink-secondary font-bold">
+                Every {formData.refresh_interval_minutes} min
+              </span>
+            </div>
+            <select
+              id="refresh-interval-select"
+              value={formData.refresh_interval_minutes}
+              onChange={(e) =>
+                setFormData({ ...formData, refresh_interval_minutes: parseInt(e.target.value, 10) })
+              }
+              className="w-full px-3 py-1.5 border border-ink bg-paper-alt text-ink font-mono text-xs focus:outline-none focus:ring-1 focus:ring-ink"
+            >
+              {[1, 2, 5, 10, 15, 30, 60].map((mins) => (
+                <option key={mins} value={mins}>
+                  Every {mins} minute{mins > 1 ? 's' : ''} {mins === 5 ? '(Recommended)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Section 3: Breaking Alert Score Threshold */}
+          <div className="border-b border-paper-border pb-5">
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="alert-threshold-slider" className="font-serif font-bold text-ink flex items-center gap-1.5">
+                <Flame className="w-4 h-4 text-accent" />
+                <span>Breaking News Threshold</span>
+              </label>
+              <span className="font-mono text-xs text-accent font-bold">
+                {formData.alert_threshold}% breaking score
+              </span>
+            </div>
+            <input
+              id="alert-threshold-slider"
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={formData.alert_threshold}
+              onChange={(e) =>
+                setFormData({ ...formData, alert_threshold: parseInt(e.target.value, 10) })
+              }
+              className="w-full accent-accent cursor-pointer"
+            />
+            <div className="flex justify-between font-mono text-[10px] text-ink-muted mt-1">
+              <span>0% (All wires)</span>
+              <span>75% (Strict Breaking)</span>
+              <span>100% (Critical Only)</span>
+            </div>
+          </div>
+
+          {/* Section 4: Spider Crawler Kinematics */}
+          <div className="border-b border-paper-border pb-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Bug className="w-4 h-4 text-ink-secondary" />
+              <span className="font-serif font-bold text-ink">Spider Crawler Mechanics</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs">
+              {/* Spider Speed */}
+              <div>
+                <label className="block text-ink-secondary mb-1">Crawl Speed</label>
+                <div className="flex items-center gap-1 border border-ink p-0.5 bg-paper-alt">
+                  {[
+                    { label: 'Slow', val: 0.7 },
+                    { label: 'Medium', val: 1.0 },
+                    { label: 'Fast', val: 1.5 },
+                  ].map((s) => (
+                    <button
+                      key={s.label}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, spider_speed: s.val })}
+                      className={`flex-1 py-1 text-center font-bold uppercase transition-colors ${
+                        (formData.spider_speed ?? 1.0) === s.val
+                          ? 'bg-ink text-paper'
+                          : 'hover:bg-paper text-ink'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Max Spiders */}
+              <div>
+                <label htmlFor="max-spiders-select" className="block text-ink-secondary mb-1">
+                  Active Spiders
+                </label>
+                <select
+                  id="max-spiders-select"
+                  value={formData.max_spiders}
+                  onChange={(e) =>
+                    setFormData({ ...formData, max_spiders: parseInt(e.target.value, 10) })
+                  }
+                  className="w-full px-2 py-1.5 border border-ink bg-paper-alt text-ink font-mono text-xs focus:outline-none"
+                >
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <option key={n} value={n}>
+                      {n} spider{n > 1 ? 's' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Spider Behavior Toggles */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <label className="flex items-center gap-2 cursor-pointer font-serif text-xs">
+                <input
+                  type="checkbox"
+                  checked={formData.spider_pause_on_hover ?? true}
+                  onChange={(e) =>
+                    setFormData({ ...formData, spider_pause_on_hover: e.target.checked })
+                  }
+                  className="accent-ink"
+                />
+                <span>Pause crawl on mouse hover</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer font-serif text-xs">
+                <input
+                  type="checkbox"
+                  checked={formData.spider_glitch ?? false}
+                  onChange={(e) =>
+                    setFormData({ ...formData, spider_glitch: e.target.checked })
+                  }
+                  className="accent-ink"
+                />
+                <span>Glitch distortion effect</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Section 5: Retention & Sound Effects */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="font-serif font-bold text-ink flex items-center gap-1.5">
+                {formData.sound_enabled ? (
+                  <Volume2 className="w-4 h-4 text-positive" />
+                ) : (
+                  <VolumeX className="w-4 h-4 text-ink-muted" />
+                )}
+                <span>Auditory Feedback (Morse & Chimes)</span>
+              </label>
+              <button
+                type="button"
+                id="btn-toggle-sound"
+                onClick={() => setFormData({ ...formData, sound_enabled: !formData.sound_enabled })}
+                className={`px-3 py-0.5 border font-mono text-xs font-bold uppercase ${
+                  formData.sound_enabled
+                    ? 'border-ink bg-ink text-paper'
+                    : 'border-paper-border bg-paper text-ink-muted'
+                }`}
+              >
+                {formData.sound_enabled ? 'Enabled' : 'Muted'}
+              </button>
+            </div>
+
+            {/* Retention Auto-Cleanup */}
+            <div className="flex items-center justify-between pt-2">
+              <label className="font-serif font-bold text-ink flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-ink-secondary" />
+                <span>Auto-Purge Stale Dispatches</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="7"
+                  max="365"
+                  value={formData.retention_days}
+                  onChange={(e) =>
+                    setFormData({ ...formData, retention_days: parseInt(e.target.value, 10) || 30 })
+                  }
+                  className="w-14 px-1.5 py-0.5 border border-ink bg-paper-alt font-mono text-xs text-center"
+                />
+                <span className="font-mono text-xs text-ink-secondary">days</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({ ...formData, auto_cleanup_enabled: !formData.auto_cleanup_enabled })
+                  }
+                  className={`px-2 py-0.5 border font-mono text-xs font-bold uppercase ${
+                    formData.auto_cleanup_enabled
+                      ? 'border-ink bg-ink text-paper'
+                      : 'border-paper-border bg-paper text-ink-muted'
+                  }`}
+                >
+                  {formData.auto_cleanup_enabled ? 'ON' : 'OFF'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        {/* Footer Action Buttons */}
+        <footer className="px-6 py-3 border-t-2 border-ink bg-paper-alt flex items-center justify-between font-mono text-xs">
+          <button
+            type="button"
+            onClick={() => setFormData(storeSettings)}
+            className="flex items-center gap-1 px-3 py-1.5 border border-paper-border hover:border-ink bg-paper text-ink uppercase font-bold tracking-wider transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Defaults</span>
+          </button>
 
           <button
-            id="close-settings-btn"
-            onClick={() => setSettingsOpen(false)}
-            style={{
-              background: 'rgba(30, 41, 59, 0.6)',
-              border: '1px solid var(--border)',
-              borderRadius: '8px',
-              padding: '6px',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-            }}
+            type="button"
+            id="btn-save-settings"
+            onClick={() => handleSave()}
+            disabled={isSaving}
+            className="flex items-center gap-1.5 px-4 py-1.5 border-2 border-ink bg-ink text-paper hover:bg-ink-secondary uppercase font-bold tracking-wider transition-colors shadow-xs disabled:opacity-50"
           >
-            <X size={18} />
+            <Save className="w-3.5 h-3.5" />
+            <span>{isSaving ? 'Saving…' : 'Save Changes'}</span>
           </button>
-        </div>
-
-        {/* Drawer Body — Scrollable settings sections */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '24px',
-          }}
-        >
-          {/* Section 1: Fetch Timing & Sources */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#818cf8', fontSize: '0.82rem', fontWeight: 700 }}>
-              <Sliders size={15} />
-              <span>RADAR REFRESH FREQUENCY</span>
-            </div>
-
-            <div style={{ background: 'rgba(17, 24, 39, 0.7)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.8rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Polling Cycle:</span>
-                <span style={{ fontWeight: 700, color: '#a5b4fc' }}>{settings.refresh_interval_minutes} minutes</span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="60"
-                value={settings.refresh_interval_minutes}
-                onChange={(e) => updateSettings({ refresh_interval_minutes: parseInt(e.target.value, 10) })}
-                style={{ width: '100%', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#64748b', marginTop: '4px' }}>
-                <span>1 min</span>
-                <span>30 min</span>
-                <span>60 min</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2: AI Provider Fallback & Quotas */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <QuotaMeter />
-          </div>
-
-          {/* Section 3: Spider Animation Config */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.82rem', fontWeight: 700 }}>
-              <Activity size={15} />
-              <span>SPIDER RADAR ENGINES</span>
-            </div>
-
-            <div style={{ background: 'rgba(17, 24, 39, 0.7)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.8rem' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Max Concurrency:</span>
-                <span style={{ fontWeight: 700, color: '#c4b5fd' }}>{settings.max_spiders} spiders</span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={settings.max_spiders}
-                onChange={(e) => updateSettings({ max_spiders: parseInt(e.target.value, 10) })}
-                style={{ width: '100%', accentColor: '#a78bfa', cursor: 'pointer' }}
-              />
-            </div>
-          </div>
-
-          {/* Section 4: Alerts & Audio Settings */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f59e0b', fontSize: '0.82rem', fontWeight: 700 }}>
-              <ShieldAlert size={15} />
-              <span>AUDIO & BREAKING SENSITIVITY</span>
-            </div>
-
-            <div style={{ background: 'rgba(17, 24, 39, 0.7)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Sound Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {settings.sound_enabled ? <Volume2 size={16} color="#22c55e" /> : <VolumeX size={16} color="#ef4444" />}
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>UI Tactile & Chime Sounds</span>
-                </div>
-                <button
-                  id="sound-toggle-btn"
-                  onClick={() => updateSettings({ sound_enabled: !settings.sound_enabled })}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border)',
-                    background: settings.sound_enabled ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                    color: settings.sound_enabled ? '#22c55e' : '#ef4444',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {settings.sound_enabled ? 'ON' : 'OFF'}
-                </button>
-              </div>
-
-              {/* Desktop Notification Toggle (P6-04) */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Bell size={16} color={notifPermission === 'granted' ? '#22c55e' : '#94a3b8'} />
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Desktop Notifications</span>
-                </div>
-                {isNotificationSupported() ? (
-                  <button
-                    id="btn-notif-permission"
-                    onClick={handleRequestNotif}
-                    disabled={notifPermission === 'granted'}
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid var(--border)',
-                      background:
-                        notifPermission === 'granted'
-                          ? 'rgba(34, 197, 94, 0.2)'
-                          : notifPermission === 'denied'
-                          ? 'rgba(239, 68, 68, 0.2)'
-                          : 'rgba(99, 102, 241, 0.2)',
-                      color:
-                        notifPermission === 'granted'
-                          ? '#22c55e'
-                          : notifPermission === 'denied'
-                          ? '#ef4444'
-                          : '#818cf8',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      cursor: notifPermission === 'granted' ? 'default' : 'pointer',
-                    }}
-                  >
-                    {notifPermission === 'granted'
-                      ? 'ENABLED'
-                      : notifPermission === 'denied'
-                      ? 'BLOCKED'
-                      : 'ENABLE'}
-                  </button>
-                ) : (
-                  <span style={{ fontSize: '0.72rem', color: '#64748b' }}>UNSUPPORTED</span>
-                )}
-              </div>
-
-              {/* Alert threshold slider */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.8rem' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Breaking Score Threshold:</span>
-                  <span style={{ fontWeight: 700, color: '#ef4444' }}>{settings.alert_threshold}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="50"
-                  max="95"
-                  value={settings.alert_threshold}
-                  onChange={(e) => updateSettings({ alert_threshold: parseInt(e.target.value, 10) })}
-                  style={{ width: '100%', accentColor: '#ef4444', cursor: 'pointer' }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 5: Topic Watchlist (P8-01, P8-02) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <BookmarkCheck size={16} color="var(--accent-primary)" />
-                <h4 style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Topic Watchlist ({watchlist.length})
-                </h4>
-              </div>
-              <button
-                onClick={() => setIsAddingTopic((prev) => !prev)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  background: 'rgba(99, 102, 241, 0.15)',
-                  border: '1px solid rgba(99, 102, 241, 0.4)',
-                  borderRadius: '6px',
-                  color: '#818cf8',
-                  padding: '3px 8px',
-                  fontSize: '0.72rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                <Plus size={12} />
-                <span>{isAddingTopic ? 'Cancel' : 'Add Topic'}</span>
-              </button>
-            </div>
-
-            {/* Add Topic Form */}
-            {isAddingTopic && (
-              <form
-                onSubmit={handleAddWatchlist}
-                style={{
-                  background: 'rgba(30, 41, 59, 0.6)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                }}
-              >
-                <input
-                  type="text"
-                  placeholder="Topic name (e.g. Wildlife Smuggling)..."
-                  value={newTopic}
-                  onChange={(e) => setNewTopic(e.target.value)}
-                  style={{
-                    background: '#0a0e1a',
-                    border: '1px solid var(--border)',
-                    borderRadius: '6px',
-                    padding: '6px 10px',
-                    color: '#f8fafc',
-                    fontSize: '0.78rem',
-                  }}
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="Keywords (comma-separated)..."
-                  value={newKeywords}
-                  onChange={(e) => setNewKeywords(e.target.value)}
-                  style={{
-                    background: '#0a0e1a',
-                    border: '1px solid var(--border)',
-                    borderRadius: '6px',
-                    padding: '6px 10px',
-                    color: '#f8fafc',
-                    fontSize: '0.78rem',
-                  }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <select
-                    value={newPriority}
-                    onChange={(e) => setNewPriority(e.target.value as 'low' | 'normal' | 'high')}
-                    style={{
-                      background: '#0a0e1a',
-                      border: '1px solid var(--border)',
-                      borderRadius: '6px',
-                      padding: '4px 8px',
-                      color: '#f8fafc',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    <option value="low">Low Priority</option>
-                    <option value="normal">Normal Priority</option>
-                    <option value="high">High Priority</option>
-                  </select>
-                  <button
-                    type="submit"
-                    style={{
-                      background: 'var(--accent-primary)',
-                      border: 'none',
-                      borderRadius: '6px',
-                      color: '#ffffff',
-                      padding: '4px 12px',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Save Monitor
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Watchlist Items */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {watchlist.length === 0 ? (
-                <div style={{ fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic', padding: '6px 0' }}>
-                  No active topic monitors. Add topics to trigger real-time radar alerts.
-                </div>
-              ) : (
-                watchlist.map((item) => (
-                  <div
-                    key={item.id}
-                    style={{
-                      background: 'rgba(30, 41, 59, 0.4)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: 600, fontSize: '0.8rem', color: '#f8fafc' }}>
-                        {item.topic}
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span
-                          style={{
-                            fontSize: '0.65rem',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            textTransform: 'uppercase',
-                            background:
-                              item.priority === 'high'
-                                ? 'rgba(239, 68, 68, 0.2)'
-                                : item.priority === 'normal'
-                                ? 'rgba(99, 102, 241, 0.2)'
-                                : 'rgba(100, 116, 139, 0.2)',
-                            color:
-                              item.priority === 'high'
-                                ? '#ef4444'
-                                : item.priority === 'normal'
-                                ? '#818cf8'
-                                : '#94a3b8',
-                          }}
-                        >
-                          {item.priority}
-                        </span>
-                        <button
-                          onClick={() => handleToggleWatchlist(item.id, item.enabled)}
-                          title={item.enabled ? 'Disable Monitor' : 'Enable Monitor'}
-                          style={{
-                            background: item.enabled ? 'rgba(34, 197, 94, 0.2)' : 'rgba(100, 116, 139, 0.2)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '4px',
-                            color: item.enabled ? '#22c55e' : '#94a3b8',
-                            fontSize: '0.68rem',
-                            fontWeight: 600,
-                            padding: '2px 6px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {item.enabled ? 'ACTIVE' : 'OFF'}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteWatchlist(item.id)}
-                          title="Delete Monitor"
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#64748b',
-                            cursor: 'pointer',
-                            padding: '2px',
-                            display: 'flex',
-                          }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                    {item.keywords && item.keywords.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
-                        {item.keywords.map((kw, i) => (
-                          <span
-                            key={i}
-                            style={{
-                              fontSize: '0.68rem',
-                              background: 'rgba(15, 23, 42, 0.8)',
-                              color: 'var(--text-secondary)',
-                              padding: '1px 6px',
-                              borderRadius: '4px',
-                            }}
-                          >
-                            {kw}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Section 6: Data Retention & Storage Policy (P8-06, P8-07, P8-08) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Calendar size={16} color="var(--accent-warning)" />
-              <h4 style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Data Retention &amp; Storage
-              </h4>
-            </div>
-
-            <div
-              style={{
-                background: 'rgba(30, 41, 59, 0.4)',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-              }}
-            >
-              {/* Auto Cleanup Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Automated Nightly Purge
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                    Runs daily at 03:00; preserves bookmarked articles
-                  </div>
-                </div>
-                <button
-                  id="btn-toggle-auto-cleanup"
-                  onClick={() => updateSettings({ auto_cleanup_enabled: !settings.auto_cleanup_enabled })}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border)',
-                    background: settings.auto_cleanup_enabled ? 'rgba(34, 197, 94, 0.2)' : 'rgba(100, 116, 139, 0.2)',
-                    color: settings.auto_cleanup_enabled ? '#22c55e' : '#94a3b8',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {settings.auto_cleanup_enabled ? 'ENABLED' : 'DISABLED'}
-                </button>
-              </div>
-
-              {/* Retention Days */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.8rem' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Retention Window:</span>
-                  <span style={{ fontWeight: 700, color: 'var(--accent-warning)' }}>
-                    {settings.retention_days} Days
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="7"
-                  max="90"
-                  step="1"
-                  value={settings.retention_days}
-                  onChange={(e) => updateSettings({ retention_days: parseInt(e.target.value, 10) })}
-                  style={{ width: '100%', accentColor: 'var(--accent-warning)', cursor: 'pointer' }}
-                />
-              </div>
-
-              {/* Storage Alert Note */}
-              <div
-                style={{
-                  fontSize: '0.68rem',
-                  color: '#64748b',
-                  lineHeight: 1.4,
-                  borderLeft: '2px solid var(--accent-warning)',
-                  paddingLeft: '8px',
-                }}
-              >
-                1.5 GB high-water safety monitor active. Dispatches tagged with bookmarks will never be deleted.
-              </div>
-            </div>
-          </div>
-
-          {/* Section 7: Edition Publishing & Audio Dispatch (P10-03, P10-06) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FileText size={16} color="var(--accent-primary)" />
-              <h4 style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Publishing &amp; Audio Broadcast
-              </h4>
-            </div>
-
-            <div
-              style={{
-                background: 'rgba(30, 41, 59, 0.4)',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-              }}
-            >
-              {/* PDF Broadsheet Export Button */}
-              <button
-                id="btn-settings-export-pdf"
-                onClick={handleDownloadPdf}
-                disabled={isExportingPdf}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  padding: '9px 14px',
-                  borderRadius: '6px',
-                  background: 'rgba(245, 158, 11, 0.15)',
-                  border: '1px solid rgba(245, 158, 11, 0.4)',
-                  color: '#fbbf24',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: isExportingPdf ? 'not-allowed' : 'pointer',
-                  transition: 'background 0.2s ease',
-                }}
-              >
-                <Download size={14} />
-                <span>{isExportingPdf ? "Generating Broadsheet..." : "Download Today's Paper (PDF)"}</span>
-              </button>
-
-              {/* Morning Briefing Audio Button */}
-              <button
-                id="btn-settings-morning-briefing"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setBriefingOpen(true);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  padding: '9px 14px',
-                  borderRadius: '6px',
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid rgba(239, 68, 68, 0.4)',
-                  color: '#f87171',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'background 0.2s ease',
-                }}
-              >
-                <Radio size={14} />
-                <span>Play 2-Min Morning Briefing</span>
-              </button>
-
-              <div style={{ fontSize: '0.68rem', color: '#64748b', textAlign: 'center', marginTop: '2px' }}>
-                Broadsheet rendered in classical 2-column layout • Voice via Web Speech API
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Drawer Footer */}
-        <div
-          style={{
-            padding: '16px 24px',
-            borderTop: '1px solid var(--border)',
-            background: 'rgba(10, 14, 26, 0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: '0.72rem',
-            color: '#64748b',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Database size={13} />
-            <span>SQLite FTS5 Local Engine</span>
-          </div>
-          <span>v1.0.0</span>
-        </div>
+        </footer>
       </div>
     </div>
   );
 };
+
+export default SettingsMenu;

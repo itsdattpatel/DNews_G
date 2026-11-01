@@ -9,13 +9,17 @@ import { refreshInterval } from '../fetch/scheduler';
 
 export const settingsRouter = Router();
 
-const SETTINGS_SCHEMA: Record<string, { type: 'int' | 'bool' | 'str'; min?: number; max?: number }> = {
+const SETTINGS_SCHEMA: Record<string, { type: 'int' | 'bool' | 'str' | 'float'; min?: number; max?: number }> = {
   refresh_interval_minutes: { type: 'int', min: 1, max: 60 },
   max_spiders: { type: 'int', min: 1, max: 10 },
   alert_threshold: { type: 'int', min: 0, max: 100 },
   auto_cleanup_enabled: { type: 'bool' },
   retention_days: { type: 'int', min: 7, max: 365 },
   sound_enabled: { type: 'bool' },
+  spider_speed: { type: 'float', min: 0.5, max: 3.0 },
+  spider_glitch: { type: 'bool' },
+  spider_pause_on_hover: { type: 'bool' },
+  theme: { type: 'str' },
 };
 
 settingsRouter.get('/', (_req: Request, res: Response) => {
@@ -40,6 +44,12 @@ settingsRouter.patch('/', (req: Request, res: Response) => {
       if (schema.min !== undefined && num < schema.min) { errors.push(`${key} min is ${schema.min}`); continue; }
       if (schema.max !== undefined && num > schema.max) { errors.push(`${key} max is ${schema.max}`); continue; }
       value = String(num);
+    } else if (schema.type === 'float') {
+      const flt = parseFloat(String(rawValue));
+      if (isNaN(flt)) { errors.push(`${key} must be a number`); continue; }
+      if (schema.min !== undefined && flt < schema.min) { errors.push(`${key} min is ${schema.min}`); continue; }
+      if (schema.max !== undefined && flt > schema.max) { errors.push(`${key} max is ${schema.max}`); continue; }
+      value = String(flt);
     } else if (schema.type === 'bool') {
       value = rawValue ? '1' : '0';
     } else {
@@ -68,6 +78,7 @@ function getAllSettings(): Record<string, unknown> {
     const raw = getSetting(key, '');
     const schema = SETTINGS_SCHEMA[key]!;
     if (schema.type === 'int') result[key] = parseInt(raw, 10);
+    else if (schema.type === 'float') result[key] = parseFloat(raw);
     else if (schema.type === 'bool') result[key] = raw === '1';
     else result[key] = raw;
   }

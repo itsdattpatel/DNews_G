@@ -49,6 +49,7 @@ export const TopBar: React.FC = () => {
   const currentView = useAppStore((s) => s.currentView);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const setAlertsOpen = useAppStore((s) => s.setAlertsOpen);
+  const setSourcesOpen = useAppStore((s) => s.setSourcesOpen);
 
   return (
     <header
@@ -219,7 +220,8 @@ export const TopBar: React.FC = () => {
 
         {/* Quick API & Sources Button */}
         <button
-          onClick={() => setCurrentView('sources-settings')}
+          id="btn-topbar-sources"
+          onClick={() => setSourcesOpen(true)}
           className="p-1 rounded-xs border border-paper-border hover:bg-paper-alt text-ink-secondary hover:text-ink transition-colors"
           title="API & Sources Settings"
           aria-label="API Sources Settings"

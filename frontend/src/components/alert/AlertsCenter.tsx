@@ -370,3 +370,4 @@ export const AlertsCenter: React.FC = () => {
 };
 
 export default AlertsCenter;
+

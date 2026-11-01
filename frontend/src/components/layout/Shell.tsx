@@ -12,6 +12,7 @@ import { ArticlePanel } from '../article/ArticlePanel';
 import { SummaryPanel } from '../article/SummaryPanel';
 import { CardStrip } from '../article/CardStrip';
 import { SettingsMenu } from '../bat/SettingsMenu';
+import { SourcesSettingsDesk } from '../sources/SourcesSettingsDesk';
 import { AlertBanner } from '../alert/AlertBanner';
 import { AlertsCenter } from '../alert/AlertsCenter';
 import { MissedNewsModal } from '../modal/MissedNewsModal';
@@ -158,6 +159,10 @@ export const Shell: React.FC = () => {
 
       <ErrorBoundary panelName="Settings Drawer">
         <SettingsMenu />
+      </ErrorBoundary>
+
+      <ErrorBoundary panelName="API & Sources Settings Desk">
+        <SourcesSettingsDesk />
       </ErrorBoundary>
 
       <ErrorBoundary panelName="Missed Dispatches Modal">

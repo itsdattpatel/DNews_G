@@ -100,6 +100,10 @@ interface AppState {
   // Alerts Center Desk (Step 13)
   isAlertsOpen: boolean;
   setAlertsOpen: (open: boolean) => void;
+
+  // API & Sources Settings Desk (Step 14)
+  isSourcesOpen: boolean;
+  setSourcesOpen: (open: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -470,6 +474,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   setAlertsOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
     set({ isAlertsOpen: open });
+  },
+
+  // API & Sources Settings Desk (Step 14)
+  isSourcesOpen: false,
+  setSourcesOpen: (open) => {
+    playButtonSound(get().settings.sound_enabled);
+    set({ isSourcesOpen: open });
   },
 }));
 

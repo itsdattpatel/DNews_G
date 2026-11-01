@@ -11,6 +11,7 @@ import type {
   TvChannel,
   Alert,
   AppSettings,
+  Source,
   QuotaResponse,
   SearchResponse,
   StartupStatus,
@@ -221,6 +222,22 @@ export const api = {
   async getQuota(): Promise<QuotaResponse> {
     const res = await fetch('/api/quota');
     return handleResponse<QuotaResponse>(res);
+  },
+
+  // ─── News Sources ─────────────────────────────────────────────────────────
+  async getSources(): Promise<Source[]> {
+    const res = await fetch('/api/sources');
+    const data = await handleResponse<{ items: Source[] } | Source[]>(res);
+    return Array.isArray(data) ? data : data.items || [];
+  },
+
+  async toggleSource(id: number, enabled: boolean): Promise<Source> {
+    const res = await fetch(`/api/sources/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    return handleResponse<Source>(res);
   },
 
   // ─── Archive Search ───────────────────────────────────────────────────────

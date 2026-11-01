@@ -102,6 +102,12 @@ export const BatMenuOverlay: React.FC = () => {
     if (view === 'alerts') {
       useAppStore.getState().setAlertsOpen(true);
     }
+    if (view === 'sources-settings') {
+      useAppStore.getState().setSourcesOpen(true);
+    }
+    if (view === 'settings') {
+      useAppStore.getState().setSettingsOpen(true);
+    }
     setCurrentView(view);
   };
 
