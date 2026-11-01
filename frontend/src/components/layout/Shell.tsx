@@ -4,6 +4,7 @@
  * Orchestrates TopBar, Bat Masthead Menu, Main Split Reader, Global Router, Bottom Ticker, and Lenis Scroll.
  */
 import React, { useEffect, useRef } from 'react';
+import { Toaster } from 'sonner';
 import { TopBar } from './TopBar';
 import { BatMenuOverlay } from '../bat/BatMenuOverlay';
 import { NewsTicker } from './NewsTicker';
@@ -172,6 +173,16 @@ export const Shell: React.FC = () => {
       <ErrorBoundary panelName="Live Video Desk">
         <TVView />
       </ErrorBoundary>
+
+      {/* 7. Broadsheet Toast Notifications */}
+      <Toaster
+        theme={theme === 'night' ? 'dark' : 'light'}
+        position="bottom-right"
+        toastOptions={{
+          className:
+            'border-2 border-ink bg-paper text-ink font-ui shadow-overlay rounded-xs text-xs',
+        }}
+      />
     </div>
   );
 };

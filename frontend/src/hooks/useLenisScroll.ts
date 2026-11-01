@@ -45,3 +45,4 @@ export function useLenisScroll(targetRef?: React.RefObject<HTMLElement | null>) 
 }
 
 export default useLenisScroll;
+

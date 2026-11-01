@@ -1,15 +1,33 @@
 /**
  * frontend/src/types/index.ts
- * Frontend data models matching backend API contracts
+ * Frontend data models matching backend API contracts & FRONTEND_BACKEND_CONTRACT.md
  */
 
+// ─── Source ───────────────────────────────────────────────────────────────────
 export interface Source {
   id: number;
   slug?: string;
   name: string;
   country: string;
   url?: string;
+  fetch_type?: 'rss' | 'gdelt' | 'scrape';
+  enabled?: boolean;
+  last_fetched_at?: string | null;
 }
+
+// ─── Categories & Spiders ─────────────────────────────────────────────────────
+export type Category =
+  | 'World'
+  | 'Politics'
+  | 'Business'
+  | 'Tech'
+  | 'Science'
+  | 'Health'
+  | 'Sports'
+  | 'Entertainment'
+  | 'Environment'
+  | 'Crime'
+  | 'Animals';
 
 export type SpiderType = 'Reader' | 'Scout' | 'Weaver' | 'RedAlert' | 'Archive' | 'Swarm';
 
@@ -32,20 +50,49 @@ export type AppView =
   | 'sources-settings'
   | 'settings';
 
+// ─── AnchorPhrase (NEW — Step 5) ──────────────────────────────────────────────
 export interface AnchorPhrase {
-  phrase: string;
-  sentence_index: number;
+  phrase: string;          // verbatim substring of body_english
+  sentence_index: number;  // 0-based index into summary sentences
 }
 
+// ─── Article Models ───────────────────────────────────────────────────────────
+export interface ArticleListItem {
+  id: number;
+  url: string;
+  title_english: string | null;
+  summary: string | null;
+  keywords: string[];
+  categories: Category[];
+  breaking_score: number;
+  spider_type: SpiderType;
+  cluster_id: number | null;
+  source: Pick<Source, 'id' | 'name' | 'country'>;
+  published_at: string | null;
+  fetched_at: string;
+  delayed?: boolean;
+}
+
+export interface ArticleFull extends ArticleListItem {
+  title_original: string | null;
+  body_original: string | null;
+  body_english: string | null;
+  language_detected: string | null;
+  bookmarked: boolean;
+  anchor_phrases: AnchorPhrase[];
+  source: Source;
+}
+
+// Legacy Article interface for compatibility across all UI components
 export interface Article {
   id: number;
   url: string;
-  title_original?: string;
+  title_original?: string | null;
   title_english: string;
-  body_original?: string;
-  body_english?: string;
+  body_original?: string | null;
+  body_english?: string | null;
   summary: string;
-  language_detected?: string;
+  language_detected?: string | null;
   breaking_score: number;
   spider_type: SpiderType;
   cluster_id: number | null;
@@ -55,17 +102,19 @@ export interface Article {
   source: Source;
   categories: string[];
   keywords: string[];
+  anchor_phrases?: AnchorPhrase[];
 }
 
+// ─── Cluster ──────────────────────────────────────────────────────────────────
 export interface Cluster {
   id: number;
-  headline: string;
+  headline: string | null;
   first_seen_at: string;
   last_updated_at: string;
   outlet_count: number;
   country_count: number;
   is_breaking: boolean;
-  articles?: Array<{
+  articles?: ArticleListItem[] | Array<{
     id: number;
     url?: string;
     title_english: string;
@@ -74,9 +123,21 @@ export interface Cluster {
   }>;
 }
 
+// ─── Alert ────────────────────────────────────────────────────────────────────
+export type AlertType = 'breaking' | 'quota' | 'provider_switch' | 'error' | 'warning' | 'watchlist';
+
+export interface Alert {
+  id: number;
+  type: AlertType;
+  message: string;
+  cluster_id: number | null;
+  fired_at: string;
+  acknowledged: boolean;
+}
+
 export interface AlertItem {
   id: string;
-  type: 'breaking' | 'provider_switch' | 'quota' | 'error' | 'warning' | 'watchlist';
+  type: AlertType;
   message: string;
   timestamp: string;
   cluster_id?: number;
@@ -86,6 +147,7 @@ export interface AlertItem {
   toProvider?: string;
 }
 
+// ─── Watchlist ────────────────────────────────────────────────────────────────
 export interface WatchlistItem {
   id: number;
   topic: string;
@@ -95,6 +157,7 @@ export interface WatchlistItem {
   created_at: string;
 }
 
+// ─── Search / Archive Chat ────────────────────────────────────────────────────
 export interface SearchResultItem {
   id: number;
   url: string;
@@ -104,7 +167,11 @@ export interface SearchResultItem {
   breaking_score: number;
   source_name: string;
   source_country: string;
+  score?: number;
+  source?: Pick<Source, 'name' | 'country'>;
 }
+
+export type SearchResult = SearchResultItem;
 
 export interface SearchResponse {
   query: string;
@@ -112,6 +179,7 @@ export interface SearchResponse {
   ai_answer: string | null;
 }
 
+// ─── TV Channel ───────────────────────────────────────────────────────────────
 export interface TvChannel {
   id: number;
   name: string;
@@ -124,6 +192,7 @@ export interface TvChannel {
   last_checked_at: string | null;
 }
 
+// ─── Quota & Providers ────────────────────────────────────────────────────────
 export interface ProviderQuota {
   calls_today: number;
   tokens_today: number;
@@ -131,10 +200,16 @@ export interface ProviderQuota {
 }
 
 export interface QuotaData {
-  current_provider: 'gemini' | 'groq' | 'mistral' | 'cerebras';
+  current_provider: string;
   providers: Record<string, ProviderQuota>;
 }
 
+export interface QuotaResponse {
+  current_provider: string;
+  providers: Record<string, ProviderQuota>;
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
 export interface AppSettings {
   refresh_interval_minutes: number;
   max_spiders: number;
@@ -142,8 +217,14 @@ export interface AppSettings {
   auto_cleanup_enabled: boolean;
   retention_days: number;
   sound_enabled: boolean;
+  // UI-only tokens
+  theme?: 'paper' | 'night';
+  spider_speed?: number;          // multiplier 0.5–2.0
+  spider_glitch?: boolean;
+  spider_pause_on_hover?: boolean;
 }
 
+// ─── Startup & Backfill ───────────────────────────────────────────────────────
 export interface StartupStatus {
   status: string;
   uptime_ms: number;
@@ -152,7 +233,7 @@ export interface StartupStatus {
   detected: boolean;
   can_backfill: boolean;
   window_start: string | null;
-  window_end: string;
+  window_end: string | null;
 }
 
 export interface BackfillResponse {
@@ -165,3 +246,50 @@ export interface BackfillResponse {
   rss_coverage: boolean;
   warning?: string;
 }
+
+// ─── Paginated wrapper ────────────────────────────────────────────────────────
+export interface Paginated<T> {
+  total: number;
+  items: T[];
+}
+
+// ─── SSE Events ───────────────────────────────────────────────────────────────
+export interface SSENewArticle {
+  type: 'new_article';
+  article_id: number;
+}
+
+export interface SSEClusterUpdate {
+  type: 'cluster_update';
+  cluster_id: number;
+  outlet_count: number;
+}
+
+export interface SSEAlert {
+  type: 'alert';
+  alert: Alert;
+}
+
+export interface SSEProviderSwitch {
+  type: 'provider_switch';
+  from: string;
+  to: string;
+  reason: string;
+}
+
+export interface SSEQuotaUpdate {
+  type: 'quota_update';
+  data: QuotaResponse;
+}
+
+export interface SSEHeartbeat {
+  type: 'heartbeat';
+}
+
+export type SSEEvent =
+  | SSENewArticle
+  | SSEClusterUpdate
+  | SSEAlert
+  | SSEProviderSwitch
+  | SSEQuotaUpdate
+  | SSEHeartbeat;
