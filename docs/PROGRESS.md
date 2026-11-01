@@ -7,8 +7,8 @@
 
 | Step | Category | Status | Proof / Evidence Required | Timestamp |
 | :--- | :--- | :---: | :--- | :--- |
-| **0** | **Documentation & Setup** | 🟡 `IN_REVIEW` | `/docs/PRD_A.md`, `/docs/PROGRESS.md`, `/docs/OPEN_QUESTIONS.md`, `/docs/DB_SCHEMA.md`, DB backup | 2026-11-01 |
-| **1** | **Dates on Every News Item** | ⚪ `PENDING` | Dual timestamps migration, relative live update tests, timezone tests, UI screenshot | - |
+| **0** | **Documentation & Setup** | 🟢 `DONE` | `/docs/PRD_A.md`, `/docs/PROGRESS.md`, `/docs/OPEN_QUESTIONS.md`, `/docs/DB_SCHEMA.md`, DB backup | 2026-11-01 22:30 |
+| **1** | **Dates on Every News Item** | 🟢 `DONE` | Migration 006, Vitest (82 backend + 104 frontend tests pass), Playwright screenshots (paper, night, category-rail) | 2026-11-01 22:56 |
 | **1B** | **Real-Time Foundation** | ⚪ `PENDING` | `app_sessions` table, 30s heartbeat, Welcome-Back card, clock sync offset, hatched downtime sparkline | - |
 | **2** | **Auto-Advance (7 Seconds)** | ⚪ `PENDING` | 7s timer, left panel hover pause test, progress bar, play/pause controls, screenshot | - |
 | **3** | **Plain Mode (Zero AI)** | ⚪ `PENDING` | Plain mode switch, zero AI call test, rule-based category tagging, layout screenshot | - |
@@ -39,4 +39,17 @@
 - Created `/docs/OPEN_QUESTIONS.md` logging critical questions regarding Category 8 (Rolling 24h counter definition), Category 2 (Auto-advance hover conditions), and Category 6 (YouTube handle resolution).
 - Initiated `/docs/PROGRESS.md` with explicit validation criteria per category.
 - Stored clean snapshot of database in `backups/`.
+
+### Step 1: Dates on Every News Item (Completed)
+- Applied Migration 006 (`006_dual_timestamps.sql`) adding indexed `ingested_at TEXT` (UTC ISO-8601 with trailing `"Z"`) and `is_catchup INTEGER NOT NULL DEFAULT 0`.
+- Backfilled all existing 3,251 database rows safely.
+- Ingestion pipeline (`dedup.ts` & `backfill.ts`) records accurate arrival timestamps and tags GDELT gap backfills with `isCatchup = 1`.
+- Built pure utility `dateFormatter.ts` with relative formatters ("Published 2h ago", "Arrived 1h 58m ago"), "Date unverified" defense for missing, future (>15m), and stale (>30d) published dates, and live 30s tick without reload.
+- Created broadsheet `<DualTimestamp>` component with `compact`, `stacked`, and `inline` variants.
+- Integrated across ArticlePanel, CardStrip, NewsTicker, CategoryRailView, ArchiveChat, CompareCoverage, StoryTimeline, AlertsCenter, and AlertBanner.
+- Added System Timezone indicator to SettingsMenu.
+- All 82 backend tests (25 suites) and 104 frontend tests (21 suites) pass cleanly.
+- Strict TypeScript build passes with 0 errors.
+- Visual validation completed in Paper mode, Night Edition mode, and Category Rail view (`ui-step1-dates-paper.png`, `ui-step1-dates-night.png`, `ui-step1-dates-category-rail.png`).
+
 

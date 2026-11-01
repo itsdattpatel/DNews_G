@@ -8,6 +8,7 @@ import React, { useRef, memo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import type { Article } from '../../types';
 import { ChevronLeft, ChevronRight, Flame, Star } from 'lucide-react';
+import { DualTimestamp } from '../common/DualTimestamp';
 
 interface ArticleCardItemProps {
   article: Article;
@@ -95,10 +96,10 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
         {article.title_english || article.title_original}
       </h4>
 
-      {/* Card Footer: Category Stamps */}
+      {/* Card Footer: Category Stamps & Dual Timestamp */}
       <div className="flex items-center justify-between pt-2 border-t border-paper-border/60">
-        <div className="flex gap-1 overflow-hidden">
-          {(article.categories || []).slice(0, 2).map((cat: string, i: number) => (
+        <div className="flex gap-1 overflow-hidden shrink-0">
+          {(article.categories || []).slice(0, 1).map((cat: string, i: number) => (
             <span
               key={i}
               className="font-ui text-[0.5625rem] uppercase font-semibold px-1.5 py-0.5 rounded-xs border border-paper-border bg-paper text-ink-secondary"
@@ -107,6 +108,13 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
             </span>
           ))}
         </div>
+        <DualTimestamp
+          layout="compact"
+          publishedAt={article.published_at}
+          ingestedAt={article.ingested_at || article.fetched_at}
+          isCatchup={Boolean(article.is_catchup)}
+          className="ml-auto truncate max-w-[170px]"
+        />
       </div>
     </div>
   );

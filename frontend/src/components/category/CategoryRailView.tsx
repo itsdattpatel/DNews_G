@@ -9,6 +9,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useArticles } from '../../hooks/useArticles';
 import { Badge } from '@/components/ui/badge';
 import { getBreakingScoreDots, formatArticleByline } from '../../utils/category';
+import { DualTimestamp } from '../common/DualTimestamp';
 import {
   Search,
   Flame,
@@ -323,15 +324,6 @@ export const CategoryRailView: React.FC = () => {
             const byline = formatArticleByline(article);
             const dots = getBreakingScoreDots(article.breaking_score ?? 0);
 
-            const timeStr = article.published_at
-              ? new Date(article.published_at).toLocaleDateString([], {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : 'Recent Wire';
-
             return (
               <article
                 key={article.id}
@@ -403,12 +395,18 @@ export const CategoryRailView: React.FC = () => {
                   )}
                 </div>
 
-                {/* Footer: Outlet · Country Byline & Time */}
+                {/* Footer: Outlet · Country Byline & Dual Timestamp */}
                 <div className="pt-3 border-t border-paper-border flex items-center justify-between text-ink-secondary text-[0.6875rem]">
-                  <span className="font-ui font-semibold truncate max-w-[170px]" title={byline}>
+                  <span className="font-ui font-semibold truncate max-w-[150px]" title={byline}>
                     {byline}
                   </span>
-                  <span className="font-mono text-ink-muted shrink-0">{timeStr}</span>
+                  <DualTimestamp
+                    layout="compact"
+                    publishedAt={article.published_at}
+                    ingestedAt={article.ingested_at || article.fetched_at}
+                    isCatchup={Boolean(article.is_catchup)}
+                    className="shrink-0"
+                  />
                 </div>
               </article>
             );

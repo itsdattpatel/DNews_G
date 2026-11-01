@@ -20,6 +20,7 @@ import {
   RotateCcw,
   Archive,
 } from 'lucide-react';
+import { DualTimestamp } from '../common/DualTimestamp';
 
 export const ArchiveChat: React.FC = () => {
   const { isArchiveChatOpen, setArchiveChatOpen, selectArticleById } = useAppStore();
@@ -391,17 +392,14 @@ export const ArchiveChat: React.FC = () => {
                               </p>
                             </div>
 
-                            {/* Card Footer */}
+                            {/* Card Footer: Dual Timestamp & Action */}
                             <div className="mt-3 pt-2 border-t border-paper-border/60 flex items-center justify-between text-[0.625rem] font-ui text-ink-muted">
-                              <span>
-                                {item.published_at
-                                  ? new Date(item.published_at).toLocaleDateString(undefined, {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric',
-                                    })
-                                  : 'Archival Dispatch'}
-                              </span>
+                              <DualTimestamp
+                                layout="compact"
+                                publishedAt={item.published_at}
+                                ingestedAt={(item as any).ingested_at || (item as any).fetched_at}
+                                isCatchup={Boolean((item as any).is_catchup)}
+                              />
                               <span className="font-bold text-accent group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
                                 <span>Inspect</span>
                                 <ArrowRight size={10} />

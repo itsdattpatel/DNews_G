@@ -15,6 +15,7 @@ import {
   getAlertBadgeStyle,
   type AlertFilterTab,
 } from '../../utils/alerts';
+import { formatExactLocal } from '../../utils/dateFormatter';
 import {
   Bell,
   Check,
@@ -306,8 +307,11 @@ export const AlertsCenter: React.FC = () => {
                         {badge.stampLabel}
                       </span>
 
-                      {/* Timestamp */}
-                      <span className="font-mono text-xs text-ink-muted shrink-0">
+                      {/* Timestamp with exact local hover */}
+                      <span
+                        className="font-mono text-xs text-ink-muted shrink-0 cursor-help"
+                        title={formatExactLocal(alert.fired_at)}
+                      >
                         {formatAlertTime(alert.fired_at)}
                       </span>
 

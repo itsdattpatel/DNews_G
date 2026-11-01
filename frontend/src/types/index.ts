@@ -64,6 +64,8 @@ export interface ArticleListItem {
   cluster_id: number | null;
   source: Pick<Source, 'id' | 'name' | 'country'>;
   published_at: string | null;
+  ingested_at?: string;
+  is_catchup?: boolean;
   fetched_at: string;
   delayed?: boolean;
 }
@@ -92,6 +94,8 @@ export interface Article {
   cluster_id: number | null;
   bookmarked: boolean;
   published_at: string | null;
+  ingested_at?: string;
+  is_catchup?: boolean;
   fetched_at: string;
   source: Source;
   categories: string[];

@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
+import { DualTimestamp } from '../common/DualTimestamp';
 
 export interface Point2D {
   x: number;
@@ -420,7 +421,16 @@ export const CompareCoverage: React.FC = () => {
                         </span>
                       </div>
 
-                      <Badge category={primaryCategory} className="text-[0.625rem] mb-2.5" />
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <Badge category={primaryCategory} className="text-[0.625rem]" />
+                        <DualTimestamp
+                          layout="compact"
+                          publishedAt={article.published_at}
+                          ingestedAt={(article as any).ingested_at || (article as any).fetched_at}
+                          isCatchup={Boolean((article as any).is_catchup)}
+                          className="text-[0.5625rem]"
+                        />
+                      </div>
 
                       {/* Headline: Playfair Serif */}
                       <h3 className="font-headline text-lg font-bold text-ink leading-snug tracking-tight mb-2.5 line-clamp-3">

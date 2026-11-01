@@ -6,6 +6,7 @@
 import React, { useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Radio } from 'lucide-react';
+import { DualTimestamp } from '../common/DualTimestamp';
 
 export const NewsTicker: React.FC = () => {
   const articles = useAppStore((s) => s.articles);
@@ -67,6 +68,14 @@ export const NewsTicker: React.FC = () => {
               <span className="font-headline text-xs font-semibold text-ink hover:underline">
                 {item.title_english}
               </span>
+              <DualTimestamp
+                layout="compact"
+                showIcon={false}
+                publishedAt={item.published_at}
+                ingestedAt={item.ingested_at || item.fetched_at}
+                isCatchup={Boolean(item.is_catchup)}
+                className="opacity-80"
+              />
               {item.breaking_score >= 75 && (
                 <span className="font-mono text-[0.5625rem] font-bold uppercase bg-accent/15 text-accent px-1.5 py-0.2 rounded-xs">
                   Urgent

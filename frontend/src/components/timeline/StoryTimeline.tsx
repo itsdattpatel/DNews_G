@@ -16,6 +16,7 @@ import {
   RefreshCw,
   History,
 } from 'lucide-react';
+import { DualTimestamp } from '../common/DualTimestamp';
 
 interface TimelineArticle {
   id: number;
@@ -23,6 +24,8 @@ interface TimelineArticle {
   title_english: string;
   summary: string;
   published_at: string | null;
+  ingested_at?: string | null;
+  is_catchup?: boolean;
   breaking_score: number;
   categories?: string[];
   source: {
@@ -294,16 +297,11 @@ export const StoryTimeline: React.FC = () => {
                           {activeArticle.source.name} · {activeArticle.source.country}
                         </span>
                         <span className="text-ink-muted">·</span>
-                        <span className="font-mono text-xs text-ink-secondary">
-                          {activeArticle.published_at
-                            ? new Date(activeArticle.published_at).toLocaleString([], {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                            : 'Wire Report'}
-                        </span>
+                        <DualTimestamp
+                          publishedAt={activeArticle.published_at}
+                          ingestedAt={activeArticle.ingested_at}
+                          isCatchup={Boolean(activeArticle.is_catchup)}
+                        />
                       </div>
 
                       <div className="flex items-center gap-2">

@@ -166,6 +166,26 @@ export const SettingsMenu: React.FC = () => {
             </div>
           </div>
 
+          {/* Timezone Configuration Indicator (Category 1 & 1B) */}
+          <div className="border-b border-paper-border pb-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block font-serif font-bold text-ink">System Timezone</label>
+                <p className="font-ui text-xs text-ink-secondary mt-0.5">
+                  All news dates and arrival times are localized to your machine's timezone
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="font-mono text-xs font-bold text-ink bg-paper-alt px-2 py-1 border border-paper-border rounded-xs">
+                  {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                </span>
+                <div className="font-mono text-[10px] text-ink-muted mt-1">
+                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Section 2: Wire Polling & Refresh Interval */}
           <div className="border-b border-paper-border pb-5">
             <div className="flex items-center justify-between mb-2">

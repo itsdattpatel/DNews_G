@@ -1,4 +1,4 @@
-﻿/**
+/**
  * backend/src/pipeline/dedup.ts
  * Deduplicates articles by URL and inserts new ones as pending.
  * Also seeds the sources table from config on startup.
@@ -41,9 +41,13 @@ export function syncSources(): void {
  * Insert articles that are not already in the DB (by URL).
  * Returns count of newly inserted articles.
  */
-export async function insertPendingArticles(articles: ArticleRaw[]): Promise<number> {
+export async function insertPendingArticles(
+  articles: ArticleRaw[],
+  isCatchup: boolean = false,
+): Promise<number> {
   if (articles.length === 0) return 0;
   const db = getDb();
+  const nowIso = new Date().toISOString(); // UTC ISO-8601 with trailing 'Z'
 
   const getSourceId = db.prepare<string, { id: number }>(
     'SELECT id FROM sources WHERE slug = ?',
@@ -51,9 +55,9 @@ export async function insertPendingArticles(articles: ArticleRaw[]): Promise<num
 
   const insertArticle = db.prepare(`
     INSERT OR IGNORE INTO articles
-      (source_id, url, title_original, body_original, published_at, status)
+      (source_id, url, title_original, body_original, published_at, ingested_at, is_catchup, status)
     VALUES
-      (@sourceId, @url, @titleOriginal, @bodyOriginal, @publishedAt, 'pending')
+      (@sourceId, @url, @titleOriginal, @bodyOriginal, @publishedAt, @ingestedAt, @isCatchup, 'pending')
   `);
 
   let inserted = 0;
@@ -68,6 +72,8 @@ export async function insertPendingArticles(articles: ArticleRaw[]): Promise<num
         titleOriginal: a.titleOriginal,
         bodyOriginal: a.bodyOriginal,
         publishedAt: a.publishedAt,
+        ingestedAt: nowIso,
+        isCatchup: isCatchup ? 1 : 0,
       });
       if (result.changes > 0) inserted++;
     }

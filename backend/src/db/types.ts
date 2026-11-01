@@ -45,6 +45,8 @@ export interface DbArticle {
   language_detected: string | null;
   published_at: string | null;
   fetched_at: string;
+  ingested_at?: string | null;
+  is_catchup?: number;
   ai_processed_at: string | null;
   status: ArticleStatus;
   breaking_score: number;

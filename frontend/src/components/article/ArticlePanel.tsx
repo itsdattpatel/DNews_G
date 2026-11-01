@@ -6,7 +6,8 @@
  */
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { ExternalLink, Globe2, Languages, Clock, BookOpen } from 'lucide-react';
+import { ExternalLink, Globe2, Languages, BookOpen } from 'lucide-react';
+import { DualTimestamp } from '../common/DualTimestamp';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
@@ -126,16 +127,6 @@ export const ArticlePanel: React.FC = () => {
 
   const title = showOriginal && article.title_original ? article.title_original : article.title_english;
 
-  const formattedDate = article.published_at
-    ? new Date(article.published_at).toLocaleString([], {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : 'Recent Wire Report';
-
   // Words count & reading time estimate
   const wordCount = rawBody ? rawBody.split(/\s+/).length : 0;
   const readTimeMin = Math.max(1, Math.ceil(wordCount / 220));
@@ -179,11 +170,12 @@ export const ArticlePanel: React.FC = () => {
 
           <span className="text-ink-muted text-xs">·</span>
 
-          {/* Timestamp */}
-          <span className="inline-flex items-center gap-1 font-mono text-[0.6875rem] text-ink-muted">
-            <Clock size={11} />
-            <span>{formattedDate}</span>
-          </span>
+          {/* Dual Timestamp (Category 1) */}
+          <DualTimestamp
+            publishedAt={article.published_at}
+            ingestedAt={article.ingested_at || article.fetched_at}
+            isCatchup={Boolean(article.is_catchup)}
+          />
 
           <span className="text-ink-muted text-xs">·</span>
 

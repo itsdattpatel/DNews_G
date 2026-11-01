@@ -5,6 +5,7 @@
  */
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { formatExactLocal } from '../../utils/dateFormatter';
 import './AlertBanner.css';
 
 export const AlertBanner: React.FC = () => {
@@ -67,7 +68,9 @@ export const AlertBanner: React.FC = () => {
                 <div className="alert-banner-text-wrap">
                   <p className="alert-banner-message">{alert.message}</p>
                   <div className="alert-banner-meta">
-                    <span>{alert.timestamp}</span>
+                    <span title={formatExactLocal(alert.timestamp)} className="cursor-help">
+                      {alert.timestamp}
+                    </span>
                     {alert.breaking_score !== undefined && (
                       <span>• Score: {alert.breaking_score}%</span>
                     )}

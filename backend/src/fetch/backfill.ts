@@ -88,7 +88,7 @@ export async function backfillMissedWindow(
 
     articlesFetched = allArticles.length;
     if (allArticles.length > 0) {
-      articlesInserted = await insertPendingArticles(allArticles);
+      articlesInserted = await insertPendingArticles(allArticles, true);
     }
     gdeltCoverage = true;
     coveredMinutes = effectiveMinutes;

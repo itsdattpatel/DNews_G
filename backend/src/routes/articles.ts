@@ -27,7 +27,7 @@ articlesRouter.get('/', (req: Request, res: Response) => {
     // Full-text search path
     query = `
       SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.anchor_phrases, a.breaking_score,
-             a.cluster_id, a.bookmarked, a.published_at, a.fetched_at,
+             a.cluster_id, a.bookmarked, a.published_at, a.ingested_at, a.is_catchup, a.fetched_at,
              s.id AS source_id, s.name AS source_name, s.country AS source_country,
              GROUP_CONCAT(DISTINCT ac.category) AS categories,
              GROUP_CONCAT(DISTINCT k.keyword) AS keywords
@@ -54,7 +54,7 @@ articlesRouter.get('/', (req: Request, res: Response) => {
   } else {
     query = `
       SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.anchor_phrases, a.breaking_score,
-             a.cluster_id, a.bookmarked, a.published_at, a.fetched_at,
+             a.cluster_id, a.bookmarked, a.published_at, a.ingested_at, a.is_catchup, a.fetched_at,
              s.id AS source_id, s.name AS source_name, s.country AS source_country,
              GROUP_CONCAT(DISTINCT ac.category) AS categories,
              GROUP_CONCAT(DISTINCT k.keyword) AS keywords
@@ -172,6 +172,7 @@ interface RawRow {
   body_english?: string | null; anchor_phrases?: string | null;
   breaking_score: number; cluster_id: number | null;
   bookmarked: number; published_at: string | null; fetched_at: string;
+  ingested_at?: string | null; is_catchup?: number | null;
   source_id: number; source_name: string; source_country: string;
   categories: string | null; keywords: string | null;
 }
@@ -197,6 +198,8 @@ function formatRow(row: RawRow) {
     cluster_id: row.cluster_id,
     bookmarked: row.bookmarked === 1,
     published_at: row.published_at,
+    ingested_at: row.ingested_at || row.fetched_at,
+    is_catchup: row.is_catchup === 1,
     fetched_at: row.fetched_at,
     source: { id: row.source_id, name: row.source_name, country: row.source_country },
     categories: row.categories ? row.categories.split(',') : [],
