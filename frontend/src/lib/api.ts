@@ -111,7 +111,8 @@ export const api = {
   // ─── Watchlist ────────────────────────────────────────────────────────────
   async getWatchlist(): Promise<WatchlistItem[]> {
     const res = await fetch('/api/watchlist');
-    return handleResponse<WatchlistItem[]>(res);
+    const data = await handleResponse<{ items: WatchlistItem[] } | WatchlistItem[]>(res);
+    return Array.isArray(data) ? data : data.items || [];
   },
 
   async createWatchlistItem(item: {

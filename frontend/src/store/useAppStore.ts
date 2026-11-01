@@ -88,6 +88,10 @@ interface AppState {
   setTvViewOpen: (open: boolean) => void;
   selectedTvChannelId: number | null;
   setSelectedTvChannelId: (id: number | null) => void;
+
+  // Watchlist Desk (Step 10)
+  isWatchlistOpen: boolean;
+  setWatchlistOpen: (open: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -437,6 +441,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSelectedTvChannelId: (id) => {
     playButtonSound(get().settings.sound_enabled);
     set({ selectedTvChannelId: id });
+  },
+
+  // Watchlist Desk (Step 10)
+  isWatchlistOpen: false,
+  setWatchlistOpen: (open) => {
+    playButtonSound(get().settings.sound_enabled);
+    set({ isWatchlistOpen: open });
   },
 }));
 

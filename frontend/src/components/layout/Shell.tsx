@@ -20,6 +20,7 @@ import { ArchiveChat } from '../chat/ArchiveChat';
 import { WorldMap } from '../map/WorldMap';
 import { MorningBriefing } from '../briefing/MorningBriefing';
 import { TVView } from '../tv/TVView';
+import { WatchlistDesk } from '../watchlist/WatchlistDesk';
 import { CategoryRailView } from '../category/CategoryRailView';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { useAppStore } from '../../store/useAppStore';
@@ -183,6 +184,10 @@ export const Shell: React.FC = () => {
 
       <ErrorBoundary panelName="Live Video Desk">
         <TVView />
+      </ErrorBoundary>
+
+      <ErrorBoundary panelName="Editorial Watchlist Desk">
+        <WatchlistDesk />
       </ErrorBoundary>
 
       {/* 7. Broadsheet Toast Notifications */}

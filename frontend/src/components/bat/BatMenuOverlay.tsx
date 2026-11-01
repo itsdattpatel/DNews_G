@@ -87,6 +87,9 @@ export const BatMenuOverlay: React.FC = () => {
     if (view === 'archive') {
       useAppStore.getState().setArchiveChatOpen(true);
     }
+    if (view === 'watchlist') {
+      useAppStore.getState().setWatchlistOpen(true);
+    }
     setCurrentView(view);
   };
 
