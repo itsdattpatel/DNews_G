@@ -72,6 +72,7 @@ export const Shell: React.FC = () => {
           break;
         case 't':
           e.preventDefault();
+          useAppStore.getState().setTvViewOpen(true);
           setCurrentView('tv');
           break;
         case '/':

@@ -625,3 +625,4 @@ export const WatchlistDesk: React.FC = () => {
 };
 
 export default WatchlistDesk;
+

@@ -1,14 +1,35 @@
 /**
  * frontend/src/components/tv/TVView.tsx
- * Live IPTV Channel Browser & HLS Video Player (Phase 11).
- * Features Animal & Discovery shelf, stream health probing, VLC fallback, and favorites.
+ * Screen (h): Live IPTV Television & Wildlife Stream Desk (Step 11).
+ * Broadsheet broadcast frame, HLS video player, 5-dot stream health indicators,
+ * Nature & Safari shelf, favorites persistence, VLC fallback links, and horizontal quick strip.
  */
 import React, { useState, useEffect, useRef } from 'react';
 import Hls from 'hls.js';
 import { useAppStore } from '../../store/useAppStore';
 import type { TvChannel } from '../../types';
-import { Tv, Heart, Activity, ExternalLink, Maximize, Search, ArrowLeft } from 'lucide-react';
-import './TVView.css';
+import {
+  calculateHealthRating,
+  renderHealthDots,
+  getVlcUrl,
+  filterChannels,
+  type TvShelf,
+} from '../../utils/tv';
+import {
+  Tv,
+  Heart,
+  Activity,
+  ExternalLink,
+  Maximize,
+  Search,
+  X,
+  Volume2,
+  VolumeX,
+  RotateCcw,
+  Compass,
+  Radio,
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 export const TVView: React.FC = () => {
   const isTvViewOpen = useAppStore((s) => s.isTvViewOpen);
@@ -17,27 +38,22 @@ export const TVView: React.FC = () => {
   const setSelectedTvChannelId = useAppStore((s) => s.setSelectedTvChannelId);
 
   const [channels, setChannels] = useState<TvChannel[]>([]);
-  const [activeShelf, setActiveShelf] = useState<'all' | 'animals' | 'favorites'>('all');
+  const [activeShelf, setActiveShelf] = useState<TvShelf>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [includeDead, setIncludeDead] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<TvChannel | null>(null);
   const [isProbing, setIsProbing] = useState(false);
   const [probeResult, setProbeResult] = useState<{ isAlive: boolean; latencyMs: number } | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
-  // Fetch channels list based on active filters
+  // Fetch channels list
   const fetchChannels = async () => {
     try {
-      const params = new URLSearchParams();
-      if (includeDead) params.set('include_dead', 'true');
-      if (activeShelf === 'animals') params.set('category', 'animals');
-      if (activeShelf === 'favorites') params.set('favorites_only', 'true');
-      if (searchQuery.trim()) params.set('q', searchQuery.trim());
-
-      const res = await fetch(`/api/tv/channels?${params.toString()}`);
+      const res = await fetch('/api/tv/channels?include_dead=true');
       if (res.ok) {
         const data = await res.json();
         const items: TvChannel[] = data.items || [];
@@ -59,7 +75,7 @@ export const TVView: React.FC = () => {
     if (isTvViewOpen) {
       fetchChannels();
     }
-  }, [isTvViewOpen, activeShelf, includeDead, searchQuery]);
+  }, [isTvViewOpen]);
 
   // Sync selectedChannel with store
   useEffect(() => {
@@ -97,7 +113,7 @@ export const TVView: React.FC = () => {
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         video.play().catch(() => {
-          // Auto-play was prevented by browser policy (user gesture required)
+          // Browser requires user interaction before autoplay
         });
       });
 
@@ -111,11 +127,10 @@ export const TVView: React.FC = () => {
 
       hlsRef.current = hls;
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native Apple Safari HLS playback
       video.src = streamUrl;
       video.play().catch(() => {});
     } else {
-      setStreamError('HLS playback is not supported by your browser engine.');
+      setStreamError('HLS playback is not supported in this browser engine.');
     }
 
     return () => {
@@ -126,7 +141,7 @@ export const TVView: React.FC = () => {
     };
   }, [selectedChannel, isTvViewOpen]);
 
-  // Keyboard navigation: Close on Escape
+  // Close on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isTvViewOpen) {
@@ -137,7 +152,7 @@ export const TVView: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isTvViewOpen, setTvViewOpen]);
 
-  // Toggle channel favorite status (P11-08)
+  // Toggle channel favorite
   const handleToggleFavorite = async (e: React.MouseEvent, channel: TvChannel) => {
     e.stopPropagation();
     try {
@@ -155,13 +170,18 @@ export const TVView: React.FC = () => {
         if (selectedChannel?.id === channel.id) {
           setSelectedChannel((prev) => (prev ? { ...prev, is_favorite: nextFav } : null));
         }
+        toast.success(
+          nextFav
+            ? `Added ${channel.name} to Favorites`
+            : `Removed ${channel.name} from Favorites`,
+        );
       }
     } catch (err) {
       console.error('Failed to toggle favorite channel:', err);
     }
   };
 
-  // Perform live stream health check (P11-04)
+  // Perform live stream health probe
   const handleHealthProbe = async () => {
     if (!selectedChannel || isProbing) return;
     setIsProbing(true);
@@ -172,11 +192,15 @@ export const TVView: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setProbeResult({ isAlive: data.is_alive, latencyMs: data.latency_ms });
-        // Update in channels list
         setChannels((prev) =>
           prev.map((c) => (c.id === selectedChannel.id ? { ...c, is_alive: data.is_alive } : c)),
         );
         setSelectedChannel((prev) => (prev ? { ...prev, is_alive: data.is_alive } : null));
+        if (data.is_alive) {
+          toast.success(`Signal online: ${data.latency_ms}ms latency`);
+        } else {
+          toast.error('Stream unreachable');
+        }
       }
     } catch (err) {
       console.error('Health probe failed:', err);
@@ -185,7 +209,7 @@ export const TVView: React.FC = () => {
     }
   };
 
-  // Fullscreen video toggle
+  // Toggle fullscreen
   const handleFullscreen = () => {
     if (videoRef.current) {
       if (document.fullscreenElement) {
@@ -196,169 +220,144 @@ export const TVView: React.FC = () => {
     }
   };
 
+  // Toggle audio mute
+  const handleToggleMute = () => {
+    if (videoRef.current) {
+      const nextMuted = !videoRef.current.muted;
+      videoRef.current.muted = nextMuted;
+      setIsMuted(nextMuted);
+    }
+  };
+
   if (!isTvViewOpen) return null;
+
+  const filteredChannels = filterChannels(channels, activeShelf, searchQuery, includeDead);
+  const healthScore = selectedChannel
+    ? calculateHealthRating(selectedChannel.is_alive, probeResult?.latencyMs)
+    : 0;
 
   return (
     <div
-      className="tv-view-backdrop"
+      id="tv-view-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="tv-view-heading"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 lg:p-7 bg-ink/80 backdrop-blur-xs select-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) setTvViewOpen(false);
       }}
     >
-      <div className="tv-view-modal">
-        {/* Header */}
-        <header className="tv-view-header">
-          <div className="tv-view-header-left">
-            <h2 id="tv-view-heading" className="tv-view-title">
-              <Tv size={22} color="var(--accent-primary)" />
-              <span>International Wire Television &amp; Live Feeds</span>
+      <div
+        className="w-full max-w-6xl h-[90vh] bg-paper text-ink border-2 border-ink rounded-xs shadow-overlay flex flex-col overflow-hidden relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 1. Broadsheet Masthead Header */}
+        <header className="p-4 sm:p-5 border-b-2 border-ink bg-paper-alt flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+          <div className="space-y-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-ui text-[0.6875rem] font-bold uppercase tracking-widest text-ink-secondary">
+                Live Broadcast Wire &amp; Telecasts · Vol. XCII No. 41
+              </span>
+              <span className="text-ink-muted text-xs">/</span>
+              <span className="font-mono text-xs font-bold text-accent">
+                {channels.filter((c) => c.is_alive).length} Live Signals Available
+              </span>
+            </div>
+
+            <h2
+              id="tv-view-heading"
+              className="font-headline text-xl sm:text-2xl font-bold tracking-tight text-ink flex items-center gap-2"
+            >
+              <Tv size={22} className="text-accent" />
+              <span>International Television &amp; Nature Wire</span>
             </h2>
-            <div className="tv-view-subtitle">
-              IPTV broadcast streams &bull; Wildlife safaris &bull; Documentary telecasts
+
+            <div className="font-ui text-xs text-ink-secondary">
+              IPTV broadcast streams · Nature documentary &amp; wildlife tracking · HLS live feed
             </div>
           </div>
 
-          <button
-            id="btn-close-tv-view"
-            className="tv-view-close-btn"
-            onClick={() => setTvViewOpen(false)}
-            aria-label="Back to News Desk"
-          >
-            <ArrowLeft size={16} />
-            <span>Back to News Desk</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              id="btn-close-tv-view"
+              type="button"
+              onClick={() => setTvViewOpen(false)}
+              className="p-1.5 border border-paper-border hover:border-ink bg-paper hover:bg-ink hover:text-paper rounded-xs transition-colors shrink-0"
+              title="Close TV Desk (Esc)"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </header>
 
-        {/* Main Body */}
-        <div className="tv-view-main">
-          {/* Sidebar Channels List */}
-          <aside className="tv-view-sidebar">
-            <div className="tv-sidebar-controls">
-              {/* Search input */}
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Search size={14} color="#64748b" style={{ position: 'absolute', left: '10px' }} />
-                <input
-                  type="text"
-                  className="tv-search-input"
-                  style={{ paddingLeft: '32px' }}
-                  placeholder="Filter channels &amp; streams..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-
-              {/* Shelf Tabs (P11-07, P11-08) */}
-              <div className="tv-shelves-row">
-                <button
-                  className={`tv-shelf-btn ${activeShelf === 'all' ? 'active' : ''}`}
-                  onClick={() => setActiveShelf('all')}
-                >
-                  All Feeds
-                </button>
-                <button
-                  className={`tv-shelf-btn animal ${activeShelf === 'animals' ? 'active' : ''}`}
-                  onClick={() => setActiveShelf('animals')}
-                  title="Animal & Discovery Safari Shelf"
-                >
-                  🦁 Animal &amp; Safari
-                </button>
-                <button
-                  className={`tv-shelf-btn ${activeShelf === 'favorites' ? 'active' : ''}`}
-                  onClick={() => setActiveShelf('favorites')}
-                >
-                  ♥ Favorites
-                </button>
-              </div>
-
-              {/* Show Dead Streams Toggle (P11-10) */}
-              <label className="tv-dead-toggle-label">
-                <input
-                  type="checkbox"
-                  checked={includeDead}
-                  onChange={(e) => setIncludeDead(e.target.checked)}
-                />
-                <span>Show offline streams</span>
-              </label>
-            </div>
-
-            {/* Channels Scroll List */}
-            <div className="tv-channels-list">
-              {channels.length === 0 ? (
-                <div style={{ padding: '24px 16px', textAlign: 'center', color: '#64748b', fontSize: '0.78rem' }}>
-                  No channels found matching the filter criteria.
-                </div>
-              ) : (
-                channels.map((ch) => {
-                  const isSelected = selectedChannel?.id === ch.id;
-                  return (
-                    <div
-                      key={ch.id}
-                      className={`tv-channel-item ${isSelected ? 'selected' : ''} ${!ch.is_alive ? 'dead' : ''}`}
-                      onClick={() => {
-                        setSelectedChannel(ch);
-                        setSelectedTvChannelId(ch.id);
-                      }}
-                    >
-                      <div className="tv-channel-left">
-                        <span className={`tv-channel-status-dot ${ch.is_alive ? 'alive' : 'dead'}`} />
-                        <div className="tv-channel-info">
-                          <span className="tv-channel-name">{ch.name}</span>
-                          <div className="tv-channel-meta">
-                            <span>{ch.country || 'Global'}</span>
-                            <span>&bull;</span>
-                            <span style={{ textTransform: 'capitalize' }}>{ch.category || 'General'}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        className={`tv-channel-fav-btn ${ch.is_favorite ? 'is-fav' : ''}`}
-                        onClick={(e) => handleToggleFavorite(e, ch)}
-                        title={ch.is_favorite ? 'Remove Favorite' : 'Save to Favorites'}
-                      >
-                        <Heart size={14} fill={ch.is_favorite ? '#ef4444' : 'none'} />
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </aside>
-
-          {/* Video Player Right Pane (P11-06) */}
-          <main className="tv-view-player-pane">
-            <div className="tv-player-wrapper">
+        {/* 2. Main Content Split View */}
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-paper">
+          {/* Left Column: Video Broadcast Frame (65%) */}
+          <main className="flex-1 flex flex-col p-4 sm:p-5 overflow-y-auto border-b lg:border-b-0 lg:border-r-2 border-ink">
+            {/* Broadsheet Video Monitor */}
+            <div className="w-full aspect-video bg-black border-2 border-ink rounded-xs overflow-hidden relative shadow-md flex items-center justify-center">
               <video
                 ref={videoRef}
-                className="tv-video-element"
-                controls
+                className="w-full h-full object-contain"
                 playsInline
-                muted={false}
+                autoPlay
+                muted={isMuted}
               />
+
+              {/* Top Monitor Header Overlay */}
+              {selectedChannel && (
+                <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between pointer-events-none text-white">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        selectedChannel.is_alive ? 'bg-positive animate-pulse' : 'bg-accent'
+                      }`}
+                    />
+                    <span className="font-mono text-xs font-bold uppercase tracking-wider">
+                      [LIVE] {selectedChannel.name}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[0.6875rem] text-zinc-300">
+                    {selectedChannel.country || 'Global'} · {selectedChannel.category || 'General'}
+                  </span>
+                </div>
+              )}
 
               {/* Stream Error / Offline Overlay */}
               {(streamError || (selectedChannel && !selectedChannel.is_alive)) && (
-                <div className="tv-player-offline-state" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.85)' }}>
-                  <Tv size={42} color="#ef4444" />
-                  <div className="tv-empty-title">Stream Feed Offline or Restricted</div>
-                  <div className="tv-empty-desc">
-                    {streamError || 'The selected IPTV broadcast is currently unreachable or timed out during signal acquisition.'}
+                <div
+                  id="tv-stream-offline-overlay"
+                  className="absolute inset-0 bg-paper/95 text-ink flex flex-col items-center justify-center p-6 text-center space-y-3 border-2 border-ink"
+                >
+                  <div className="p-3 border-2 border-accent bg-accent/10 rounded-xs">
+                    <Radio size={32} className="text-accent" />
                   </div>
-                  <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-                    <button className="tv-action-btn" onClick={handleHealthProbe}>
-                      Probe Signal Again
+                  <div className="space-y-1">
+                    <h3 className="font-headline text-lg font-bold text-accent">
+                      Stream Signal Offline or Restricted
+                    </h3>
+                    <p className="font-body text-xs text-ink-secondary max-w-sm">
+                      {streamError ||
+                        'The selected IPTV broadcast is currently unreachable or timed out during signal acquisition.'}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleHealthProbe}
+                      className="px-3.5 py-1.5 border border-ink bg-paper text-ink font-ui font-bold text-xs uppercase tracking-wider rounded-xs hover:bg-ink hover:text-paper inline-flex items-center gap-1.5 transition-colors"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Probe Signal</span>
                     </button>
                     {selectedChannel && (
                       <a
-                        className="tv-action-btn vlc"
-                        href={`vlc://${selectedChannel.stream_url}`}
-                        title="Open Stream in VLC Media Player"
+                        href={getVlcUrl(selectedChannel.stream_url)}
+                        className="px-3.5 py-1.5 border border-accent bg-accent text-paper font-ui font-bold text-xs uppercase tracking-wider rounded-xs hover:bg-accent/90 inline-flex items-center gap-1.5 transition-colors"
                       >
-                        <ExternalLink size={13} />
-                        <span>Open in External VLC</span>
+                        <ExternalLink size={12} />
+                        <span>Open in VLC</span>
                       </a>
                     )}
                   </div>
@@ -366,62 +365,268 @@ export const TVView: React.FC = () => {
               )}
             </div>
 
-            {/* Video Controls & Metadata Bar */}
+            {/* Video Controls & Stream Health Bar */}
             {selectedChannel && (
-              <footer className="tv-player-controls-bar">
-                <div className="tv-player-channel-meta">
-                  <span className={`tv-channel-status-dot ${selectedChannel.is_alive ? 'alive' : 'dead'}`} />
-                  <div>
-                    <h3 className="tv-player-channel-title">{selectedChannel.name}</h3>
-                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'flex', gap: '8px' }}>
-                      <span>{selectedChannel.country || 'International'}</span>
-                      <span>&bull;</span>
-                      <span style={{ textTransform: 'capitalize' }}>{selectedChannel.category || 'Wire Live'}</span>
-                      {probeResult && (
-                        <span>
-                          &bull; Latency: <strong style={{ color: probeResult.isAlive ? '#22c55e' : '#ef4444' }}>{probeResult.latencyMs}ms</strong>
-                        </span>
-                      )}
-                    </div>
+              <div className="mt-4 p-3.5 border-2 border-ink bg-paper-alt rounded-xs flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-headline text-base font-bold text-ink">
+                      {selectedChannel.name}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={(e) => handleToggleFavorite(e, selectedChannel)}
+                      className="text-accent hover:scale-110 transition-transform"
+                      title={
+                        selectedChannel.is_favorite ? 'Remove Favorite' : 'Save to Favorites'
+                      }
+                    >
+                      <Heart
+                        size={15}
+                        fill={selectedChannel.is_favorite ? 'currentColor' : 'none'}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5 font-mono text-[0.6875rem] text-ink-secondary">
+                    <span>
+                      Stream Health: <strong>{renderHealthDots(healthScore)}</strong>
+                    </span>
+                    {probeResult && (
+                      <span className="text-positive font-bold">
+                        · Latency: {probeResult.latencyMs}ms
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="tv-player-actions">
-                  {/* Health Check Probe (P11-04) */}
+                <div className="flex items-center gap-2">
+                  {/* Audio Mute Toggle */}
                   <button
-                    className="tv-action-btn"
+                    type="button"
+                    onClick={handleToggleMute}
+                    className="p-1.5 border border-paper-border hover:border-ink bg-paper rounded-xs text-ink transition-colors"
+                    title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+                  >
+                    {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                  </button>
+
+                  {/* Probe Health */}
+                  <button
+                    type="button"
                     onClick={handleHealthProbe}
                     disabled={isProbing}
-                    title="Probe Live Signal Latency"
+                    className="px-2.5 py-1 border border-paper-border hover:border-ink bg-paper text-ink font-ui font-semibold text-xs rounded-xs inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                   >
-                    <Activity size={13} />
-                    <span>{isProbing ? 'Probing...' : 'Probe Signal'}</span>
+                    <Activity size={12} className={isProbing ? 'animate-spin' : ''} />
+                    <span>{isProbing ? 'Probing...' : 'Probe'}</span>
                   </button>
 
-                  {/* Open in VLC Fallback (P11-09) */}
+                  {/* VLC Protocol Link */}
                   <a
-                    className="tv-action-btn vlc"
-                    href={`vlc://${selectedChannel.stream_url}`}
+                    href={getVlcUrl(selectedChannel.stream_url)}
+                    className="px-2.5 py-1 border border-paper-border hover:border-ink bg-paper text-ink font-ui font-semibold text-xs rounded-xs inline-flex items-center gap-1.5 transition-colors"
                     title="Open Stream in Desktop VLC Media Player"
                   >
-                    <ExternalLink size={13} />
-                    <span>Open in VLC</span>
+                    <ExternalLink size={12} />
+                    <span>VLC</span>
                   </a>
 
-                  {/* Fullscreen Button */}
+                  {/* Fullscreen */}
                   <button
-                    className="tv-action-btn"
+                    type="button"
                     onClick={handleFullscreen}
-                    title="Fullscreen Player"
+                    className="p-1.5 border border-paper-border hover:border-ink bg-paper rounded-xs text-ink transition-colors"
+                    title="Fullscreen"
                   >
-                    <Maximize size={13} />
+                    <Maximize size={15} />
                   </button>
                 </div>
-              </footer>
+              </div>
             )}
+
+            {/* Quick Channel Scroll Strip (PRD §Screen h) */}
+            <div className="mt-4 pt-3 border-t border-paper-border">
+              <div className="font-ui text-[0.625rem] uppercase font-bold text-ink-muted mb-2 flex items-center gap-1.5">
+                <Compass size={11} />
+                <span>Quick Broadcast Switcher:</span>
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {channels.slice(0, 10).map((ch) => (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedChannel(ch);
+                      setSelectedTvChannelId(ch.id);
+                    }}
+                    className={`font-mono text-xs px-2.5 py-1 border rounded-xs whitespace-nowrap transition-colors ${
+                      selectedChannel?.id === ch.id
+                        ? 'border-ink bg-paper-alt font-bold text-ink shadow-2xs'
+                        : 'border-paper-border bg-paper text-ink-secondary hover:border-ink'
+                    }`}
+                  >
+                    {ch.name.split(' ')[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
           </main>
+
+          {/* Right Column: Channels Shelf & Directory (35%) */}
+          <aside className="w-full lg:w-80 flex flex-col bg-paper-alt shrink-0 overflow-hidden">
+            {/* Shelf Filter Tabs */}
+            <div className="p-3 border-b border-paper-border space-y-2.5 bg-paper">
+              {/* Search */}
+              <div className="relative">
+                <Search
+                  size={13}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-muted"
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter channels..."
+                  className="w-full pl-8 pr-2.5 py-1.5 bg-paper-alt border border-paper-border focus:border-ink rounded-xs font-ui text-xs text-ink placeholder:text-ink-muted focus:outline-none"
+                />
+              </div>
+
+              {/* Tabs */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveShelf('all')}
+                  className={`flex-1 py-1 text-center font-ui text-xs font-bold uppercase tracking-wider rounded-xs border transition-colors ${
+                    activeShelf === 'all'
+                      ? 'border-ink bg-paper text-ink shadow-2xs'
+                      : 'border-transparent text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  All Feeds
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveShelf('animals')}
+                  className={`flex-1 py-1 text-center font-ui text-xs font-bold uppercase tracking-wider rounded-xs border transition-colors ${
+                    activeShelf === 'animals'
+                      ? 'border-ink bg-paper text-ink shadow-2xs'
+                      : 'border-transparent text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  Nature &amp; Safari
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveShelf('favorites')}
+                  className={`flex-1 py-1 text-center font-ui text-xs font-bold uppercase tracking-wider rounded-xs border transition-colors ${
+                    activeShelf === 'favorites'
+                      ? 'border-ink bg-paper text-ink shadow-2xs'
+                      : 'border-transparent text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  Favorites
+                </button>
+              </div>
+
+              {/* Include Dead Streams */}
+              <label className="flex items-center gap-1.5 text-[0.6875rem] font-ui text-ink-secondary cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeDead}
+                  onChange={(e) => setIncludeDead(e.target.checked)}
+                  className="w-3 h-3 accent-ink cursor-pointer"
+                />
+                <span>Show unavailable streams</span>
+              </label>
+            </div>
+
+            {/* Channels Scroll List */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+              {filteredChannels.length === 0 ? (
+                <div className="p-8 text-center space-y-2">
+                  <Tv size={28} className="text-ink-muted mx-auto" />
+                  <div className="font-headline text-sm font-bold text-ink">
+                    No Channels Available
+                  </div>
+                  <div className="font-body text-xs text-ink-secondary">
+                    No broadcast feeds found for the selected shelf filter.
+                  </div>
+                </div>
+              ) : (
+                filteredChannels.map((ch) => {
+                  const isSelected = selectedChannel?.id === ch.id;
+                  const itemHealth = calculateHealthRating(ch.is_alive);
+
+                  return (
+                    <div
+                      key={ch.id}
+                      onClick={() => {
+                        setSelectedChannel(ch);
+                        setSelectedTvChannelId(ch.id);
+                      }}
+                      className={`p-3 border rounded-xs transition-all flex items-center justify-between gap-2.5 cursor-pointer shadow-2xs ${
+                        isSelected
+                          ? 'border-ink bg-paper font-semibold shadow-xs'
+                          : ch.is_alive
+                            ? 'border-paper-border hover:border-ink bg-paper hover:bg-paper-alt'
+                            : 'border-paper-border/60 bg-paper-alt/40 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {/* Status Dot */}
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            ch.is_alive ? 'bg-positive' : 'bg-ink-muted/50'
+                          }`}
+                        />
+
+                        <div className="min-w-0 space-y-0.5">
+                          <h4 className="font-headline text-xs font-bold text-ink truncate leading-tight">
+                            {ch.name}
+                          </h4>
+                          <div className="flex items-center gap-2 font-mono text-[0.625rem] text-ink-muted">
+                            <span>{ch.country || 'Global'}</span>
+                            <span>·</span>
+                            <span>{ch.category || 'General'}</span>
+                            <span>·</span>
+                            <span>{renderHealthDots(itemHealth)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleFavorite(e, ch)}
+                        className="text-accent hover:scale-110 transition-transform p-1 shrink-0"
+                        title={ch.is_favorite ? 'Remove Favorite' : 'Save to Favorites'}
+                      >
+                        <Heart
+                          size={13}
+                          fill={ch.is_favorite ? 'currentColor' : 'none'}
+                        />
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </aside>
         </div>
+
+        {/* 3. Footer Status Bar */}
+        <footer className="p-3 border-t-2 border-ink bg-paper-alt flex flex-wrap items-center justify-between gap-3 text-xs font-ui text-ink-secondary shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="font-bold uppercase tracking-wider text-[0.6875rem]">IPTV Engine:</span>
+            <span>HLS.js v1.5+ · M3U8 Stream Parsing · Desktop VLC Fallback</span>
+          </div>
+          <span className="font-mono text-[0.625rem] text-ink-muted">
+            Press ESC to return to desk
+          </span>
+        </footer>
       </div>
     </div>
   );
 };
+
+export default TVView;

@@ -99,3 +99,4 @@ export const WATCHLIST_PRESETS = [
     priority: 'low' as const,
   },
 ];
+
