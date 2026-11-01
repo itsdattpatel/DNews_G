@@ -1,15 +1,28 @@
 /**
  * frontend/src/components/chat/ArchiveChat.tsx
- * Historical Archive Search and AI Synthesis Desk (P8-03, P8-05).
- * Features FTS5 queries, AI answer synthesis with citations, and active ArchiveSpider.
+ * Screen (f): Investigative Morgue & Historical FTS5 Search Desk (Step 9).
+ * Broadsheet newspaper styling, FTS5 full-text queries, AI synthesis with interactive citations,
+ * instant query chips, procedural archive spider canvas, and full empty/loading/error states.
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import type { SearchResponse, SearchResultItem } from '../../types';
-import './ArchiveChat.css';
+import {
+  parseCitations,
+  formatRelevanceScore,
+  ARCHIVE_SUGGESTION_CHIPS,
+} from '../../utils/archive';
+import {
+  X,
+  Search,
+  Sparkles,
+  ArrowRight,
+  RotateCcw,
+  Archive,
+} from 'lucide-react';
 
 export const ArchiveChat: React.FC = () => {
-  const { isArchiveChatOpen, setArchiveChatOpen, selectArticleById } = useAppStore();
+  const { isArchiveChatOpen, setArchiveChatOpen, selectArticleById, theme } = useAppStore();
   const [query, setQuery] = useState('');
   const [useAi, setUseAi] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -20,6 +33,76 @@ export const ArchiveChat: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const citationRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Procedural Slow Walking Archive Spider (dim, slow, analytical)
+  useEffect(() => {
+    if (!isArchiveChatOpen || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId: number;
+    let t = 0;
+
+    const render = () => {
+      t += 0.015; // Slow, contemplative crawl
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const isNight = theme === 'night';
+      const legColor = isNight ? 'rgba(232, 228, 218, 0.12)' : 'rgba(26, 18, 8, 0.09)';
+      const bodyColor = isNight ? 'rgba(232, 228, 218, 0.18)' : 'rgba(26, 18, 8, 0.14)';
+
+      // Centered or trailing archive spider in top-right folio margin
+      const cx = canvas.width - 90;
+      const cy = 70 + Math.sin(t * 0.5) * 8;
+
+      // Spider silk thread descending from masthead
+      ctx.strokeStyle = isNight ? 'rgba(232, 228, 218, 0.08)' : 'rgba(26, 18, 8, 0.06)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(cx, 0);
+      ctx.lineTo(cx, cy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 8 Slow 2-joint archival legs
+      for (let i = 0; i < 8; i++) {
+        const side = i < 4 ? -1 : 1;
+        const legIdx = i % 4;
+        const phase = t + legIdx * 0.7 + (side === 1 ? Math.PI : 0);
+
+        const hipX = cx + side * 6;
+        const hipY = cy - 4 + legIdx * 3;
+        const kneeX = hipX + side * (16 + Math.cos(phase) * 4);
+        const kneeY = hipY - 8 + Math.sin(phase) * 4;
+        const footX = hipX + side * (28 + Math.cos(phase) * 6);
+        const footY = hipY + 8 + Math.sin(phase) * 5;
+
+        ctx.strokeStyle = legColor;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(hipX, hipY);
+        ctx.lineTo(kneeX, kneeY);
+        ctx.lineTo(footX, footY);
+        ctx.stroke();
+      }
+
+      // Small spider abdomen & cephalothorax
+      ctx.fillStyle = bodyColor;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 4, 5, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy - 3, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      animId = requestAnimationFrame(render);
+    };
+
+    render();
+    return () => cancelAnimationFrame(animId);
+  }, [isArchiveChatOpen, theme]);
 
   // Adjust canvas size to body dimensions
   const updateCanvasBounds = useCallback(() => {
@@ -37,7 +120,7 @@ export const ArchiveChat: React.FC = () => {
     }
   }, [isArchiveChatOpen, updateCanvasBounds]);
 
-  // Keyboard navigation: Close on Escape
+  // Close on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isArchiveChatOpen) {
@@ -49,10 +132,13 @@ export const ArchiveChat: React.FC = () => {
   }, [isArchiveChatOpen, setArchiveChatOpen]);
 
   // Execute archive search
-  const handleSearch = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmed = query.trim();
-    if (!trimmed || isLoading) return;
+  const handleSearch = async (overrideQuery?: string) => {
+    const targetQuery = (overrideQuery ?? query).trim();
+    if (!targetQuery || isLoading) return;
+
+    if (overrideQuery) {
+      setQuery(overrideQuery);
+    }
 
     setIsLoading(true);
     setError(null);
@@ -63,7 +149,7 @@ export const ArchiveChat: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: trimmed,
+          query: targetQuery,
           use_ai: useAi,
           limit: 15,
         }),
@@ -71,7 +157,7 @@ export const ArchiveChat: React.FC = () => {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Search failed with status ${res.status}`);
+        throw new Error(errData.error || `Search query failed with status ${res.status}`);
       }
 
       const data: SearchResponse = await res.json();
@@ -93,248 +179,355 @@ export const ArchiveChat: React.FC = () => {
     setArchiveChatOpen(false);
   };
 
-  // Render synthesized text with interactive bracket citations e.g. [1]
-  const renderAiAnswer = (answer: string) => {
-    const parts = answer.split(/(\[\d+\])/g);
-    return parts.map((part, idx) => {
-      const match = part.match(/\[(\d+)\]/);
-      if (match) {
-        const citationNum = parseInt(match[1]!, 10);
-        return (
-          <button
-            key={idx}
-            type="button"
-            className="archive-citation-index"
-            style={{
-              cursor: 'pointer',
-              border: 'none',
-              marginLeft: '2px',
-              marginRight: '2px',
-              verticalAlign: 'baseline',
-            }}
-            onClick={() => {
-              setHighlightedIndex(citationNum);
-              const card = citationRefs.current[citationNum - 1];
-              if (card) {
-                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }}
-            title={`Highlight source dispatch #${citationNum}`}
-          >
-            [{citationNum}]
-          </button>
-        );
-      }
-      return <span key={idx}>{part}</span>;
-    });
-  };
-
   if (!isArchiveChatOpen) return null;
 
   return (
     <div
-      className="archive-chat-backdrop"
+      id="archive-chat-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="archive-chat-heading"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 lg:p-7 bg-ink/75 backdrop-blur-xs select-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) setArchiveChatOpen(false);
       }}
     >
-      <div className="archive-chat-modal">
-        {/* Header */}
-        <header className="archive-chat-header">
-          <div className="archive-chat-header-main">
-            <svg
-              className="archive-chat-icon"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+      <div
+        className="w-full max-w-5xl h-[88vh] bg-paper text-ink border-2 border-ink rounded-xs shadow-overlay flex flex-col overflow-hidden relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 1. Broadsheet Masthead Header */}
+        <header className="p-4 sm:p-5 border-b-2 border-ink bg-paper-alt flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+          <div className="space-y-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-ui text-[0.6875rem] font-bold uppercase tracking-widest text-ink-secondary">
+                Investigative Morgue & Archival Record · Vol. XCII No. 41
+              </span>
+              <span className="text-ink-muted text-xs">/</span>
+              <span className="font-mono text-xs font-bold text-accent">
+                Spider Mode: Archive (Analytical & Slow)
+              </span>
+            </div>
+
+            <h2
+              id="archive-chat-heading"
+              className="font-headline text-xl sm:text-2xl font-bold tracking-tight text-ink"
             >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <div>
-              <h2 id="archive-chat-heading" className="archive-chat-title">
-                Investigative Archive Intelligence
-              </h2>
-              <div className="archive-chat-sub">
-                Historical FTS5 full-text indexing &amp; synthesized journalistic citations
-              </div>
+              The Archival News Morgue
+            </h2>
+
+            <div className="font-ui text-xs text-ink-secondary">
+              FTS5 full-text indexing &amp; synthesized journalistic citations over stored dispatches
             </div>
           </div>
-          <button
-            className="archive-chat-close-btn"
-            onClick={() => setArchiveChatOpen(false)}
-            aria-label="Close Archive Search"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </header>
 
-        {/* Body */}
-        <div className="archive-chat-body" ref={bodyRef}>
-          <canvas ref={canvasRef} className="archive-spider-canvas" />
-
-          {/* Error State */}
-          {error && (
-            <div className="archive-error-state" role="alert">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <div className="archive-state-title">Archive Query Error</div>
-              <div className="archive-state-desc">{error}</div>
-            </div>
-          )}
-
-          {/* Loading State */}
-          {isLoading && (
-            <div className="archive-loading-state" role="status">
-              <div className="archive-loading-spinner" />
-              <div className="archive-state-title">Scouring Historical Dispatches...</div>
-              <div className="archive-state-desc">
-                Consulting FTS5 database indices and coordinating AI synthesis across fallback providers.
-              </div>
-            </div>
-          )}
-
-          {/* Initial Empty State */}
-          {!isLoading && !error && !searchResponse && (
-            <div className="archive-empty-state">
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-              </svg>
-              <div className="archive-state-title">The Morgue is Ready</div>
-              <div className="archive-state-desc">
-                Enter an investigative topic (e.g., &quot;nuclear safety&quot;, &quot;wildlife trafficking&quot;, &quot;monsoon&quot;) to query historical records and generate cited answers.
-              </div>
-            </div>
-          )}
-
-          {/* Results View */}
-          {!isLoading && !error && searchResponse && (
-            <>
-              {/* AI Answer Synthesis Card */}
-              {searchResponse.ai_answer && (
-                <div className="archive-ai-answer-card">
-                  <div className="archive-ai-answer-header">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                    </svg>
-                    Synthesized Investigative Briefing
-                  </div>
-                  <p className="archive-ai-answer-text">
-                    {renderAiAnswer(searchResponse.ai_answer)}
-                  </p>
-                </div>
-              )}
-
-              {/* Citations List */}
-              <div className="archive-citations-section">
-                <div className="archive-citations-title">
-                  Dispatches Retrieved ({searchResponse.results.length})
-                </div>
-
-                {searchResponse.results.length === 0 ? (
-                  <div className="archive-empty-state">
-                    <div className="archive-state-title">No Matching Records Found</div>
-                    <div className="archive-state-desc">
-                      Try broader keywords or verify terms in the inquiry.
-                    </div>
-                  </div>
-                ) : (
-                  <div className="archive-citations-list">
-                    {searchResponse.results.map((item: SearchResultItem, index: number) => {
-                      const citationIndex = index + 1;
-                      const isHighlighted = highlightedIndex === citationIndex;
-
-                      return (
-                        <div
-                          key={item.id}
-                          ref={(el) => {
-                            citationRefs.current[index] = el;
-                          }}
-                          className={`archive-citation-item ${isHighlighted ? 'highlighted' : ''}`}
-                          style={
-                            isHighlighted
-                              ? { borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.12)' }
-                              : undefined
-                          }
-                          onClick={() => handleSelectArticle(item.id)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSelectArticle(item.id);
-                          }}
-                        >
-                          <div className="archive-citation-header">
-                            <span className="archive-citation-index">[{citationIndex}]</span>
-                            <span>
-                              {item.source_name} ({item.source_country}) &bull;{' '}
-                              {item.published_at ? new Date(item.published_at).toLocaleDateString() : 'Historical'}
-                            </span>
-                          </div>
-                          <h4 className="archive-citation-headline">{item.title_english}</h4>
-                          <p className="archive-citation-summary">{item.summary}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Footer & Search Input */}
-        <footer className="archive-chat-footer">
-          <form className="archive-input-row" onSubmit={handleSearch}>
-            <input
-              type="text"
-              className="archive-chat-input"
-              placeholder="Search news morgue &amp; query historical reporting..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              disabled={isLoading}
-              autoFocus
-            />
-            <button
-              type="submit"
-              className="archive-chat-btn-search"
-              disabled={isLoading || !query.trim()}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <span>{isLoading ? 'Querying...' : 'Query Morgue'}</span>
-            </button>
-          </form>
-
-          <div className="archive-chat-options">
-            <label className="archive-toggle-label">
+          <div className="flex items-center gap-3">
+            {/* AI Synthesis Checkbox Toggle */}
+            <label className="flex items-center gap-2 text-xs font-ui font-semibold text-ink-secondary cursor-pointer hover:text-ink">
               <input
+                id="checkbox-archive-ai-synthesis"
                 type="checkbox"
                 checked={useAi}
                 onChange={(e) => setUseAi(e.target.checked)}
+                className="w-3.5 h-3.5 accent-ink cursor-pointer"
               />
-              <span>Synthesize response with active AI provider</span>
+              <span className="flex items-center gap-1">
+                <Sparkles size={12} className="text-accent" />
+                <span>AI Synthesis</span>
+              </span>
             </label>
-            <span>Press ESC to return to desk</span>
+
+            {/* Close Button */}
+            <button
+              id="btn-close-archive-chat"
+              type="button"
+              onClick={() => setArchiveChatOpen(false)}
+              className="p-1.5 border border-paper-border hover:border-ink bg-paper hover:bg-ink hover:text-paper rounded-xs transition-colors shrink-0"
+              title="Close Morgue (Esc)"
+            >
+              <X size={18} />
+            </button>
           </div>
+        </header>
+
+        {/* 2. Search & Suggestion Bar */}
+        <div className="p-4 border-b border-paper-border bg-paper shrink-0">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSearch();
+            }}
+            className="flex items-center gap-2"
+          >
+            <div className="relative flex-1">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
+              />
+              <input
+                id="archive-query-input"
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Query historical reporting (e.g., 'tiger population', 'clean energy', 'quantum')..."
+                className="w-full pl-9 pr-3 py-2 bg-paper-alt border border-paper-border focus:border-ink rounded-xs font-ui text-xs sm:text-sm text-ink placeholder:text-ink-muted focus:outline-none"
+                disabled={isLoading}
+                autoFocus
+              />
+            </div>
+
+            <button
+              id="btn-archive-search"
+              type="submit"
+              disabled={isLoading || !query.trim()}
+              className="px-4 py-2 bg-ink text-paper font-ui font-bold text-xs uppercase tracking-wider rounded-xs hover:bg-ink/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors shrink-0 shadow-xs"
+            >
+              <Search size={13} />
+              <span>{isLoading ? 'Consulting...' : 'Query Morgue'}</span>
+            </button>
+          </form>
+
+          {/* Prompt Chips */}
+          <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            <span className="font-ui text-[0.625rem] uppercase font-bold text-ink-muted shrink-0">
+              Inquiries:
+            </span>
+            {ARCHIVE_SUGGESTION_CHIPS.map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => handleSearch(chip)}
+                className="font-mono text-[0.6875rem] border border-paper-border hover:border-ink bg-paper-alt hover:bg-paper px-2.5 py-0.5 rounded-xs text-ink-secondary hover:text-ink transition-colors shrink-0 whitespace-nowrap"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 3. Main Archival Body */}
+        <div
+          id="archive-chat-body"
+          ref={bodyRef}
+          className="flex-1 overflow-y-auto p-4 sm:p-6 relative bg-paper"
+        >
+          {/* Background Canvas for Archive Spider */}
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 pointer-events-none z-0"
+          />
+
+          <div className="relative z-10 space-y-6">
+            {/* Loading State */}
+            {isLoading && (
+              <div
+                id="archive-loading-indicator"
+                className="p-8 border-2 border-paper-border bg-paper-alt rounded-xs text-center space-y-3"
+              >
+                <div className="inline-block w-6 h-6 border-2 border-ink border-t-transparent rounded-full animate-spin" />
+                <h3 className="font-headline text-lg font-bold">
+                  Scouring Historical Morgue Records...
+                </h3>
+                <p className="font-body text-xs text-ink-secondary max-w-md mx-auto">
+                  Consulting SQLite FTS5 full-text indices and executing editorial synthesis across configured AI provider models.
+                </p>
+              </div>
+            )}
+
+            {/* Error State */}
+            {!isLoading && error && (
+              <div
+                id="archive-error-banner"
+                role="alert"
+                className="p-6 border-2 border-accent bg-accent/5 rounded-xs text-center space-y-3"
+              >
+                <h3 className="font-headline text-lg font-bold text-accent">
+                  Archival Query Failed
+                </h3>
+                <p className="font-body text-xs text-ink-secondary max-w-md mx-auto">
+                  {error}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleSearch()}
+                  className="px-3.5 py-1.5 border border-accent bg-paper text-accent font-ui font-bold text-xs uppercase tracking-wider rounded-xs hover:bg-accent hover:text-paper inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <RotateCcw size={12} />
+                  <span>Retry Inquiry</span>
+                </button>
+              </div>
+            )}
+
+            {/* Initial Empty State */}
+            {!isLoading && !error && !searchResponse && (
+              <div
+                id="archive-empty-prompt"
+                className="py-12 px-6 border-2 border-dashed border-paper-border bg-paper-alt/40 rounded-xs text-center space-y-4"
+              >
+                <div className="inline-flex items-center justify-center w-12 h-12 border-2 border-ink bg-paper rounded-xs">
+                  <Archive size={24} className="text-ink" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-headline text-xl font-bold text-ink">
+                    The Historical News Morgue is Open
+                  </h3>
+                  <p className="font-body text-xs text-ink-secondary max-w-md mx-auto">
+                    Type a topic above or select one of the investigative inquiry chips to search full-text articles and generate synthesized editorial summaries.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Results Display */}
+            {!isLoading && !error && searchResponse && (
+              <>
+                {/* AI Answer Synthesis Card */}
+                {searchResponse.ai_answer && (
+                  <div
+                    id="archive-ai-briefing-card"
+                    className="p-5 border-2 border-ink bg-paper-alt rounded-xs shadow-xs news-rule-t news-rule-b space-y-3"
+                  >
+                    <div className="flex items-center justify-between border-b border-paper-border pb-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={14} className="text-accent" />
+                        <span className="font-ui text-xs font-bold uppercase tracking-wider text-ink">
+                          Synthesized Investigative Briefing
+                        </span>
+                      </div>
+                      <span className="font-mono text-[0.625rem] text-ink-muted">
+                        Synthesized from {searchResponse.results.length} historical dispatches
+                      </span>
+                    </div>
+
+                    <div className="font-body text-sm sm:text-base leading-relaxed text-ink">
+                      {parseCitations(searchResponse.ai_answer).map((part, idx) => {
+                        if (part.type === 'citation' && part.citationIndex !== undefined) {
+                          const citationNum = part.citationIndex;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setHighlightedIndex(citationNum);
+                                const card = citationRefs.current[citationNum - 1];
+                                if (card) {
+                                  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }
+                              }}
+                              className="font-mono text-xs font-bold text-accent px-1.5 py-0.5 border border-accent/40 rounded-xs bg-paper hover:bg-accent hover:text-paper mx-1 cursor-pointer transition-colors shadow-2xs"
+                              title={`Inspect source dispatch [${citationNum}]`}
+                            >
+                              [{citationNum}]
+                            </button>
+                          );
+                        }
+                        return <span key={idx}>{part.content}</span>;
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Retrieved Source Dispatches */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b-2 border-ink pb-2">
+                    <h3 className="font-headline text-lg font-bold text-ink">
+                      Archival Wire Dispatches ({searchResponse.results.length} Retrieved)
+                    </h3>
+                    <span className="font-mono text-xs text-ink-secondary">
+                      Ranked by BM25 relevance &amp; chronology
+                    </span>
+                  </div>
+
+                  {searchResponse.results.length === 0 ? (
+                    <div className="py-10 text-center space-y-2 border border-paper-border bg-paper-alt rounded-xs">
+                      <h4 className="font-headline text-base font-bold text-ink">
+                        No Matching Archival Records Found
+                      </h4>
+                      <p className="font-body text-xs text-ink-secondary">
+                        Try broader terms or verify keywords in the inquiry.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {searchResponse.results.map((item: SearchResultItem, index: number) => {
+                        const citationIndex = index + 1;
+                        const isHighlighted = highlightedIndex === citationIndex;
+
+                        return (
+                          <div
+                            key={item.id}
+                            ref={(el) => {
+                              citationRefs.current[index] = el;
+                            }}
+                            onClick={() => handleSelectArticle(item.id)}
+                            className={`p-4 border-2 rounded-xs transition-all flex flex-col justify-between cursor-pointer group shadow-xs ${
+                              isHighlighted
+                                ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
+                                : 'border-paper-border hover:border-ink bg-paper hover:bg-paper-alt'
+                            }`}
+                          >
+                            <div className="space-y-2">
+                              {/* Header Meta */}
+                              <div className="flex items-center justify-between gap-2 font-mono text-[0.625rem] text-ink-secondary border-b border-paper-border pb-1.5">
+                                <span className="font-bold text-accent">
+                                  [{citationIndex}] {item.source_name} ({item.source_country})
+                                </span>
+                                <span className="font-bold bg-paper-border/60 px-1.5 py-0.5 rounded-xs">
+                                  Score: {formatRelevanceScore(item.score ?? 4.0)}
+                                </span>
+                              </div>
+
+                              {/* Headline */}
+                              <h4 className="font-headline text-sm font-bold text-ink leading-snug line-clamp-2 group-hover:underline">
+                                {item.title_english}
+                              </h4>
+
+                              {/* Summary Excerpt */}
+                              <p className="font-body text-xs text-ink-secondary line-clamp-3">
+                                {item.summary || 'Full dispatch record indexed in historical morgue.'}
+                              </p>
+                            </div>
+
+                            {/* Card Footer */}
+                            <div className="mt-3 pt-2 border-t border-paper-border/60 flex items-center justify-between text-[0.625rem] font-ui text-ink-muted">
+                              <span>
+                                {item.published_at
+                                  ? new Date(item.published_at).toLocaleDateString(undefined, {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })
+                                  : 'Archival Dispatch'}
+                              </span>
+                              <span className="font-bold text-accent group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                                <span>Inspect</span>
+                                <ArrowRight size={10} />
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 4. Footer Status Bar */}
+        <footer className="p-3 border-t-2 border-ink bg-paper-alt flex flex-wrap items-center justify-between gap-3 text-xs font-ui text-ink-secondary shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="font-bold uppercase tracking-wider text-[0.6875rem]">Morgue Status:</span>
+            <span>FTS5 index online · SQLite 3.39+</span>
+          </div>
+          <span className="font-mono text-[0.625rem] text-ink-muted">
+            Click any dispatch card to inspect in Main Reader · Press ESC to return
+          </span>
         </footer>
       </div>
     </div>
   );
 };
+
+export default ArchiveChat;
