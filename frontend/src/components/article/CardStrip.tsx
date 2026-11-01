@@ -1,7 +1,7 @@
 /**
  * frontend/src/components/article/CardStrip.tsx
- * Bottom horizontal scrolling feed of glassmorphic article cards.
- * Performance-optimized with React.memo card components and full keyboard/ARIA accessibility (P12-04, P12-05).
+ * Bottom horizontal wire dispatch strip styled as broadsheet news cards.
+ * Performance-optimized with React.memo, pure Tailwind design tokens, and zero inline styles.
  */
 import React, { useRef, memo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
@@ -25,7 +25,7 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
   onSelect,
   onToggleBookmark,
 }) => {
-  const isBreaking = article.breaking_score >= 75;
+  const isBreaking = (article.breaking_score ?? 0) >= 75;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -44,79 +44,38 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
       aria-label={`Dispatch: ${article.title_english || article.title_original} from ${article.source.name}`}
       onClick={() => onSelect(article.id)}
       onKeyDown={handleKeyDown}
-      className={`glass-card ${isBreaking ? 'breaking-pulse' : ''}`}
-      style={{
-        width: '280px',
-        minWidth: '280px',
-        height: '155px',
-        borderRadius: '12px',
-        padding: '12px 14px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        cursor: 'pointer',
-        position: 'relative',
-        border: isSelected
-          ? '1px solid var(--accent-primary)'
+      className={`relative shrink-0 w-[300px] min-w-[300px] h-[150px] p-3.5 rounded-xs flex flex-col justify-between cursor-pointer transition-all ${
+        isSelected
+          ? 'border-2 border-ink bg-paper shadow-md -translate-y-1 news-rule-t'
           : isBreaking
-          ? '1px solid rgba(239, 68, 68, 0.6)'
+          ? 'border-2 border-accent bg-paper-alt hover:bg-paper hover:border-ink shadow-xs'
           : isScoutTarget
-          ? '1px dashed #94a3b8'
-          : '1px solid var(--border)',
-        background: isSelected
-          ? 'rgba(30, 41, 59, 0.85)'
-          : isScoutTarget
-          ? 'rgba(30, 41, 59, 0.55)'
-          : 'rgba(15, 23, 42, 0.65)',
-        boxShadow: isSelected
-          ? '0 0 16px rgba(99, 102, 241, 0.3)'
-          : isBreaking
-          ? '0 0 14px rgba(239, 68, 68, 0.25)'
-          : isScoutTarget
-          ? '0 0 14px rgba(148, 163, 184, 0.25)'
-          : 'none',
-        transform: isSelected ? 'translateY(-2px)' : 'none',
-      }}
+          ? 'border-2 border-dashed border-ink/50 bg-paper-alt/70'
+          : 'border border-paper-border/80 bg-paper-alt/60 hover:bg-paper hover:border-ink hover:-translate-y-0.5'
+      }`}
     >
-      {/* Scout Spider Indicator on upcoming card */}
+      {/* Scout Indicator */}
       {isScoutTarget && !isSelected && <ScoutBadge />}
 
       {/* Card Header: Outlet + Country + Breaking/Bookmark */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span
-            style={{
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              color: isSelected ? '#c7d2fe' : '#94a3b8',
-              maxWidth: '120px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
+      <div className="flex items-center justify-between w-full">
+        <div className="flex items-center gap-1.5 overflow-hidden">
+          <span className="font-ui text-[0.6875rem] font-bold uppercase tracking-wider text-ink truncate max-w-[130px]">
             {article.source.name}
           </span>
-          <span style={{ fontSize: '0.68rem', color: '#64748b' }}>•</span>
-          <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
+          <span className="text-ink-muted text-xs">·</span>
+          <span className="font-ui text-[0.625rem] text-ink-secondary truncate max-w-[80px]">
             {article.source.country}
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className="flex items-center gap-1.5 shrink-0">
           {isBreaking && (
             <span
-              title="Breaking News"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '2px',
-                fontSize: '0.68rem',
-                fontWeight: 700,
-                color: '#ef4444',
-              }}
+              title="High Impact Breaking Story"
+              className="inline-flex items-center gap-1 font-mono text-[0.625rem] font-bold text-accent px-1.5 py-0.5 rounded-xs border border-accent/40 bg-accent/10"
             >
-              <Flame size={12} fill="#ef4444" />
+              <Flame size={11} fill="currentColor" />
               <span>{article.breaking_score}%</span>
             </span>
           )}
@@ -127,71 +86,38 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
               onToggleBookmark(article.id);
             }}
             aria-label={article.bookmarked ? 'Remove bookmark' : 'Bookmark story'}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              padding: '2px',
-            }}
-            title="Bookmark"
+            className="p-1 text-ink-muted hover:text-amber-600 transition-colors"
+            title="Bookmark story"
           >
             <Star
               size={13}
-              color={article.bookmarked ? '#f59e0b' : '#475569'}
-              fill={article.bookmarked ? '#f59e0b' : 'none'}
+              fill={article.bookmarked ? 'currentColor' : 'none'}
+              className={article.bookmarked ? 'text-amber-600' : 'text-ink-muted'}
             />
           </button>
         </div>
       </div>
 
       {/* Card Headline */}
-      <h4
-        style={{
-          fontSize: '0.84rem',
-          fontWeight: 600,
-          lineHeight: 1.35,
-          color: isSelected ? '#ffffff' : '#f1f5f9',
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-          margin: '4px 0',
-        }}
-      >
+      <h4 className="font-headline text-sm font-bold text-ink line-clamp-2 leading-snug my-1">
         {article.title_english || article.title_original}
       </h4>
 
-      {/* Card Footer: Keywords / Spider Badge */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem' }}>
-        <div style={{ display: 'flex', gap: '4px', overflow: 'hidden' }}>
+      {/* Card Footer: Category Stamps & Spider Badge */}
+      <div className="flex items-center justify-between pt-2 border-t border-paper-border/60">
+        <div className="flex gap-1 overflow-hidden">
           {(article.categories || []).slice(0, 2).map((cat: string, i: number) => (
             <span
               key={i}
-              style={{
-                background: 'rgba(30, 41, 59, 0.7)',
-                color: '#94a3b8',
-                padding: '1px 6px',
-                borderRadius: '4px',
-                fontSize: '0.65rem',
-              }}
+              className="font-ui text-[0.5625rem] uppercase font-semibold px-1.5 py-0.5 rounded-xs border border-paper-border bg-paper text-ink-secondary"
             >
               {cat}
             </span>
           ))}
         </div>
 
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '0.65rem',
-            color: 'var(--accent-spider)',
-            fontWeight: 600,
-          }}
-        >
-          <SpiderGlyph size={11} color="var(--accent-spider)" />
+        <span className="inline-flex items-center gap-1 font-mono text-[0.5625rem] text-ink-muted">
+          <SpiderGlyph size={10} color="currentColor" />
           <span>{article.spider_type || 'Reader'}</span>
         </span>
       </div>
@@ -224,67 +150,23 @@ export const CardStrip: React.FC = () => {
       id="card-strip-container"
       role="region"
       aria-label="Dispatch wire feed"
-      style={{
-        height: '190px',
-        minHeight: '190px',
-        background: 'rgba(10, 14, 26, 0.95)',
-        backdropFilter: 'blur(16px)',
-        borderTop: '1px solid var(--border)',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-        zIndex: 30,
-      }}
+      className="relative z-30 h-[180px] min-h-[180px] bg-paper-alt border-t-2 border-ink flex flex-col justify-center transition-colors duration-150 select-none"
     >
       {/* Scroll controls */}
       <button
-        onClick={() => handleScroll(-320)}
-        style={{
-          position: 'absolute',
-          left: '8px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          zIndex: 10,
-          background: 'rgba(17, 24, 39, 0.85)',
-          border: '1px solid var(--border)',
-          borderRadius: '50%',
-          width: '32px',
-          height: '32px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--text-primary)',
-          cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-        }}
+        onClick={() => handleScroll(-340)}
         aria-label="Scroll wire left"
+        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-xs border border-ink bg-paper text-ink shadow-xs hover:bg-paper-alt transition-colors"
       >
-        <ChevronLeft size={18} />
+        <ChevronLeft size={16} />
       </button>
 
       <button
-        onClick={() => handleScroll(320)}
-        style={{
-          position: 'absolute',
-          right: '8px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          zIndex: 10,
-          background: 'rgba(17, 24, 39, 0.85)',
-          border: '1px solid var(--border)',
-          borderRadius: '50%',
-          width: '32px',
-          height: '32px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--text-primary)',
-          cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-        }}
+        onClick={() => handleScroll(340)}
         aria-label="Scroll wire right"
+        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-xs border border-ink bg-paper text-ink shadow-xs hover:bg-paper-alt transition-colors"
       >
-        <ChevronRight size={18} />
+        <ChevronRight size={16} />
       </button>
 
       {/* Cards Scroll Track */}
@@ -293,20 +175,11 @@ export const CardStrip: React.FC = () => {
         ref={scrollContainerRef}
         role="feed"
         aria-busy="false"
-        style={{
-          display: 'flex',
-          gap: '14px',
-          padding: '16px 48px',
-          overflowX: 'auto',
-          overflowY: 'hidden',
-          scrollbarWidth: 'none',
-          height: '100%',
-          alignItems: 'center',
-        }}
+        className="flex items-center gap-3.5 px-12 py-3 overflow-x-auto overflow-y-hidden no-scrollbar h-full"
       >
         {articles.length === 0 ? (
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 'auto' }}>
-            No articles match the current filter. Live radar is scanning...
+          <div className="font-ui text-xs text-ink-muted italic m-auto">
+            No dispatches match the current filter. Live radar scanning wire...
           </div>
         ) : (
           articles.map((art, index) => (
@@ -324,3 +197,5 @@ export const CardStrip: React.FC = () => {
     </footer>
   );
 };
+
+export default CardStrip;

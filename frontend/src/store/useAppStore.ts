@@ -20,10 +20,12 @@ interface AppState {
   articles: Article[];
   selectedArticleId: number | null;
   selectedArticle: Article | null;
+  activeSentenceIndex: number | null;
   totalArticles: number;
   isLoading: boolean;
   setArticles: (articles: Article[], total: number) => void;
   setSelectedArticle: (article: Article | null) => void;
+  setActiveSentenceIndex: (index: number | null) => void;
   selectArticleById: (id: number) => Promise<void>;
   addOrPrependArticle: (article: Article) => void;
   toggleBookmark: (articleId: number) => Promise<void>;
@@ -127,8 +129,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   articles: [],
   selectedArticleId: null,
   selectedArticle: null,
+  activeSentenceIndex: null,
   totalArticles: 0,
   isLoading: false,
+
+  setActiveSentenceIndex: (index) => set({ activeSentenceIndex: index }),
 
   setArticles: (articles, total) => {
     const currentSelected = get().selectedArticleId;
