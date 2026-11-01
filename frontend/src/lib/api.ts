@@ -172,21 +172,35 @@ export const api = {
   },
 
   // ─── Alerts ───────────────────────────────────────────────────────────────
-  async getAlerts(params?: { acknowledged?: boolean }): Promise<Alert[]> {
+  async getAlerts(params?: { acknowledged?: boolean; type?: string; limit?: number }): Promise<Alert[]> {
     const searchParams = new URLSearchParams();
     if (params?.acknowledged !== undefined) {
       searchParams.set('acknowledged', String(params.acknowledged));
     }
+    if (params?.type) {
+      searchParams.set('type', params.type);
+    }
+    if (params?.limit) {
+      searchParams.set('limit', String(params.limit));
+    }
     const qs = searchParams.toString();
     const res = await fetch(`/api/alerts${qs ? `?${qs}` : ''}`);
-    return handleResponse<Alert[]>(res);
+    const data = await handleResponse<{ items: Alert[] } | Alert[]>(res);
+    return Array.isArray(data) ? data : data.items || [];
   },
 
-  async acknowledgeAlert(id: number): Promise<Alert> {
+  async acknowledgeAlert(id: number): Promise<{ acknowledged: boolean }> {
     const res = await fetch(`/api/alerts/${id}/acknowledge`, {
       method: 'PATCH',
     });
-    return handleResponse<Alert>(res);
+    return handleResponse<{ acknowledged: boolean }>(res);
+  },
+
+  async acknowledgeAllAlerts(): Promise<{ acknowledged: boolean }> {
+    const res = await fetch('/api/alerts/acknowledge-all', {
+      method: 'POST',
+    });
+    return handleResponse<{ acknowledged: boolean }>(res);
   },
 
   // ─── Settings & Quotas ────────────────────────────────────────────────────

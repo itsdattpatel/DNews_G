@@ -93,3 +93,4 @@ export function getPdfDownloadFilename(dateStr?: string): string {
     : new Date().toISOString().slice(0, 10);
   return `The_World_Desk_${date}.pdf`;
 }
+

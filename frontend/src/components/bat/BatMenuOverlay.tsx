@@ -99,6 +99,9 @@ export const BatMenuOverlay: React.FC = () => {
     if (view === 'pdf') {
       useAppStore.getState().setPdfOpen(true);
     }
+    if (view === 'alerts') {
+      useAppStore.getState().setAlertsOpen(true);
+    }
     setCurrentView(view);
   };
 

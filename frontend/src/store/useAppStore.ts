@@ -96,6 +96,10 @@ interface AppState {
   // Watchlist Desk (Step 10)
   isWatchlistOpen: boolean;
   setWatchlistOpen: (open: boolean) => void;
+
+  // Alerts Center Desk (Step 13)
+  isAlertsOpen: boolean;
+  setAlertsOpen: (open: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -459,6 +463,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   setWatchlistOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
     set({ isWatchlistOpen: open });
+  },
+
+  // Alerts Center Desk (Step 13)
+  isAlertsOpen: false,
+  setAlertsOpen: (open) => {
+    playButtonSound(get().settings.sound_enabled);
+    set({ isAlertsOpen: open });
   },
 }));
 

@@ -68,6 +68,22 @@ describe('Alerts API (P6-09)', () => {
     expect(updated.acknowledged).toBe(1);
   });
 
+  it('POST /api/alerts/acknowledge-all marks all unacknowledged alerts as acknowledged', async () => {
+    testDb.prepare(`
+      INSERT INTO alerts (type, message, fired_at, acknowledged) VALUES
+      ('breaking', 'Alert A', datetime('now'), 0),
+      ('quota', 'Alert B', datetime('now'), 0),
+      ('error', 'Alert C', datetime('now'), 1)
+    `).run();
+
+    const ackAllRes = await request(app).post('/api/alerts/acknowledge-all');
+    expect(ackAllRes.status).toBe(200);
+    expect(ackAllRes.body).toEqual({ acknowledged: true });
+
+    const unackCount = testDb.prepare('SELECT count(*) as count FROM alerts WHERE acknowledged = 0').get() as { count: number };
+    expect(unackCount.count).toBe(0);
+  });
+
   it('PATCH /api/alerts/:id/acknowledge returns 404 for nonexistent alert', async () => {
     const patchRes = await request(app).patch('/api/alerts/99999/acknowledge');
     expect(patchRes.status).toBe(404);

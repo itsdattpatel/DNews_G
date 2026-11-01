@@ -13,6 +13,7 @@ import { SummaryPanel } from '../article/SummaryPanel';
 import { CardStrip } from '../article/CardStrip';
 import { SettingsMenu } from '../bat/SettingsMenu';
 import { AlertBanner } from '../alert/AlertBanner';
+import { AlertsCenter } from '../alert/AlertsCenter';
 import { MissedNewsModal } from '../modal/MissedNewsModal';
 import { CompareCoverage } from '../compare/CompareCoverage';
 import { StoryTimeline } from '../timeline/StoryTimeline';
@@ -194,6 +195,10 @@ export const Shell: React.FC = () => {
 
       <ErrorBoundary panelName="Editorial Watchlist Desk">
         <WatchlistDesk />
+      </ErrorBoundary>
+
+      <ErrorBoundary panelName="Alerts Center Desk">
+        <AlertsCenter />
       </ErrorBoundary>
 
       {/* 7. Broadsheet Toast Notifications */}

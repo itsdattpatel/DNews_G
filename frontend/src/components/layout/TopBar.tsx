@@ -7,7 +7,7 @@ import React from 'react';
 import { BatIcon } from '../bat/BatIcon';
 import { ProviderBadge } from '../quota/ProviderBadge';
 import { useAppStore } from '../../store/useAppStore';
-import { Search, Flame, X, Clock, RadioTower, Layers } from 'lucide-react';
+import { Search, Flame, X, Clock, RadioTower, Layers, Bell } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const CATEGORIES = [
@@ -48,6 +48,7 @@ export const TopBar: React.FC = () => {
   const setMissedNewsModalOpen = useAppStore((s) => s.setMissedNewsModalOpen);
   const currentView = useAppStore((s) => s.currentView);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
+  const setAlertsOpen = useAppStore((s) => s.setAlertsOpen);
 
   return (
     <header
@@ -204,6 +205,17 @@ export const TopBar: React.FC = () => {
             Live
           </span>
         </div>
+
+        {/* Alerts Center Quick Button */}
+        <button
+          id="btn-topbar-alerts"
+          onClick={() => setAlertsOpen(true)}
+          className="relative p-1 rounded-xs border border-paper-border hover:bg-paper-alt text-ink-secondary hover:text-ink transition-colors"
+          title="Alerts Center (Breaking, Quota, Errors)"
+          aria-label="Open Alerts Center"
+        >
+          <Bell size={15} />
+        </button>
 
         {/* Quick API & Sources Button */}
         <button
