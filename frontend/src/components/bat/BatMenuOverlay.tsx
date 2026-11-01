@@ -73,6 +73,14 @@ export const BatMenuOverlay: React.FC = () => {
   }, [isBatMenuOpen, setBatMenuOpen]);
 
   const handleSelect = (view: AppView) => {
+    if (view === 'compare' && !useAppStore.getState().compareClusterId) {
+      const art = useAppStore.getState().selectedArticle;
+      useAppStore.getState().setCompareClusterId(art?.cluster_id ?? 1);
+    }
+    if (view === 'timeline' && !useAppStore.getState().timelineClusterId) {
+      const art = useAppStore.getState().selectedArticle;
+      useAppStore.getState().setTimelineClusterId(art?.cluster_id ?? 1);
+    }
     setCurrentView(view);
   };
 

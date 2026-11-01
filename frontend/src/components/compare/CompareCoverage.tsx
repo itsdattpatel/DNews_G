@@ -1,13 +1,24 @@
 /**
  * frontend/src/components/compare/CompareCoverage.tsx
- * Side-by-side editorial news coverage comparison across multiple outlets and countries (P7-04, P7-05, P7-06).
- * Features shared keyword highlighting and Weaver spider silk thread cross-linking.
+ * Screen (c): Multi-Outlet Coverage Comparison Desk (Step 7).
+ * Side-by-side same-story reporting across world outlets and countries.
+ * Features shared keyword extraction, Weaver catenary silk thread cross-linking,
+ * broadsheet serif typography, and zero cyberpunk inline styles.
  */
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import './CompareCoverage.css';
+import { Badge } from '@/components/ui/badge';
+import {
+  X,
+  Layers,
+  Flame,
+  ArrowRight,
+  Globe2,
+  RefreshCw,
+  Sparkles,
+} from 'lucide-react';
 
-interface Point2D {
+export interface Point2D {
   x: number;
   y: number;
 }
@@ -49,37 +60,42 @@ interface ClusterData {
   articles: EnrichedClusterArticle[];
 }
 
-const PALETTE = [
-  '#818cf8', // Indigo
-  '#fbbf24', // Amber
-  '#4ade80', // Emerald
-  '#f472b6', // Rose Pink
-  '#38bdf8', // Cyan
-  '#a78bfa', // Purple
+const SILK_PALETTE = [
+  '#C0392B', // Crimson
+  '#2C4A7C', // Navy
+  '#1A3D1A', // Forest
+  '#B45309', // Amber
+  '#4A1A3A', // Plum
+  '#1A2A4A', // Steel
 ];
 
 export const CompareCoverage: React.FC = () => {
   const compareClusterId = useAppStore((s) => s.compareClusterId);
   const setCompareClusterId = useAppStore((s) => s.setCompareClusterId);
+  const selectArticleById = useAppStore((s) => s.selectArticleById);
+  const setCurrentView = useAppStore((s) => s.setCurrentView);
 
   const [clusterData, setClusterData] = useState<ClusterData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [silkThreads, setSilkThreads] = useState<Array<{ d: string; color: string; keyword: string }>>([]);
+  const [activeKeywordFilter, setActiveKeywordFilter] = useState<string | null>(null);
+  const [silkThreads, setSilkThreads] = useState<
+    Array<{ d: string; color: string; keyword: string }>
+  >([]);
 
-  const bodyRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const chipRefs = useRef<Map<string, HTMLElement[]>>(new Map());
 
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && compareClusterId) {
         setCompareClusterId(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setCompareClusterId]);
+  }, [compareClusterId, setCompareClusterId]);
 
   // Fetch cluster details
   useEffect(() => {
@@ -132,7 +148,7 @@ export const CompareCoverage: React.FC = () => {
     let colorIndex = 0;
     for (const [kw, count] of frequency.entries()) {
       if (count >= 2) {
-        shared.set(kw, colorIndex % PALETTE.length);
+        shared.set(kw, colorIndex % SILK_PALETTE.length);
         colorIndex++;
       }
     }
@@ -141,11 +157,14 @@ export const CompareCoverage: React.FC = () => {
 
   // Calculate Weaver silk threads connecting shared keyword chips (P7-06)
   const computeSilkThreads = () => {
-    if (!bodyRef.current) return;
-    const bodyRect = bodyRef.current.getBoundingClientRect();
+    if (!containerRef.current) return;
+    const bodyRect = containerRef.current.getBoundingClientRect();
     const threads: Array<{ d: string; color: string; keyword: string }> = [];
 
     for (const [kw, colorIdx] of sharedKeywordsMap.entries()) {
+      // If a specific keyword is focused, only draw that thread
+      if (activeKeywordFilter && activeKeywordFilter !== kw) continue;
+
       const elements = chipRefs.current.get(kw) || [];
       if (elements.length < 2) continue;
 
@@ -154,8 +173,8 @@ export const CompareCoverage: React.FC = () => {
         .map((el) => {
           const rect = el.getBoundingClientRect();
           return {
-            x: rect.left - bodyRect.left + rect.width / 2 + bodyRef.current!.scrollLeft,
-            y: rect.top - bodyRect.top + rect.height / 2 + bodyRef.current!.scrollTop,
+            x: rect.left - bodyRect.left + rect.width / 2 + containerRef.current!.scrollLeft,
+            y: rect.top - bodyRect.top + rect.height / 2 + containerRef.current!.scrollTop,
           };
         });
 
@@ -165,7 +184,7 @@ export const CompareCoverage: React.FC = () => {
         if (from && to) {
           threads.push({
             d: generateSilkPath(from, to),
-            color: PALETTE[colorIdx] ?? '#38bdf8',
+            color: SILK_PALETTE[colorIdx] ?? '#C0392B',
             keyword: kw,
           });
         }
@@ -176,170 +195,301 @@ export const CompareCoverage: React.FC = () => {
   };
 
   useEffect(() => {
-    const timer = setTimeout(computeSilkThreads, 150);
+    const timer = setTimeout(computeSilkThreads, 200);
     window.addEventListener('resize', computeSilkThreads);
     return () => {
       clearTimeout(timer);
       window.removeEventListener('resize', computeSilkThreads);
     };
-  }, [clusterData, sharedKeywordsMap]);
+  }, [clusterData, sharedKeywordsMap, activeKeywordFilter]);
 
   if (!compareClusterId) return null;
 
+  const handleOpenArticle = (id: number) => {
+    setCompareClusterId(null);
+    selectArticleById(id);
+    setCurrentView('reader');
+  };
+
+  const isBreaking = clusterData?.is_breaking || false;
+
   return (
     <div
-      className="compare-coverage-backdrop"
       id="compare-coverage-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="compare-headline-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-ink/70 backdrop-blur-xs select-none"
       onClick={() => setCompareClusterId(null)}
     >
-      <div className="compare-coverage-modal" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="compare-coverage-header">
-          <div className="compare-coverage-header-main">
-            {/* Custom SVG Weaver Spider cross-wire emblem */}
-            <svg
-              className="compare-coverage-icon"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+      <div
+        className="w-full max-w-6xl max-h-[90vh] bg-paper text-ink border-2 border-ink rounded-xs shadow-overlay flex flex-col overflow-hidden relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 1. Broadsheet Header & Metadata */}
+        <div className="p-5 sm:p-6 border-b-2 border-ink bg-paper-alt flex items-start justify-between gap-4 shrink-0">
+          <div className="space-y-1.5 flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-ui text-[0.6875rem] font-bold uppercase tracking-widest text-ink-secondary">
+                Cross-Wire Comparison Desk
+              </span>
+              <span className="text-ink-muted text-xs">/</span>
+              <span className="font-mono text-xs font-bold text-ink">
+                Story Cluster #{compareClusterId}
+              </span>
+              {isBreaking && (
+                <span className="inline-flex items-center gap-1 font-mono text-[0.625rem] font-bold px-2 py-0.5 rounded-xs border border-accent bg-accent/15 text-accent">
+                  <Flame size={11} fill="currentColor" />
+                  <span>Breaking Story</span>
+                </span>
+              )}
+            </div>
+
+            <h2
+              id="compare-headline-title"
+              className="font-headline text-2xl sm:text-3xl font-bold tracking-tight text-ink truncate"
             >
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 3v6m0 6v6M3 12h6m6 0h6M5.64 5.64l4.24 4.24m4.24 4.24l4.24 4.24M5.64 18.36l4.24-4.24m4.24-4.24l4.24-4.24" />
-            </svg>
-            <div>
-              <h2 className="compare-coverage-title" id="compare-headline-title">
-                {clusterData?.headline || `Story Cluster #${compareClusterId}`}
-              </h2>
-              <div className="compare-coverage-sub">
-                Editorial multi-perspective comparison across {clusterData?.country_count || 1} countries and {clusterData?.outlet_count || 1} outlets
-              </div>
+              {clusterData?.headline || `Coverage Analysis: Story #${compareClusterId}`}
+            </h2>
+
+            <div className="font-ui text-xs text-ink-secondary flex items-center gap-2">
+              <span>
+                Synthesizing {clusterData?.outlet_count || 1} independent news agencies across{' '}
+                {clusterData?.country_count || 1} sovereign jurisdictions
+              </span>
             </div>
           </div>
 
           <button
             type="button"
-            className="compare-coverage-close-btn"
-            onClick={() => setCompareClusterId(null)}
-            aria-label="Close compare coverage view"
             id="btn-close-compare-modal"
+            onClick={() => setCompareClusterId(null)}
+            className="p-1.5 border border-paper-border hover:border-ink bg-paper hover:bg-ink hover:text-paper rounded-xs transition-colors shrink-0"
+            title="Close Comparison Desk (Esc)"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X size={18} />
           </button>
         </div>
 
-        {/* Content Body */}
-        {loading && (
-          <div className="compare-loading" id="compare-loading-state">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="missed-news-spinner">
-              <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-              <path d="M12 2a10 10 0 0 1 10 10" />
-            </svg>
-            <div>Synthesizing cross-wire coverage dispatches...</div>
+        {/* 2. Shared Themes Ink-Stamp Toolbar */}
+        {sharedKeywordsMap.size > 0 && (
+          <div className="px-6 py-3 border-b border-paper-border bg-paper flex flex-wrap items-center gap-2 shrink-0">
+            <span className="font-ui text-[0.6875rem] font-bold uppercase tracking-wider text-ink-muted flex items-center gap-1">
+              <Sparkles size={12} className="text-accent" />
+              <span>Shared Themes:</span>
+            </span>
+
+            {Array.from(sharedKeywordsMap.entries()).map(([kw, colorIdx]) => {
+              const isFiltered = activeKeywordFilter === kw;
+              const color = SILK_PALETTE[colorIdx] ?? '#C0392B';
+              return (
+                <button
+                  key={kw}
+                  type="button"
+                  onClick={() => setActiveKeywordFilter(isFiltered ? null : kw)}
+                  className={`font-mono text-xs px-2.5 py-0.5 rounded-xs border transition-all ${
+                    isFiltered
+                      ? 'border-ink bg-ink text-paper font-bold shadow-xs scale-102'
+                      : 'border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-ink'
+                  }`}
+                  style={{ borderLeftColor: color, borderLeftWidth: '3px' }}
+                >
+                  #{kw}
+                </button>
+              );
+            })}
+
+            {activeKeywordFilter && (
+              <button
+                type="button"
+                onClick={() => setActiveKeywordFilter(null)}
+                className="font-ui text-[0.6875rem] text-ink-muted hover:text-ink underline ml-1"
+              >
+                Clear theme focus
+              </button>
+            )}
           </div>
         )}
 
-        {error && (
-          <div className="compare-error" id="compare-error-state">
-            <strong>Error loading cluster:</strong> {error}
-          </div>
-        )}
-
-        {!loading && !error && clusterData && clusterData.articles.length === 0 && (
-          <div className="compare-empty" id="compare-empty-state">
-            No member articles found for this story cluster.
-          </div>
-        )}
-
-        {!loading && !error && clusterData && clusterData.articles.length > 0 && (
-          <div className="compare-coverage-body" ref={bodyRef} onScroll={computeSilkThreads}>
-            {/* Weaver Silk Threads SVG layer (P7-06) */}
-            <svg className="compare-weaver-canvas" aria-hidden="true">
-              {silkThreads.map((thread, idx) => (
-                <path
+        {/* 3. Main Multi-Column Reading Body */}
+        <div
+          ref={containerRef}
+          onScroll={computeSilkThreads}
+          className="flex-1 overflow-x-auto overflow-y-auto p-6 relative min-h-[380px]"
+        >
+          {loading ? (
+            /* Loading State: 4 broadsheet column skeletons */
+            <div id="compare-loading-state" className="flex gap-6 min-w-max h-full">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <div
                   key={idx}
-                  d={thread.d}
-                  stroke={thread.color}
-                  strokeWidth="2"
-                  strokeDasharray="4 3"
-                  fill="none"
-                  strokeOpacity="0.75"
-                />
+                  className="w-[320px] p-5 border border-paper-border bg-paper-alt rounded-xs flex flex-col justify-between animate-pulse"
+                >
+                  <div>
+                    <div className="h-[2px] bg-paper-border w-full mb-3" />
+                    <div className="h-4 w-28 bg-paper-border rounded-xs mb-3" />
+                    <div className="h-6 w-full bg-paper-border rounded-xs mb-4" />
+                    <div className="space-y-2">
+                      <div className="h-3 w-full bg-paper-border rounded-xs" />
+                      <div className="h-3 w-5/6 bg-paper-border rounded-xs" />
+                      <div className="h-3 w-4/6 bg-paper-border rounded-xs" />
+                    </div>
+                  </div>
+                  <div className="h-8 w-full bg-paper-border rounded-xs mt-6" />
+                </div>
               ))}
-            </svg>
-
-            {/* Side-by-side columns per article/outlet (P7-04) */}
-            {clusterData.articles.map((article) => (
-              <div key={article.id} className="compare-column" id={`compare-column-article-${article.id}`}>
-                {/* Column Header */}
-                <div className="compare-column-header">
-                  <div className="compare-column-country">
-                    {/* Globe custom SVG */}
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="2" y1="12" x2="22" y2="12" />
-                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                    </svg>
-                    <span>{article.source.country}</span>
-                  </div>
-                  <div className="compare-column-outlet">{article.source.name}</div>
-                </div>
-
-                {/* Column Editorial Body */}
-                <div className="compare-column-content">
-                  <h3 className="compare-column-headline">{article.title_english}</h3>
-                  <div className="compare-column-summary">{article.summary}</div>
-
-                  {/* Keywords chips with shared highlighting (P7-05) */}
-                  <div className="compare-column-keywords">
-                    {(article.keywords || []).map((kw, kwIdx) => {
-                      const lower = kw.toLowerCase();
-                      const isShared = sharedKeywordsMap.has(lower);
-                      const colorIdx = isShared ? sharedKeywordsMap.get(lower)! : -1;
-
-                      return (
-                        <span
-                          key={kwIdx}
-                          ref={(el) => {
-                            if (!el) return;
-                            if (!chipRefs.current.has(lower)) {
-                              chipRefs.current.set(lower, []);
-                            }
-                            const arr = chipRefs.current.get(lower)!;
-                            if (!arr.includes(el)) arr.push(el);
-                          }}
-                          className={`compare-keyword-chip ${isShared ? `shared col-${colorIdx}` : ''}`}
-                          title={isShared ? `Shared keyword: "${kw}" (cross-linked by Weaver spider)` : kw}
-                        >
-                          #{kw}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Column Footer */}
-                <div className="compare-column-footer">
-                  <span>Score: {article.breaking_score}%</span>
-                  <span>{article.published_at ? new Date(article.published_at).toLocaleDateString() : 'Recent'}</span>
-                </div>
+            </div>
+          ) : error ? (
+            /* Error State */
+            <div
+              id="compare-error-state"
+              className="flex flex-col items-center justify-center p-12 text-center h-full text-ink"
+            >
+              <div className="p-3 border-2 border-accent bg-accent/10 rounded-xs mb-4 text-accent">
+                <Flame size={28} />
               </div>
-            ))}
-          </div>
-        )}
+              <h3 className="font-headline text-xl font-bold mb-2">Failed to Load Story Cluster</h3>
+              <p className="font-body text-sm text-ink-secondary max-w-sm mb-4">{error}</p>
+              <button
+                onClick={() => {
+                  setCompareClusterId(compareClusterId);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-paper-border hover:border-ink bg-paper rounded-xs font-ui text-xs font-bold"
+              >
+                <RefreshCw size={12} />
+                <span>Retry Transmission</span>
+              </button>
+            </div>
+          ) : clusterData && clusterData.articles.length === 0 ? (
+            /* Empty State */
+            <div
+              id="compare-empty-state"
+              className="flex flex-col items-center justify-center p-12 text-center h-full"
+            >
+              <div className="p-3 border-2 border-ink rounded-xs bg-paper-alt mb-3">
+                <Layers size={24} className="text-ink-muted" />
+              </div>
+              <h3 className="font-headline text-xl font-bold mb-1">Single Wire Report</h3>
+              <p className="font-body text-sm text-ink-secondary max-w-xs">
+                No matching international member articles found in this story cluster.
+              </p>
+            </div>
+          ) : (
+            /* Populated Side-by-Side Broadsheet Columns */
+            <div className="relative flex gap-6 min-w-max pb-4">
+              {/* Weaver Silk Threads SVG Canvas */}
+              <svg
+                className="absolute inset-0 pointer-events-none z-10 w-full h-full"
+                aria-hidden="true"
+              >
+                {silkThreads.map((thread, idx) => (
+                  <path
+                    key={idx}
+                    d={thread.d}
+                    stroke={thread.color}
+                    strokeWidth="1.8"
+                    strokeDasharray="4 4"
+                    fill="none"
+                    strokeOpacity="0.8"
+                  />
+                ))}
+              </svg>
+
+              {/* Side-by-Side Columns */}
+              {clusterData?.articles.map((article) => {
+                const primaryCategory = article.categories?.[0] || 'General';
+                return (
+                  <div
+                    key={article.id}
+                    id={`compare-column-article-${article.id}`}
+                    className="w-[320px] p-5 border border-paper-border bg-paper hover:border-ink rounded-xs flex flex-col justify-between transition-colors shadow-xs relative z-20"
+                  >
+                    <div>
+                      {/* Column Header: Outlet + Country + Newspaper Top Rule */}
+                      <div className="h-[2px] bg-ink w-full mb-3" />
+
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-1.5">
+                          <Globe2 size={13} className="text-ink-secondary" />
+                          <span className="font-ui text-xs font-bold uppercase tracking-wider text-ink">
+                            {article.source.name}
+                          </span>
+                        </div>
+                        <span className="font-mono text-[0.6875rem] px-2 py-0.5 rounded-xs border border-paper-border bg-paper-alt text-ink-muted">
+                          {article.source.country}
+                        </span>
+                      </div>
+
+                      <Badge category={primaryCategory} className="text-[0.625rem] mb-2.5" />
+
+                      {/* Headline: Playfair Serif */}
+                      <h3 className="font-headline text-lg font-bold text-ink leading-snug tracking-tight mb-2.5 line-clamp-3">
+                        {article.title_english}
+                      </h3>
+
+                      {/* Summary: Source Serif */}
+                      <p className="font-body text-xs text-ink-secondary leading-relaxed line-clamp-4 mb-4">
+                        {article.summary}
+                      </p>
+
+                      {/* Keywords / Shared Themes Chips */}
+                      {article.keywords && article.keywords.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-3 border-t border-paper-border">
+                          {article.keywords.map((kw) => {
+                            const isShared = sharedKeywordsMap.has(kw.toLowerCase());
+                            const colorIdx = sharedKeywordsMap.get(kw.toLowerCase()) ?? 0;
+                            const isFocused =
+                              activeKeywordFilter === kw.toLowerCase();
+                            return (
+                              <span
+                                key={kw}
+                                ref={(el) => {
+                                  if (!el) return;
+                                  const list = chipRefs.current.get(kw.toLowerCase()) || [];
+                                  if (!list.includes(el)) {
+                                    list.push(el);
+                                    chipRefs.current.set(kw.toLowerCase(), list);
+                                  }
+                                }}
+                                className={`font-mono text-[0.6875rem] px-1.5 py-0.5 rounded-xs border transition-colors ${
+                                  isFocused
+                                    ? 'border-ink bg-ink text-paper font-bold'
+                                    : isShared
+                                    ? 'border-ink/60 bg-paper-alt font-semibold text-ink'
+                                    : 'border-paper-border text-ink-muted'
+                                }`}
+                                style={
+                                  isShared && !isFocused
+                                    ? { borderLeftColor: SILK_PALETTE[colorIdx], borderLeftWidth: '2.5px' }
+                                    : {}
+                                }
+                              >
+                                #{kw}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer Action: Read Full Article in Main Reader */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenArticle(article.id)}
+                      className="mt-5 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 border-2 border-ink bg-paper hover:bg-ink hover:text-paper rounded-xs font-ui text-xs font-bold text-ink transition-colors shadow-xs"
+                    >
+                      <span>Read Full Dispatch</span>
+                      <ArrowRight size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
+export default CompareCoverage;

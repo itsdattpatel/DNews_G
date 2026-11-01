@@ -26,3 +26,4 @@ export function formatArticleByline(article: Pick<Article, 'source'>): string {
   const country = article.source?.country?.trim() || 'Global';
   return `${name} · ${country}`;
 }
+
