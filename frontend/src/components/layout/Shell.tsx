@@ -20,11 +20,13 @@ import { ArchiveChat } from '../chat/ArchiveChat';
 import { WorldMap } from '../map/WorldMap';
 import { MorningBriefing } from '../briefing/MorningBriefing';
 import { TVView } from '../tv/TVView';
+import { CategoryRailView } from '../category/CategoryRailView';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { useAppStore } from '../../store/useAppStore';
 import { useLenisScroll } from '../../hooks/useLenisScroll';
 
 export const Shell: React.FC = () => {
+  const currentView = useAppStore((s) => s.currentView);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const isBatMenuOpen = useAppStore((s) => s.isBatMenuOpen);
   const setBatMenuOpen = useAppStore((s) => s.setBatMenuOpen);
@@ -112,24 +114,32 @@ export const Shell: React.FC = () => {
         ref={mainScrollRef}
         className="flex-1 flex overflow-hidden relative"
       >
-        {/* Main Reader View (Default) */}
-        <div className="flex-1 flex overflow-hidden w-full h-full">
-          {/* Left Panel: Article Column (60%) */}
-          <ErrorBoundary panelName="Article Reader Desk">
-            <ArticlePanel />
+        {currentView === 'category' ? (
+          <ErrorBoundary panelName="Category Rail Desk">
+            <CategoryRailView />
           </ErrorBoundary>
+        ) : (
+          /* Main Reader View (Default) */
+          <div className="flex-1 flex overflow-hidden w-full h-full">
+            {/* Left Panel: Article Column (60%) */}
+            <ErrorBoundary panelName="Article Reader Desk">
+              <ArticlePanel />
+            </ErrorBoundary>
 
-          {/* Right Panel: Summary Column & Spider Mount (40%) */}
-          <ErrorBoundary panelName="Summary Wire Desk">
-            <SummaryPanel />
-          </ErrorBoundary>
-        </div>
+            {/* Right Panel: Summary Column & Spider Mount (40%) */}
+            <ErrorBoundary panelName="Summary Wire Desk">
+              <SummaryPanel />
+            </ErrorBoundary>
+          </div>
+        )}
       </main>
 
-      {/* 4. Bottom Horizontal Dispatch Strip */}
-      <ErrorBoundary panelName="Dispatch Wire Strip">
-        <CardStrip />
-      </ErrorBoundary>
+      {/* 4. Bottom Horizontal Dispatch Strip (rendered on reader view) */}
+      {currentView !== 'category' && (
+        <ErrorBoundary panelName="Dispatch Wire Strip">
+          <CardStrip />
+        </ErrorBoundary>
+      )}
 
       {/* 5. Continuous News Ticker (z-30) */}
       <ErrorBoundary panelName="Bottom Ticker">

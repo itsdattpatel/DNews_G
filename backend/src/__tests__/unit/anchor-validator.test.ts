@@ -72,3 +72,4 @@ describe('Step 5: Anchor Phrase Verbatim Validator', () => {
     expect(validateAnchorPhrases([{ phrase: 'test', sentence_index: 0 }], '')).toEqual([]);
   });
 });
+

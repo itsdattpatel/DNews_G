@@ -7,7 +7,7 @@ import React from 'react';
 import { BatIcon } from '../bat/BatIcon';
 import { ProviderBadge } from '../quota/ProviderBadge';
 import { useAppStore } from '../../store/useAppStore';
-import { Search, Flame, X, Clock, RadioTower } from 'lucide-react';
+import { Search, Flame, X, Clock, RadioTower, Layers } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const CATEGORIES = [
@@ -46,6 +46,7 @@ export const TopBar: React.FC = () => {
   const toggleBreakingOnly = useAppStore((s) => s.toggleBreakingOnly);
   const startupStatus = useAppStore((s) => s.startupStatus);
   const setMissedNewsModalOpen = useAppStore((s) => s.setMissedNewsModalOpen);
+  const currentView = useAppStore((s) => s.currentView);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
 
   return (
@@ -122,6 +123,21 @@ export const TopBar: React.FC = () => {
             </option>
           ))}
         </select>
+
+        {/* View Toggle: Dual Reader ↔ Category Directory */}
+        <button
+          id="btn-toggle-category-view"
+          onClick={() => setCurrentView(currentView === 'category' ? 'reader' : 'category')}
+          title={currentView === 'category' ? 'Return to Dual Reader Desk' : 'Open Section Directory Grid'}
+          className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-xs border text-xs font-bold transition-all shadow-xs ${
+            currentView === 'category'
+              ? 'border-ink bg-ink text-paper'
+              : 'border-paper-border bg-paper hover:border-ink text-ink'
+          }`}
+        >
+          <Layers size={12} />
+          <span>{currentView === 'category' ? 'Reader' : 'Directory'}</span>
+        </button>
 
         {/* Breaking Only Filter Toggle */}
         <button

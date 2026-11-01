@@ -2,3 +2,4 @@
 -- Stores JSON array: [{"phrase":"verbatim substring","sentence_index":0}, ...]
 
 ALTER TABLE articles ADD COLUMN anchor_phrases TEXT DEFAULT NULL;
+

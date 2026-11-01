@@ -45,3 +45,4 @@ export function useSpiderFPS(threshold: number = 45): {
 
   return { fps, below, critical, updateFPS };
 }
+
