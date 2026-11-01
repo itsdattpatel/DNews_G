@@ -179,9 +179,33 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 
 *Updated as packages are installed (Step 1+). Format: `date · npm name@version · approved by user`*
 
-| Date | Package | Version | Approved By |
-|------|---------|---------|-------------|
-| — | (none yet — Step 0 docs only) | — | — |
+| Date | Package | Exact Version | License | Approval | Role |
+|------|---------|---------------|---------|----------|------|
+| 2026-11-01 | `tailwindcss` | `3.4.14` | MIT | Approved (Core) | Utility CSS engine & design tokens |
+| 2026-11-01 | `@tailwindcss/typography` | `0.5.15` | MIT | Approved (Core) | Broadsheet article prose styling |
+| 2026-11-01 | `postcss` | `8.4.47` | MIT | Approved (Core) | CSS transformation pipeline |
+| 2026-11-01 | `autoprefixer` | `10.4.20` | MIT | Approved (Core) | Vendor prefixing for CSS rules |
+| 2026-11-01 | `clsx` | `2.1.1` | MIT | Approved (Core) | Dynamic class names |
+| 2026-11-01 | `tailwind-merge` | `2.5.4` | MIT | Approved (Core) | Conflict-free Tailwind class merge |
+| 2026-11-01 | `class-variance-authority` | `0.7.0` | Apache-2.0 | Approved (Core) | Component variant management |
+| 2026-11-01 | `@radix-ui/react-slot` | `1.1.0` | MIT | Approved (Core) | Polymorphic slot primitive |
+| 2026-11-01 | `@radix-ui/react-dialog` | `1.1.2` | MIT | Approved (Core) | Accessible modal dialogs |
+| 2026-11-01 | `@radix-ui/react-dropdown-menu` | `2.1.2` | MIT | Approved (Core) | Accessible dropdowns & bat menu |
+| 2026-11-01 | `@radix-ui/react-tabs` | `1.1.1` | MIT | Approved (Core) | Category tab rail navigation |
+| 2026-11-01 | `@radix-ui/react-slider` | `1.2.1` | MIT | Approved (Core) | Settings speed & threshold sliders |
+| 2026-11-01 | `@radix-ui/react-switch` | `1.1.1` | MIT | Approved (Core) | Settings toggle switches |
+| 2026-11-01 | `motion` | `14.3.0` | MIT | Approved (Core) | UI & route transition animations |
+| 2026-11-01 | `gsap` | `3.12.5` | GSAP No-Charge | Approved (Core) | Spider timeline & SplitText reveals |
+| 2026-11-01 | `lenis` | `1.1.14` | MIT | Approved (Core) | Smooth broadsheet scrolling |
+| 2026-11-01 | `@tanstack/react-query` | `5.59.16` | MIT | Approved (Core) | Server state, cache, & polling |
+| 2026-11-01 | `sonner` | `1.5.0` | MIT | Approved (Core) | Alerts & connection status toasts |
+| 2026-11-01 | `@fontsource/playfair-display` | `5.1.0` | OFL-1.1 | Approved (Core) | Headline typography |
+| 2026-11-01 | `@fontsource/unifrakturcook` | `5.1.0` | OFL-1.1 | Approved (Core) | Masthead logotype typography |
+| 2026-11-01 | `@fontsource/source-serif-4` | `5.1.0` | OFL-1.1 | Approved (Core) | Body article prose typography |
+| 2026-11-01 | `@fontsource/inter` | `5.1.0` | OFL-1.1 | Approved (Core) | UI chrome and navigation typography |
+| 2026-11-01 | `@fontsource/ibm-plex-mono` | `5.1.0` | OFL-1.1 | Approved (Core) | Data, metadata, & code typography |
+| 2026-11-01 | `@playwright/test` | `1.48.2` | Apache-2.0 | Approved (Core Dev) | Automated visual QA & screenshot tests |
+| 2026-11-01 | `@types/node` | `20.16.11` | MIT | Approved (Core Dev) | TypeScript node definitions for Vite |
 
 ---
 
