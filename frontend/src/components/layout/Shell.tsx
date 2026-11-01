@@ -66,6 +66,7 @@ export const Shell: React.FC = () => {
           break;
         case 'g':
           e.preventDefault();
+          useAppStore.getState().setGlobeOpen(true);
           setCurrentView('globe');
           break;
         case 't':

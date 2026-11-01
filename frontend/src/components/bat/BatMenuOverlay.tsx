@@ -81,6 +81,12 @@ export const BatMenuOverlay: React.FC = () => {
       const art = useAppStore.getState().selectedArticle;
       useAppStore.getState().setTimelineClusterId(art?.cluster_id ?? 1);
     }
+    if (view === 'globe') {
+      useAppStore.getState().setGlobeOpen(true);
+    }
+    if (view === 'archive') {
+      useAppStore.getState().setArchiveChatOpen(true);
+    }
     setCurrentView(view);
   };
 

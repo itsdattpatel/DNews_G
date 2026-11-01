@@ -100,3 +100,4 @@ describe('Screens (c) & (d): Compare Coverage & Story Timeline (Step 7)', () => 
     });
   });
 });
+

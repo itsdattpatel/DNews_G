@@ -118,16 +118,18 @@ export function resolveCountryKey(input?: string | null): string | null {
 }
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  World: '#6366f1', // Indigo
-  Politics: '#818cf8', // Cold press violet
-  Business: '#f59e0b', // Amber
-  Tech: '#38bdf8', // Cyan
-  Science: '#a78bfa', // Purple
-  Health: '#10b981', // Emerald
-  Environment: '#22c55e', // Green
-  Animals: '#ef4444', // Red (Wildlife alert)
-  Crime: '#f43f5e', // Rose
-  General: '#94a3b8',
+  World: '#2C4A7C',
+  Politics: '#5C1A1A',
+  Business: '#1A3D1A',
+  Tech: '#1A2A4A',
+  Science: '#3A1A5C',
+  Health: '#1A3A3A',
+  Environment: '#1A3A1A',
+  Animals: '#C0392B',
+  Crime: '#3A1A1A',
+  Sports: '#3A2A0A',
+  Entertainment: '#4A1A3A',
+  General: '#5C5448',
 };
 
 const WILDLIFE_KEYWORDS = [
@@ -160,6 +162,7 @@ export interface AggregatedCountryStats {
   categoryCounts: Record<string, number>;
   hasWildlifeCrime: boolean;
   wildlifeArticlesCount: number;
+  topHeadline?: string;
 }
 
 export function aggregateCountryNews(articles: Article[]): {
@@ -200,6 +203,9 @@ export function aggregateCountryNews(articles: Article[]): {
 
     const item = stats[countryKey]!;
     item.articleCount += 1;
+    if (!item.topHeadline && article.title_english) {
+      item.topHeadline = article.title_english;
+    }
 
     if (article.breaking_score > item.highestBreakingScore) {
       item.highestBreakingScore = article.breaking_score;
