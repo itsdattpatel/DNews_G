@@ -30,7 +30,17 @@ export default {
         snap: 'cubic-bezier(0.68, -0.6, 0.32, 1.6)',
         smooth: 'cubic-bezier(0.4, 0, 0.2, 1)',
       },
+      keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
+      },
+      animation: {
+        marquee: 'marquee 40s linear infinite',
+      },
     },
   },
   plugins: [typography],
 } satisfies Config;
+

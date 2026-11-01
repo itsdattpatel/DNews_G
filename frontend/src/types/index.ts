@@ -13,6 +13,30 @@ export interface Source {
 
 export type SpiderType = 'Reader' | 'Scout' | 'Weaver' | 'RedAlert' | 'Archive' | 'Swarm';
 
+export type SpiderMode = 'reading' | 'breaking' | 'compare' | 'archive';
+
+export type ThemeMode = 'paper' | 'night';
+
+export type AppView =
+  | 'reader'
+  | 'category'
+  | 'compare'
+  | 'timeline'
+  | 'globe'
+  | 'archive'
+  | 'watchlist'
+  | 'tv'
+  | 'pdf'
+  | 'briefing'
+  | 'alerts'
+  | 'sources-settings'
+  | 'settings';
+
+export interface AnchorPhrase {
+  phrase: string;
+  sentence_index: number;
+}
+
 export interface Article {
   id: number;
   url: string;

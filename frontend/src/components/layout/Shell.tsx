@@ -1,10 +1,12 @@
 /**
  * frontend/src/components/layout/Shell.tsx
- * Master layout container orchestrating TopBar, Article & Summary panels, CardStrip, and drawers.
- * Protected by editorial ErrorBoundaries across all major desks (P12-06).
+ * Broadsheet Newspaper Application Shell (v2.0)
+ * Orchestrates TopBar, Bat Masthead Menu, Main Split Reader, Global Router, Bottom Ticker, and Lenis Scroll.
  */
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { TopBar } from './TopBar';
+import { BatMenuOverlay } from '../bat/BatMenuOverlay';
+import { NewsTicker } from './NewsTicker';
 import { ArticlePanel } from '../article/ArticlePanel';
 import { SummaryPanel } from '../article/SummaryPanel';
 import { CardStrip } from '../article/CardStrip';
@@ -18,96 +20,160 @@ import { WorldMap } from '../map/WorldMap';
 import { MorningBriefing } from '../briefing/MorningBriefing';
 import { TVView } from '../tv/TVView';
 import { ErrorBoundary } from '../common/ErrorBoundary';
+import { useAppStore } from '../../store/useAppStore';
+import { useLenisScroll } from '../../hooks/useLenisScroll';
 
 export const Shell: React.FC = () => {
+  const setCurrentView = useAppStore((s) => s.setCurrentView);
+  const isBatMenuOpen = useAppStore((s) => s.isBatMenuOpen);
+  const setBatMenuOpen = useAppStore((s) => s.setBatMenuOpen);
+  const nextArticle = useAppStore((s) => s.nextArticle);
+  const prevArticle = useAppStore((s) => s.prevArticle);
+  const theme = useAppStore((s) => s.theme);
+
+  // Sync theme attribute on mount
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // Global Keyboard Shortcuts (PRD §6 & UI_SPEC §Keyboard Shortcuts)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input or textarea
+      if (
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(
+          (e.target as HTMLElement)?.tagName || ''
+        )
+      ) {
+        return;
+      }
+
+      switch (e.key.toLowerCase()) {
+        case 'b':
+          e.preventDefault();
+          setBatMenuOpen(!isBatMenuOpen);
+          break;
+        case 'j':
+          e.preventDefault();
+          nextArticle();
+          break;
+        case 'k':
+          e.preventDefault();
+          prevArticle();
+          break;
+        case 'g':
+          e.preventDefault();
+          setCurrentView('globe');
+          break;
+        case 't':
+          e.preventDefault();
+          setCurrentView('tv');
+          break;
+        case '/':
+          e.preventDefault();
+          const searchInput = document.getElementById('article-search-input');
+          searchInput?.focus();
+          break;
+        case 'escape':
+          if (isBatMenuOpen) {
+            setBatMenuOpen(false);
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isBatMenuOpen, setBatMenuOpen, nextArticle, prevArticle, setCurrentView]);
+
+  const mainScrollRef = useRef<HTMLElement | null>(null);
+  useLenisScroll(mainScrollRef);
+
   return (
     <div
       id="app-shell"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        width: '100vw',
-        height: '100vh',
-        overflow: 'hidden',
-        background: 'var(--bg-primary)',
-        position: 'relative',
-      }}
+      data-theme={theme}
+      className="flex flex-col w-screen h-screen overflow-hidden bg-paper text-ink relative font-ui transition-colors duration-200 select-none"
     >
-      {/* Top Header Bar */}
+      {/* 1. Master TopBar (z-40) */}
       <ErrorBoundary panelName="Top Bar">
         <TopBar />
       </ErrorBoundary>
 
-      {/* Main Two-Panel Article & Intelligence Split View */}
+      {/* 2. Bat Menu Overlay (Unfolds like broadsheet paper) */}
+      <ErrorBoundary panelName="Bat Masthead Menu">
+        <BatMenuOverlay />
+      </ErrorBoundary>
+
+      {/* 3. Main Split View or Section Desks */}
       <main
         id="main-split-container"
-        style={{
-          flex: 1,
-          display: 'flex',
-          overflow: 'hidden',
-          position: 'relative',
-        }}
+        ref={mainScrollRef}
+        className="flex-1 flex overflow-hidden relative"
       >
-        {/* Left Half: Original Full Story */}
-        <ErrorBoundary panelName="Original Article Desk">
-          <ArticlePanel />
-        </ErrorBoundary>
+        {/* Main Reader View (Default) */}
+        <div className="flex-1 flex overflow-hidden w-full h-full">
+          {/* Left Panel: Article Column (60%) */}
+          <ErrorBoundary panelName="Article Reader Desk">
+            <ArticlePanel />
+          </ErrorBoundary>
 
-        {/* Right Half: AI Summary & Spider Mount */}
-        <ErrorBoundary panelName="AI Summary Desk">
-          <SummaryPanel />
-        </ErrorBoundary>
+          {/* Right Panel: Summary Column & Spider Mount (40%) */}
+          <ErrorBoundary panelName="Summary Wire Desk">
+            <SummaryPanel />
+          </ErrorBoundary>
+        </div>
       </main>
 
-      {/* Bottom Horizontal Card Strip */}
+      {/* 4. Bottom Horizontal Dispatch Strip */}
       <ErrorBoundary panelName="Dispatch Wire Strip">
         <CardStrip />
       </ErrorBoundary>
 
-      {/* Notification Banners Stack */}
+      {/* 5. Continuous News Ticker (z-30) */}
+      <ErrorBoundary panelName="Bottom Ticker">
+        <NewsTicker />
+      </ErrorBoundary>
+
+      {/* 6. Notifications & Modals */}
       <ErrorBoundary panelName="Alert Banners">
         <AlertBanner />
       </ErrorBoundary>
 
-      {/* Bat Settings Drawer */}
       <ErrorBoundary panelName="Settings Drawer">
         <SettingsMenu />
       </ErrorBoundary>
 
-      {/* Catch-Up Dispatches Modal */}
       <ErrorBoundary panelName="Missed Dispatches Modal">
         <MissedNewsModal />
       </ErrorBoundary>
 
-      {/* Compare Coverage Across Outlets (P7-04) */}
+      {/* Desks triggered via Bat Menu or Shortcuts */}
       <ErrorBoundary panelName="Coverage Comparison Desk">
         <CompareCoverage />
       </ErrorBoundary>
 
-      {/* Story Timeline Chronology (P7-07) */}
       <ErrorBoundary panelName="Story Timeline Desk">
         <StoryTimeline />
       </ErrorBoundary>
 
-      {/* Historical Archive Chat & AI Synthesis Desk (P8-03, P8-05) */}
-      <ErrorBoundary panelName="Archive Search & Chat Desk">
+      <ErrorBoundary panelName="Archive Search Desk">
         <ArchiveChat />
       </ErrorBoundary>
 
-      {/* Global News Radar & Wildlife Intelligence Map (Phase 9) */}
       <ErrorBoundary panelName="Global Radar Map">
         <WorldMap />
       </ErrorBoundary>
 
-      {/* Executive Morning Radio Briefing (Phase 10) */}
       <ErrorBoundary panelName="Morning Radio Briefing">
         <MorningBriefing />
       </ErrorBoundary>
 
-      {/* Live IPTV Channel Broadcasts & Wildlife Feeds (Phase 11) */}
-      <ErrorBoundary panelName="IPTV Live Video Desk">
+      <ErrorBoundary panelName="Live Video Desk">
         <TVView />
       </ErrorBoundary>
     </div>
   );
 };
+
+export default Shell;

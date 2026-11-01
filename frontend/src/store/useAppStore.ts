@@ -3,10 +3,19 @@
  * Master Zustand store managing articles, UI drawers, live quota, and alerts.
  */
 import { create } from 'zustand';
-import type { Article, AlertItem, QuotaData, AppSettings, StartupStatus, BackfillResponse } from '../types';
+import type { Article, AlertItem, QuotaData, AppSettings, StartupStatus, BackfillResponse, AppView, ThemeMode } from '../types';
 import { playButtonSound, playAlertChime } from '../utils/sound';
 
 interface AppState {
+  // Navigation & Shell (Step 2)
+  currentView: AppView;
+  setCurrentView: (view: AppView) => void;
+  theme: ThemeMode;
+  setTheme: (theme: ThemeMode) => void;
+  isBatMenuOpen: boolean;
+  setBatMenuOpen: (open: boolean) => void;
+  nextArticle: () => void;
+  prevArticle: () => void;
   // Articles
   articles: Article[];
   selectedArticleId: number | null;
@@ -80,6 +89,41 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
+  // Navigation & Shell (Step 2)
+  currentView: 'reader',
+  setCurrentView: (view) => {
+    playButtonSound(get().settings.sound_enabled);
+    set({ currentView: view, isBatMenuOpen: false });
+  },
+  theme: (typeof window !== 'undefined' && (localStorage.getItem('news_desk_theme') as ThemeMode)) || 'paper',
+  setTheme: (theme) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('news_desk_theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    set({ theme });
+  },
+  isBatMenuOpen: false,
+  setBatMenuOpen: (open) => set({ isBatMenuOpen: open }),
+
+  nextArticle: () => {
+    const { articles, selectedArticleId } = get();
+    if (!articles.length) return;
+    const idx = articles.findIndex((a) => a.id === selectedArticleId);
+    if (idx !== -1 && idx < articles.length - 1) {
+      get().setSelectedArticle(articles[idx + 1]);
+    }
+  },
+
+  prevArticle: () => {
+    const { articles, selectedArticleId } = get();
+    if (!articles.length) return;
+    const idx = articles.findIndex((a) => a.id === selectedArticleId);
+    if (idx > 0) {
+      get().setSelectedArticle(articles[idx - 1]);
+    }
+  },
+
   articles: [],
   selectedArticleId: null,
   selectedArticle: null,

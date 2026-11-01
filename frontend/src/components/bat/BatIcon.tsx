@@ -1,9 +1,10 @@
 /**
  * frontend/src/components/bat/BatIcon.tsx
- * Interactive SVG bat with flapping wings animation on hover.
- * Clicking toggles the settings drawer.
+ * Custom hand-crafted anatomical ink-drawn broadsheet bat in SVG.
+ * Features procedural wing flapping on click/hover and toggle for the Bat Menu.
  */
-import React from 'react';
+import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { useAppStore } from '../../store/useAppStore';
 
 interface BatIconProps {
@@ -12,67 +13,109 @@ interface BatIconProps {
 }
 
 export const BatIcon: React.FC<BatIconProps> = ({ size = 36, className = '' }) => {
-  const isSettingsOpen = useAppStore((s) => s.isSettingsOpen);
-  const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
+  const isBatMenuOpen = useAppStore((s) => s.isBatMenuOpen);
+  const setBatMenuOpen = useAppStore((s) => s.setBatMenuOpen);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const toggleMenu = () => {
+    setBatMenuOpen(!isBatMenuOpen);
+  };
 
   return (
     <button
       type="button"
       id="bat-menu-button"
-      onClick={() => setSettingsOpen(!isSettingsOpen)}
-      className={`bat-hover relative flex items-center justify-center p-2 rounded-xl transition-all duration-200 hover:bg-slate-800/60 focus:outline-none ${className}`}
-      title="Settings & System Control (Bat Menu)"
-      aria-label="Toggle Settings Menu"
-      style={{
-        background: isSettingsOpen ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
-        border: isSettingsOpen ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
-        cursor: 'pointer',
-      }}
+      onClick={toggleMenu}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`group relative flex items-center justify-center p-1.5 rounded-sm transition-colors border border-transparent hover:border-paper-border hover:bg-paper-alt focus:outline-none focus:ring-1 focus:ring-accent ${className}`}
+      title="The World Desk Masthead Menu (Press 'b' to toggle)"
+      aria-label="Toggle Masthead Navigation Menu"
+      aria-expanded={isBatMenuOpen}
     >
       <svg
         width={size}
         height={size}
-        viewBox="0 0 48 48"
+        viewBox="0 0 52 52"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className="transition-transform duration-200"
       >
-        {/* Glow backdrop */}
-        <filter id="bat-glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-        </filter>
-
-        <g filter="url(#bat-glow)">
-          {/* Left Wing */}
+        {/* Left Wing (Procedural Flapping via Motion) */}
+        <motion.g
+          style={{ originX: '26px', originY: '26px' }}
+          animate={
+            isBatMenuOpen
+              ? { rotate: [-12, 10, -6, 0], scaleY: [0.8, 1.1, 0.95, 1] }
+              : isHovered
+              ? { rotate: [-6, 6, -3, 0], scaleY: [0.9, 1.05, 1] }
+              : { rotate: 0, scaleY: 1 }
+          }
+          transition={{ duration: 0.45, ease: 'easeInOut' }}
+        >
+          {/* Outer wing membrane */}
           <path
-            className="bat-wing-left"
-            d="M24 24 C20 12, 6 10, 2 18 C0 24, 8 36, 16 32 C18 30, 20 28, 24 28 Z"
-            fill="#818cf8"
-            opacity="0.9"
+            d="M26 26 C22 14, 11 10, 4 17 C1 21, 5 32, 12 33 C16 33, 19 30, 21 29 C23 31, 25 30, 26 26 Z"
+            className="fill-ink opacity-90 transition-colors"
           />
-
-          {/* Right Wing */}
+          {/* Wing rib detail lines */}
           <path
-            className="bat-wing-right"
-            d="M24 24 C28 12, 42 10, 46 18 C48 24, 40 36, 32 32 C30 30, 28 28, 24 28 Z"
-            fill="#818cf8"
-            opacity="0.9"
+            d="M26 26 Q17 18 6 18 M26 26 Q19 25 12 32 M26 26 Q23 28 21 29"
+            stroke="var(--color-paper)"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+            className="opacity-70"
           />
+        </motion.g>
 
-          {/* Bat Body */}
-          <ellipse cx="24" cy="27" rx="5.5" ry="8" fill="#4338ca" />
+        {/* Right Wing (Mirrored Flapping via Motion) */}
+        <motion.g
+          style={{ originX: '26px', originY: '26px' }}
+          animate={
+            isBatMenuOpen
+              ? { rotate: [12, -10, 6, 0], scaleY: [0.8, 1.1, 0.95, 1] }
+              : isHovered
+              ? { rotate: [6, -6, 3, 0], scaleY: [0.9, 1.05, 1] }
+              : { rotate: 0, scaleY: 1 }
+          }
+          transition={{ duration: 0.45, ease: 'easeInOut' }}
+        >
+          {/* Outer wing membrane */}
+          <path
+            d="M26 26 C30 14, 41 10, 48 17 C51 21, 47 32, 40 33 C36 33, 33 30, 31 29 C29 31, 27 30, 26 26 Z"
+            className="fill-ink opacity-90 transition-colors"
+          />
+          {/* Wing rib detail lines */}
+          <path
+            d="M26 26 Q35 18 46 18 M26 26 Q33 25 40 32 M26 26 Q29 28 31 29"
+            stroke="var(--color-paper)"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+            className="opacity-70"
+          />
+        </motion.g>
 
-          {/* Bat Head & Ears */}
-          <circle cx="24" cy="18" r="4.5" fill="#3730a3" />
-          <polygon points="21,16 19,10 23,14" fill="#4338ca" />
-          <polygon points="27,16 29,10 25,14" fill="#4338ca" />
+        {/* Bat Body & Tail */}
+        <path
+          d="M26 37 C23 35, 22 28, 22 24 C22 20, 24 17, 26 17 C28 17, 30 20, 30 24 C30 28, 29 35, 26 37 Z"
+          className="fill-ink transition-colors"
+        />
 
-          {/* Glowing Eyes */}
-          <circle cx="22.2" cy="17.5" r="1.1" fill="#f87171" />
-          <circle cx="25.8" cy="17.5" r="1.1" fill="#f87171" />
-        </g>
+        {/* Bat Head & Pointed Ears */}
+        <circle cx="26" cy="18" r="4.2" className="fill-ink" />
+        <polygon points="23,16 20,9 25,14" className="fill-ink" />
+        <polygon points="29,16 32,9 27,14" className="fill-ink" />
+
+        {/* Ear inner highlights */}
+        <polygon points="22.5,15 21,11 24,14" fill="var(--color-paper)" opacity="0.6" />
+        <polygon points="29.5,15 31,11 28,14" fill="var(--color-paper)" opacity="0.6" />
+
+        {/* Keen Alert Eyes (Accented Crimson) */}
+        <circle cx="24.2" cy="17.6" r="1.1" className="fill-accent" />
+        <circle cx="27.8" cy="17.6" r="1.1" className="fill-accent" />
       </svg>
     </button>
   );
 };
+
+export default BatIcon;
