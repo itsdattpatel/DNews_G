@@ -19,9 +19,44 @@ Every install must be logged here with exact npm name + version locked in packag
 
 | Item | URL | License | Decision | Notes |
 |------|-----|---------|----------|-------|
-| cyohei9907/web-crawlers | https://github.com/cyohei9907/web-crawlers | **No LICENSE file found** | ❌ REJECTED for direct copy | Algorithm *concept* (feet plant on DOM words, IK legs) may be studied; code will be rewritten from scratch in TypeScript. No code lines copied. |
+| cyohei9907/web-crawlers | https://github.com/cyohei9907/web-crawlers | **No LICENSE file found** | 💡 INSPIRATION ONLY | Algorithm *technique* (procedural legs, planting feet on DOM word rectangles) serves as inspirational reference only. No code copied (all rights reserved by author). Completely rewritten from scratch in TypeScript (`SpiderCrawler.tsx`). |
 
-**Approved approach**: New `SpiderCrawler.tsx` — original TypeScript rewrite inspired by the DOM-walking concept (legs snap to real words in `body_english` text). No copied code.
+**Approved approach**: New `SpiderCrawler.tsx` — clean-room, original TypeScript implementation of procedural IK walking and DOM word coordinate targeting. Fully compliant with OSS standards.
+
+---
+
+## 2. Package Approval & Install Governance
+
+### 2.1 Approved CORE List (Approved for immediate installation in Step 1)
+All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or `~`), must have been published **more than 14 days ago** (no zero-day packages), and must pass `npm audit`:
+
+1. `tailwindcss` (and `@tailwindcss/typography`, `postcss`, `autoprefixer`)
+2. `shadcn/ui` core utilities & primitives:
+   - `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-tabs`, `@radix-ui/react-slider`, `@radix-ui/react-switch`
+   - `class-variance-authority`
+   - `clsx`
+   - `tailwind-merge`
+   - `lucide-react` (already present, keep)
+3. `motion` (Framer Motion v11+) — for all general UI transitions & route reveals
+4. `gsap` (v3.13+, No-Charge license) — exclusively for spider crawling timeline and SplitText headline reveals (never mixed on same job with Motion)
+5. `lenis` (^1.x) — smooth scrolling engine
+6. `@tanstack/react-query` — server state & cache management
+7. `zustand` (already present, keep) — global UI state
+8. `sonner` — clean toast notifications
+9. `@fontsource` packages:
+   - `@fontsource/playfair-display`
+   - `@fontsource/unifrakturcook`
+   - `@fontsource/source-serif-4`
+   - `@fontsource/inter`
+   - `@fontsource/ibm-plex-mono`
+10. `@playwright/test` (devDependencies only) — E2E screenshot validation
+
+### 2.2 DEFERRED List (DO NOT install until their respective Step is approved)
+- `react-globe.gl` + `three` (Step 9: Globe / Map)
+- `d3-geo` / `maplibre-gl` (Step 9: only if flat map fallback needed)
+- `hls.js` (Step 10: TV View — already present in package.json)
+- `@lottiefiles/dotlottie-react` (NOT approved — Bat is 100% custom SVG, no Lottie required)
+- `@phosphor-icons/react` / `@react-three/fiber` (Deferred; only if specific explicit user approval is granted)
 
 ---
 

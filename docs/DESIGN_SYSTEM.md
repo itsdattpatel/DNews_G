@@ -79,6 +79,21 @@
 --cat-animals:          #2A3A1A;
 ```
 
+### 1.4 WCAG 2.1 AA Contrast Verification for Breaking News Accent
+
+Verified via relative luminance calculations `(L1 + 0.05) / (L2 + 0.05)`:
+
+| Theme | Background | Token | Color Value | Contrast Ratio | WCAG AA Status |
+|-------|------------|-------|-------------|----------------|----------------|
+| **Paper** (Default) | `#FAF7F0` (base) | `--color-accent` | `#C0392B` (Crimson) | **5.08 : 1** | ✅ PASS (exceeds 4.5:1 normal text) |
+| **Paper** (Default) | `#F2EDE2` (alt/card) | `--color-accent` | `#C0392B` (Crimson) | **4.66 : 1** | ✅ PASS (exceeds 4.5:1 normal text) |
+| **Night** (Dark) | `#0E0C09` (base) | *unadjusted #C0392B* | `#C0392B` | *3.59 : 1* | ❌ FAIL (below 4.5:1 requirement) |
+| **Night** (Dark) | `#0E0C09` (base) | `--color-accent` | **`#E74C3C`** (Vibrant Crimson) | **5.11 : 1** | ✅ PASS (exceeds 4.5:1 normal text) |
+| **Night** (Dark) | `#1A1710` (alt/card) | `--color-accent` | **`#E74C3C`** (Vibrant Crimson) | **4.68 : 1** | ✅ PASS (exceeds 4.5:1 normal text) |
+
+> **Conclusion**: The default `#C0392B` is retained for Paper mode. For Night Edition mode, `--color-accent` is calibrated to `#E74C3C`, ensuring full WCAG AA compliance (≥ 4.5:1) across both themes without losing the newspaper breaking news aesthetic.
+
+
 ---
 
 ## 2. Typography
