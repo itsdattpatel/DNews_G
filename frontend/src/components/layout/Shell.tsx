@@ -19,6 +19,7 @@ import { StoryTimeline } from '../timeline/StoryTimeline';
 import { ArchiveChat } from '../chat/ArchiveChat';
 import { WorldMap } from '../map/WorldMap';
 import { MorningBriefing } from '../briefing/MorningBriefing';
+import { DailyPdfDesk } from '../pdf/DailyPdfDesk';
 import { TVView } from '../tv/TVView';
 import { WatchlistDesk } from '../watchlist/WatchlistDesk';
 import { CategoryRailView } from '../category/CategoryRailView';
@@ -181,6 +182,10 @@ export const Shell: React.FC = () => {
 
       <ErrorBoundary panelName="Morning Radio Briefing">
         <MorningBriefing />
+      </ErrorBoundary>
+
+      <ErrorBoundary panelName="Daily Newspaper PDF Desk">
+        <DailyPdfDesk />
       </ErrorBoundary>
 
       <ErrorBoundary panelName="Live Video Desk">

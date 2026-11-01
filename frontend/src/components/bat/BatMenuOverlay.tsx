@@ -93,6 +93,12 @@ export const BatMenuOverlay: React.FC = () => {
     if (view === 'tv') {
       useAppStore.getState().setTvViewOpen(true);
     }
+    if (view === 'briefing') {
+      useAppStore.getState().setBriefingOpen(true);
+    }
+    if (view === 'pdf') {
+      useAppStore.getState().setPdfOpen(true);
+    }
     setCurrentView(view);
   };
 

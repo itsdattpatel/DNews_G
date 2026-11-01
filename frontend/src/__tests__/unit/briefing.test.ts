@@ -10,6 +10,7 @@ describe('Executive Morning Briefing & Audio Broadcast (Phase 10)', () => {
   beforeEach(() => {
     useAppStore.setState({
       isBriefingOpen: false,
+      isPdfOpen: false,
     });
   });
 
@@ -22,6 +23,17 @@ describe('Executive Morning Briefing & Audio Broadcast (Phase 10)', () => {
 
     store.setBriefingOpen(false);
     expect(useAppStore.getState().isBriefingOpen).toBe(false);
+  });
+
+  it('manages isPdfOpen modal state in the store (Step 12)', () => {
+    const store = useAppStore.getState();
+    expect(store.isPdfOpen).toBe(false);
+
+    store.setPdfOpen(true);
+    expect(useAppStore.getState().isPdfOpen).toBe(true);
+
+    store.setPdfOpen(false);
+    expect(useAppStore.getState().isPdfOpen).toBe(false);
   });
 
   it('verifies that feature flags enable morning briefing, pdf export, and read-aloud (P10-08)', () => {

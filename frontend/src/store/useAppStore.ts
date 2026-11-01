@@ -83,6 +83,10 @@ interface AppState {
   isBriefingOpen: boolean;
   setBriefingOpen: (open: boolean) => void;
 
+  // Daily Newspaper PDF Desk (Step 12)
+  isPdfOpen: boolean;
+  setPdfOpen: (open: boolean) => void;
+
   // TV View (Phase 11)
   isTvViewOpen: boolean;
   setTvViewOpen: (open: boolean) => void;
@@ -429,6 +433,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   setBriefingOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
     set({ isBriefingOpen: open });
+  },
+
+  // Daily Newspaper PDF Desk (Step 12)
+  isPdfOpen: false,
+  setPdfOpen: (open) => {
+    playButtonSound(get().settings.sound_enabled);
+    set({ isPdfOpen: open });
   },
 
   // TV View (Phase 11)
