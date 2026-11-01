@@ -96,3 +96,15 @@ export interface DbQuotaLog {
   success: number;
   called_at: string;
 }
+
+export interface DbAppSession {
+  id: number;
+  started_at: string;
+  last_heartbeat_at: string;
+  ended_at: string | null;
+  clean_shutdown: number;
+  end_reason: string | null;
+  missed_window_start: string | null;
+  missed_window_end: string | null;
+  articles_ingested_in_session: number;
+}

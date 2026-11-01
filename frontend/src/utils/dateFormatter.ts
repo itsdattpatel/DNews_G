@@ -18,6 +18,44 @@ export interface DateDisplayInfo {
   catchupLabel?: string;
 }
 
+// Clock synchronization state (PRD A Category 1B)
+let serverClockOffsetMs = 0;
+
+/** Sets the offset between server clock and laptop clock in milliseconds */
+export function setServerClockOffset(offsetMs: number): void {
+  serverClockOffsetMs = offsetMs;
+}
+
+/** Gets the current server clock offset in milliseconds */
+export function getServerClockOffset(): number {
+  return serverClockOffsetMs;
+}
+
+/** Returns the current time adjusted by the server clock offset */
+export function getSynchronizedNow(): Date {
+  return new Date(Date.now() + serverClockOffsetMs);
+}
+
+/**
+ * Synchronizes client clock with /api/time, compensating for estimated network latency.
+ */
+export async function syncClockWithServer(): Promise<number> {
+  try {
+    const t0 = Date.now();
+    const res = await fetch('/api/time');
+    if (!res.ok) return 0;
+    const t1 = Date.now();
+    const data = (await res.json()) as { utc: string; timestamp: number };
+    const latency = Math.max(0, Math.floor((t1 - t0) / 2));
+    const estimatedServerNow = data.timestamp + latency;
+    const offset = estimatedServerNow - t1;
+    setServerClockOffset(offset);
+    return offset;
+  } catch {
+    return 0;
+  }
+}
+
 /** Formats a millisecond duration into human-readable relative time */
 export function formatRelativeSpan(diffMs: number): string {
   if (diffMs < 0) return 'just now';
@@ -70,7 +108,7 @@ export function formatDualTimestamps(
   publishedAt: string | null | undefined,
   ingestedAt: string | null | undefined,
   isCatchup: boolean = false,
-  nowReference: Date = new Date(),
+  nowReference: Date = getSynchronizedNow(),
 ): DateDisplayInfo {
   const nowMs = nowReference.getTime();
 
@@ -134,11 +172,16 @@ export function formatDualTimestamps(
  * React hook that triggers a state update every intervalMs so relative times refresh live.
  */
 export function useLiveRelativeTime(intervalMs: number = 30000): Date {
-  const [currentNow, setCurrentNow] = useState(() => new Date());
+  const [currentNow, setCurrentNow] = useState(() => getSynchronizedNow());
 
   useEffect(() => {
+    // Initial clock sync on hook mount
+    syncClockWithServer().then(() => {
+      setCurrentNow(getSynchronizedNow());
+    });
+
     const timer = setInterval(() => {
-      setCurrentNow(new Date());
+      setCurrentNow(getSynchronizedNow());
     }, intervalMs);
 
     return () => clearInterval(timer);
@@ -146,3 +189,4 @@ export function useLiveRelativeTime(intervalMs: number = 30000): Date {
 
   return currentNow;
 }
+

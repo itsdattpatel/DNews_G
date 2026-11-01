@@ -6,6 +6,7 @@
 import { getDb } from '../db/db';
 import { SOURCES } from '../../../config/sources';
 import type { ArticleRaw } from '../fetch/rss';
+import { recordSessionArticlesIngested } from '../services/sessionManager';
 
 /** Sync sources config into DB on startup */
 export function syncSources(): void {
@@ -79,6 +80,9 @@ export async function insertPendingArticles(
     }
   });
   insertAll();
+  if (inserted > 0) {
+    recordSessionArticlesIngested(inserted);
+  }
   return inserted;
 }
 

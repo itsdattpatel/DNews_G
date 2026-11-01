@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { formatDualTimestamps, formatRelativeSpan } from '../../utils/dateFormatter';
+import {
+  formatDualTimestamps,
+  formatRelativeSpan,
+  setServerClockOffset,
+  getServerClockOffset,
+  getSynchronizedNow,
+} from '../../utils/dateFormatter';
 
 describe('Dual Timestamp & Date Verification (Category 1)', () => {
   const baseNow = new Date('2026-11-01T20:00:00.000Z');
@@ -79,4 +85,23 @@ describe('Dual Timestamp & Date Verification (Category 1)', () => {
     expect(formatRelativeSpan(12 * 3600 * 1000)).toBe('12h ago');
     expect(formatRelativeSpan(3 * 86400 * 1000)).toBe('3d ago');
   });
+
+  it('adjusts reference time when server clock offset is configured (Category 1B clock sync)', () => {
+    // Reset offset
+    setServerClockOffset(0);
+    const laptopTime = Date.now();
+    expect(Math.abs(getSynchronizedNow().getTime() - laptopTime)).toBeLessThan(50);
+
+    // Apply +2 hour offset (e.g. laptop clock is 2 hours behind server)
+    const twoHoursMs = 2 * 60 * 60 * 1000;
+    setServerClockOffset(twoHoursMs);
+    expect(getServerClockOffset()).toBe(twoHoursMs);
+
+    const syncNow = getSynchronizedNow();
+    expect(syncNow.getTime() - laptopTime).toBeGreaterThanOrEqual(twoHoursMs - 50);
+
+    // Reset offset
+    setServerClockOffset(0);
+  });
 });
+

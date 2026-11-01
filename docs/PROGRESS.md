@@ -9,7 +9,7 @@
 | :--- | :--- | :---: | :--- | :--- |
 | **0** | **Documentation & Setup** | 🟢 `DONE` | `/docs/PRD_A.md`, `/docs/PROGRESS.md`, `/docs/OPEN_QUESTIONS.md`, `/docs/DB_SCHEMA.md`, DB backup | 2026-11-01 22:30 |
 | **1** | **Dates on Every News Item** | 🟢 `DONE` | Migration 006, Vitest (82 backend + 104 frontend tests pass), Playwright screenshots (paper, night, category-rail) | 2026-11-01 22:56 |
-| **1B** | **Real-Time Foundation** | ⚪ `PENDING` | `app_sessions` table, 30s heartbeat, Welcome-Back card, clock sync offset, hatched downtime sparkline | - |
+| **1B** | **Real-Time Foundation** | 🟢 `DONE` | Migration 007 (`app_sessions`), 30s heartbeat, crash/unclean exit detector, `/api/time` clock sync, `<WelcomeBackCard>`, `<HatchedSparkline>`, Vitest (87 backend + 112 frontend pass), screenshots | 2026-11-01 23:18 |
 | **2** | **Auto-Advance (7 Seconds)** | ⚪ `PENDING` | 7s timer, left panel hover pause test, progress bar, play/pause controls, screenshot | - |
 | **3** | **Plain Mode (Zero AI)** | ⚪ `PENDING` | Plain mode switch, zero AI call test, rule-based category tagging, layout screenshot | - |
 | **4** | **Safety Net: Backups & Guards** | ⚪ `PENDING` | Automated DB backup test, test-data guard blocking test runs on real DB, export/import test | - |
@@ -51,5 +51,21 @@
 - All 82 backend tests (25 suites) and 104 frontend tests (21 suites) pass cleanly.
 - Strict TypeScript build passes with 0 errors.
 - Visual validation completed in Paper mode, Night Edition mode, and Category Rail view (`ui-step1-dates-paper.png`, `ui-step1-dates-night.png`, `ui-step1-dates-category-rail.png`).
+
+### Step 1B: Real-Time Foundation (Completed)
+- Applied Migration 007 (`007_realtime_foundation.sql`) creating `app_sessions` table with `started_at`, `last_heartbeat_at`, `ended_at`, `clean_shutdown`, `end_reason`, `missed_window_start`, `missed_window_end`, and `articles_ingested_in_session`.
+- Built `sessionManager.ts`:
+  - 30-second recurring heartbeat updating `last_heartbeat_at`.
+  - Crash / unclean exit detector: if previous session's `ended_at` is null, measures downtime from `last_heartbeat_at`, flags crash/unclean termination, and marks `missed_window` if hiatus >= 5 minutes.
+  - Graceful shutdown handlers setting `ended_at = now()`, `clean_shutdown = 1`, `end_reason = 'clean'`.
+  - Ingestion tracker updating `articles_ingested_in_session` on dedup inserts.
+- Added `/api/time` endpoint providing server clock timestamp for client clock skew compensation with half-roundtrip latency adjustment.
+- Added `/api/session/current` endpoint exposing session and downtime telemetry.
+- Built reusable `<HatchedSparkline>` component rendering activity bars with SVG diagonal-striped pattern for downtime gaps.
+- Built broadsheet `<WelcomeBackCard>` displaying dismissible notice ("Welcome back. During the 42-minute break, 18 new dispatches arrived.") and wired into `ArticlePanel.tsx`.
+- All 87 backend tests (26 suites) and 112 frontend tests (23 suites) pass cleanly.
+- Strict TypeScript build passes with 0 errors.
+- Visual validation completed in Paper mode and Night Edition mode (`ui-step1b-welcome-back-paper.png`, `ui-step1b-welcome-back-night.png`).
+
 
 

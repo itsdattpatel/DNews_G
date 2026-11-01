@@ -8,6 +8,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { ExternalLink, Globe2, Languages, BookOpen } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
+import { WelcomeBackCard } from './WelcomeBackCard';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
@@ -145,6 +146,9 @@ export const ArticlePanel: React.FC = () => {
       data-lenis-prevent="true"
       className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain p-6 sm:p-10 lg:p-12 border-r border-paper-border bg-paper text-ink transition-colors duration-150"
     >
+      {/* Real-time Downtime Welcome-Back Card (PRD A Category 1B) */}
+      <WelcomeBackCard />
+
       {/* 1. Broadsheet Kicker & Wire Byline Metadata */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-paper-border">
         <div className="flex flex-wrap items-center gap-2.5">

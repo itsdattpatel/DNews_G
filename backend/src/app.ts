@@ -18,6 +18,7 @@ import { tvRouter } from './routes/tv';
 import { sourcesRouter } from './routes/sources';
 import { getStartupGap } from './fetch/scheduler';
 import { backfillMissedWindow } from './fetch/backfill';
+import { getCurrentSession, getDowntimeGap } from './services/sessionManager';
 
 export function createApp(): Express {
   const app = express();
@@ -38,6 +39,39 @@ export function createApp(): Express {
   app.use('/api/export', exportRouter);
   app.use('/api/tv', tvRouter);
   app.use('/api/sources', sourcesRouter);
+
+  // Clock synchronization endpoint (PRD A Category 1B)
+  app.get('/api/time', (_req, res) => {
+    const now = new Date();
+    res.json({
+      utc: now.toISOString(),
+      timestamp: now.getTime(),
+    });
+  });
+
+  // Real-time session and downtime status endpoint (PRD A Category 1B)
+  app.get('/api/session/current', (_req, res) => {
+    const session = getCurrentSession();
+    const downtime = getDowntimeGap();
+    res.json({
+      status: 'ok',
+      session: session
+        ? {
+            id: session.id,
+            started_at: session.started_at,
+            last_heartbeat_at: session.last_heartbeat_at,
+            articles_ingested_in_session: session.articles_ingested_in_session,
+          }
+        : null,
+      downtime: {
+        detected: downtime.detected,
+        missed_minutes: downtime.missedMinutes,
+        missed_window_start: downtime.missedWindowStart,
+        missed_window_end: downtime.missedWindowEnd,
+        previous_clean: downtime.previousClean,
+      },
+    });
+  });
 
   // Health / Startup status
   app.get('/api/startup-status', (_req, res) => {
