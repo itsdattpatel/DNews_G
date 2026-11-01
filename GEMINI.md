@@ -19,10 +19,10 @@ Before writing or editing any code, you MUST:
 - Before release -> security-auditor
 
 # FRONTEND QUALITY RULES (anti-slop)
-- Before any UI work, make sure /docs/DESIGN_SYSTEM.md exists (palette, fonts, spacing, motion rules, bat and spider art direction). If it does not, create it first and wait for my approval.
+- Before any UI work, make sure /docs/DESIGN_SYSTEM.md exists (palette, fonts, spacing, motion rules, bat art direction). If it does not, create it first and wait for my approval.
 - Use only values from the design system. No default purple/blue gradients, no generic card grids, no emoji used as icons, no placeholder text, no inline styles.
 - Newspaper feel: serif for article text, strong typographic hierarchy, ink-and-paper contrast.
-- Spiders, bat, and globe are custom SVG/Canvas drawings, not stock icons.
+- Bat and globe are custom SVG/Canvas drawings, not stock icons.
 - Every component needs loading, empty, and error states.
 
 # RULES

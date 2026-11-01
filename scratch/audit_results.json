@@ -1,0 +1,1155 @@
+[
+  {
+    "file": ".agent/skills/backend-architect/SKILL.md",
+    "count": 3,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L74 [legs]: - **Strangler pattern**: Gradual migration, legacy system integration",
+      "L103 [legs]: - **Zero-trust security**: Service identity, policy enforcement, least privilege",
+      "L149 [legs]: - **Shared database**: Anti-pattern considerations, legacy integration"
+    ]
+  },
+  {
+    "file": ".agent/skills/database-architect/SKILL.md",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L156 [legs]: - **Data retention**: Retention policies, automated cleanup, legal holds"
+    ]
+  },
+  {
+    "file": ".agent/skills/docs-architect/SKILL.md",
+    "count": 1,
+    "terms": [
+      "reader"
+    ],
+    "samples": [
+      "L82 [reader]: - Create mental models that help readers understand the system"
+    ]
+  },
+  {
+    "file": ".agent/skills/frontend-developer/SKILL.md",
+    "count": 1,
+    "terms": [
+      "reader"
+    ],
+    "samples": [
+      "L106 [reader]: - Screen reader optimization"
+    ]
+  },
+  {
+    "file": ".agent/skills/secrets-management/SKILL.md",
+    "count": 3,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L20 [legs]: - Implement least-privilege access",
+      "L32 [legs]: 3. Integrate CI/CD or runtime retrieval with least privilege.",
+      "L228 [legs]: 4. **Implement least-privilege access**"
+    ]
+  },
+  {
+    "file": ".agent/skills/security-auditor/SKILL.md",
+    "count": 3,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L24 [legs]: - You need legal counsel or formal compliance certification",
+      "L56 [legs]: - **Zero-trust architecture**: Identity-based access, continuous verification, principle of least privilege",
+      "L130 [legs]: - Applies principle of least privilege with granular access controls"
+    ]
+  },
+  {
+    "file": ".agent/skills/ui-visual-validator/SKILL.md",
+    "count": 1,
+    "terms": [
+      "reader"
+    ],
+    "samples": [
+      "L86 [reader]: - Screen reader compatible design verification"
+    ]
+  },
+  {
+    "file": "autostart/windows-task-scheduler.xml",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L16 [legs]: <RunLevel>LeastPrivilege</RunLevel>"
+    ]
+  },
+  {
+    "file": "backend/data/news.sqlite-wal",
+    "count": 151,
+    "terms": [
+      "legs",
+      "reader",
+      "spider",
+      "scout"
+    ],
+    "samples": [
+      "L231 [legs]: �\u001d\u0004�9\u0003https://indianexpress.com/article/business/insolvency-boards-new-rules-seek-to-keep-completed-real-estate-projects",
+      "L364 [reader]: \u0003�\u0001f\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+      "L497 [legs]: �O\u0007\u0001\u0002\u001b\u0004\u0005estri�N\r\u0001\u0001\u001d\u0001\u0002\u0005\u0003\u0004ssil�M\r\u0001\u0001P\u0001\u0002#\u0003\u0002ur�N\r\u0001\u0001 \u0001\u0002\b\u0002\u0005ragil�N\u0006\u0001\u0001\u0017\u0005\u0004ment�N\u0006\u0001\u0001\u0015\u0003\u0002om�\u0005\u0006\u0001\u0002\u0003�I\r\u0001\u0001\u001f\u0001\u0002\u0007\u0002\u0003und�M\u0006\u0001\u0001\u0015\u0001\u0005gener�M\u000f\u0001\u0001Q \u0001",
+      "L591 [legs]: �\u001d\u0004�9\u0003https://indianexpress.com/article/business/insolvency-boards-new-rules-seek-to-keep-completed-real-estate-projects",
+      "L724 [reader]: \u0004�\u0001f\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+    ]
+  },
+  {
+    "file": "backend/data/news.sqlite.backup_20261101_172955",
+    "count": 476,
+    "terms": [
+      "spider",
+      "legs",
+      "reader",
+      "scout",
+      "weaver"
+    ],
+    "samples": [
+      "L41 [spider]: spider_type       TEXT DEFAULT 'Reader'",
+      "L42 [spider]: CHECK(spider_type IN ('Reader','Scout','Weaver','RedAlert','Archive','Swarm')),",
+      "L342 [legs]: \u0003\u001b\u0001Science\t\u000b\u0003\u001b\u0001Science\b\b\u0003\u0015\u0001Tech\u0007\t\u0003\u0017\u0001World\u0006\u000f\u0003#\u0001Environment\u0005\u000b\u0003\u001b\u0001Animals\u0004\u000f\u0003#\u0001Environment\u0003\b\u0003\u0015\u0001Tech\u0002\u000b\u0003\u001d\tBusiness\r\u0000\u0000\u0000\u0003\u000e�\u0000\u000f�\u000f\u0006\u000e",
+      "L361 [spider]: spider_type       TEXT DEFAULT 'Reader'",
+      "L362 [spider]: CHECK(spider_type IN ('Reader','Scout','Weaver','RedAlert','Archive','Swarm')),"
+    ]
+  },
+  {
+    "file": "backend/scripts/validate-feeds.ts",
+    "count": 1,
+    "terms": [
+      "reader"
+    ],
+    "samples": [
+      "L8 [reader]: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 (compat"
+    ]
+  },
+  {
+    "file": "backend/src/ai/gemini.ts",
+    "count": 4,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L6 [legs]: import { GoogleGenerativeAI } from '@google/generative-ai';",
+      "L10 [legs]: let _client: GoogleGenerativeAI | null = null;",
+      "L12 [legs]: function getClient(): GoogleGenerativeAI {",
+      "L16 [legs]: _client = new GoogleGenerativeAI(key);"
+    ]
+  },
+  {
+    "file": "backend/src/ai/prompts.ts",
+    "count": 5,
+    "terms": [
+      "spider",
+      "redalert",
+      "weaver",
+      "swarm",
+      "reader"
+    ],
+    "samples": [
+      "L27 [spider]: \"spider_type\":    <string — exactly one of \"Reader\"|\"Scout\"|\"Weaver\"|\"RedAlert\"|\"Archive\"|\"Swarm\"",
+      "L29 [redalert]: 1. If breaking_score >= 75 → \"RedAlert\"",
+      "L30 [weaver]: 2. Else if location_tags has >= 2 different countries → \"Weaver\"",
+      "L31 [swarm]: 3. Else if categories includes \"Animals\" and breaking_score < 50 → \"Swarm\"",
+      "L32 [reader]: 4. Otherwise → \"Reader\">"
+    ]
+  },
+  {
+    "file": "backend/src/ai/schema.ts",
+    "count": 5,
+    "terms": [
+      "spider",
+      "reader"
+    ],
+    "samples": [
+      "L7 [spider]: const SPIDER_TYPES = ['Reader', 'Scout', 'Weaver', 'RedAlert', 'Archive', 'Swarm'] as const;",
+      "L41 [spider]: spider_type: z",
+      "L42 [spider]: .enum(SPIDER_TYPES)",
+      "L43 [reader]: .catch('Reader'), // default if AI sends garbage",
+      "L50 [spider]: * Drops any phrase not found verbatim or with out-of-bound sentence_index (SPIDER_SPEC §3.3)."
+    ]
+  },
+  {
+    "file": "backend/src/db/migrations/001_initial.sql",
+    "count": 3,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L48 [spider]: spider_type       TEXT DEFAULT 'Reader'",
+      "L49 [spider]: CHECK(spider_type IN ('Reader','Scout','Weaver','RedAlert','Archive','Swarm')),",
+      "L142 [spider]: ('max_spiders', '6'),"
+    ]
+  },
+  {
+    "file": "backend/src/db/types.ts",
+    "count": 2,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L7 [spider]: export type SpiderType = 'Reader' | 'Scout' | 'Weaver' | 'RedAlert' | 'Archive' | 'Swarm';",
+      "L52 [spider]: spider_type: SpiderType;"
+    ]
+  },
+  {
+    "file": "backend/src/export/briefing.ts",
+    "count": 2,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L31 [spider]: return 'Good morning. This is your AI World News Desk radar briefing. Monitored wire bureaus currently report calm frequ",
+      "L81 [spider]: fallback += `Our automated spiders remain on patrol across international bureaus. That concludes your morning briefing. "
+    ]
+  },
+  {
+    "file": "backend/src/export/pdf.ts",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L103 [legs]: .text('INTERNATIONAL TELEGRAPH EDITION', 36, metaY, { align: 'center', width: pageWidth });"
+    ]
+  },
+  {
+    "file": "backend/src/fetch/scraper.ts",
+    "count": 3,
+    "terms": [
+      "reader"
+    ],
+    "samples": [
+      "L28 [reader]: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 (compat",
+      "L53 [reader]: const reader = new Readability(dom.window.document);",
+      "L54 [reader]: const parsed = reader.parse();"
+    ]
+  },
+  {
+    "file": "backend/src/pipeline/enricher.ts",
+    "count": 2,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L94 [spider]: spider_type   = @spider_type,",
+      "L124 [spider]: spider_type: r.spider_type,"
+    ]
+  },
+  {
+    "file": "backend/src/routes/articles.ts",
+    "count": 4,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L29 [spider]: SELECT a.id, a.url, a.title_english, a.summary, a.breaking_score, a.spider_type,",
+      "L56 [spider]: SELECT a.id, a.url, a.title_english, a.summary, a.breaking_score, a.spider_type,",
+      "L172 [spider]: breaking_score: number; spider_type: string; cluster_id: number | null;",
+      "L185 [spider]: spider_type: row.spider_type,"
+    ]
+  },
+  {
+    "file": "backend/src/routes/settings.ts",
+    "count": 4,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L14 [spider]: max_spiders: { type: 'int', min: 1, max: 10 },",
+      "L19 [spider]: spider_speed: { type: 'float', min: 0.5, max: 3.0 },",
+      "L20 [spider]: spider_glitch: { type: 'bool' },",
+      "L21 [spider]: spider_pause_on_hover: { type: 'bool' },"
+    ]
+  },
+  {
+    "file": "backend/src/scripts/seed-done-articles.ts",
+    "count": 8,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L4 [spider]: * so the Reader and Scout spiders have rich keyword targets to interact with.",
+      "L17 [spider]: spider_type: 'Reader',",
+      "L27 [spider]: spider_type: 'Reader',",
+      "L37 [spider]: spider_type: 'Scout',",
+      "L47 [spider]: spider_type: 'Reader',"
+    ]
+  },
+  {
+    "file": "backend/src/__tests__/fixtures/sample-feed.xml",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L10 [legs]: <description>Delegates from over 40 nations agreed on new carbon reduction targets.</description>"
+    ]
+  },
+  {
+    "file": "backend/src/__tests__/integration/clusters.api.test.ts",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L37 [legs]: 'Delegates signed landmark treaty protecting high seas marine life.',"
+    ]
+  },
+  {
+    "file": "backend/src/__tests__/integration/search.api.test.ts",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L19 [legs]: text: 'Synthesis: Authorities in China and Vietnam clamped down on illegal bear bile extraction facilities throughout 20"
+    ]
+  },
+  {
+    "file": "backend/src/__tests__/integration/settings.api.test.ts",
+    "count": 2,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L52 [spider]: .send({ refresh_interval_minutes: 10, max_spiders: 5 });",
+      "L56 [spider]: expect(res.body.max_spiders).toBe(5);"
+    ]
+  },
+  {
+    "file": "backend/src/__tests__/integration/watchlist.api.test.ts",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L108 [legs]: VALUES ('Illegal Timber', '[\"timber\",\"logging\"]', 'low', 1)"
+    ]
+  },
+  {
+    "file": "backend/src/__tests__/unit/anchor-validator.test.ts",
+    "count": 1,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L3 [spider]: * Unit tests for Step 5: Anchor-phrase verbatim validator (SPIDER_SPEC §3.3)"
+    ]
+  },
+  {
+    "file": "backend/src/__tests__/unit/rss.test.ts",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L16 [legs]: expect(articles[0]?.bodyOriginal).toContain('Delegates from over 40 nations');"
+    ]
+  },
+  {
+    "file": "backend/src/__tests__/unit/watchlist-checker.test.ts",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L55 [legs]: VALUES (1, 'https://reuters.com/bear-raid', 'Authorities seize illegal bear bile shipment', 'Customs intercepted bear bi"
+    ]
+  },
+  {
+    "file": "config/features.ts",
+    "count": 8,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L23 [spider]: // --- Spiders ---",
+      "L24 [spider]: spider_animation: true,",
+      "L25 [spider]: spider_reader: true,",
+      "L26 [spider]: spider_scout: true,",
+      "L27 [spider]: spider_weaver: true,"
+    ]
+  },
+  {
+    "file": "data/news.sqlite.backup_20261101_172955",
+    "count": 12,
+    "terms": [
+      "spider",
+      "reader",
+      "legs"
+    ],
+    "samples": [
+      "L41 [spider]: spider_type       TEXT DEFAULT 'Reader'",
+      "L42 [spider]: CHECK(spider_type IN ('Reader','Scout','Weaver','RedAlert','Archive','Swarm')),",
+      "L92 [reader]: \u000e\u0003!\u0001china_cgtn\t\u000b\u0003\u001b\u0001usa_cbs\b\u000e\u0003!\u0001usa_apnews\u0007\u000f\u0003#\u0001usa_reuters\u0006\u000b\u0003\u001b\u0001usa_npr\u0005\u0017\u00033\u0001india_indianexpress\u0004\r\u0003\u001f\u0001india_toi\u0003\u000e\u0003!\u0001india_nd",
+      "L97 [legs]: �\u000b$\t�\t�\b�\b|\t6\f$\u000b]\f�\f�\u000b�\u0003y\r�\u000e�\u000eY\u000f�\rM\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+      "L143 [spider]: spider_type       TEXT DEFAULT 'Reader'"
+    ]
+  },
+  {
+    "file": "docs/AGENT_RULES.md",
+    "count": 1,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L118 [spider]: - Canvas rAF loop must drop spiders before dropping frames — FPS >= 30 is non-negotiable."
+    ]
+  },
+  {
+    "file": "docs/AI_PROMPTS.md",
+    "count": 9,
+    "terms": [
+      "spider",
+      "reader",
+      "redalert",
+      "weaver",
+      "swarm",
+      "red alert"
+    ],
+    "samples": [
+      "L45 [spider]: \"spider_type\":    <string — exactly one of:",
+      "L46 [reader]: \"Reader\" | \"Scout\" | \"Weaver\" | \"RedAlert\" | \"Archive\" | \"Swarm\"",
+      "L48 [redalert]: - \"RedAlert\"  if breaking_score >= 75",
+      "L49 [weaver]: - \"Weaver\"    if location_tags has >= 2 countries",
+      "L50 [swarm]: - \"Swarm\"     if categories includes \"Animals\" and breaking_score < 50"
+    ]
+  },
+  {
+    "file": "docs/API_CONTRACT.md",
+    "count": 3,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L42 [spider]: \"spider_type\": \"RedAlert\",",
+      "L72 [spider]: \"spider_type\": \"RedAlert\",",
+      "L220 [spider]: **Response 200** `{ \"refresh_interval_minutes\": 5, \"max_spiders\": 6, \"alert_threshold\": 75, \"auto_cleanup_enabled\": fals"
+    ]
+  },
+  {
+    "file": "docs/API_SETTINGS_SPEC.md",
+    "count": 1,
+    "terms": [
+      "crawl"
+    ],
+    "samples": [
+      "L74 [crawl]: Rate limit: respectful crawl only (≥ 5 minute interval per feed)."
+    ]
+  },
+  {
+    "file": "docs/ARCHITECTURE.md",
+    "count": 8,
+    "terms": [
+      "spider",
+      "ik"
+    ],
+    "samples": [
+      "L99 [spider]: │   │   │   ├── spider/         # SpiderCanvas, IKLeg, spiderTypes/",
+      "L110 [ik]: │   │   │   └── ik.ts           # Inverse kinematics solver",
+      "L127 [spider]: breaking_score, spider_type, cluster_id",
+      "L144 [spider]: └─► SpiderCanvas (overlay)",
+      "L145 [ik]: rAF loop → IK solver → canvas draw"
+    ]
+  },
+  {
+    "file": "docs/CREDITS.md",
+    "count": 8,
+    "terms": [
+      "spider",
+      "crawl"
+    ],
+    "samples": [
+      "L18 [spider]: ## 1. Spider / Crawler Animation",
+      "L22 [spider]: | cyohei9907/web-crawlers | https://github.com/cyohei9907/web-crawlers | **No LICENSE file found** | 💡 INSPIRATION ONLY",
+      "L24 [spider]: **Approved approach**: New `SpiderCrawler.tsx` — clean-room, original TypeScript implementation of procedural IK walking",
+      "L41 [spider]: 4. `gsap` (v3.13+, No-Charge license) — exclusively for spider crawling timeline and SplitText headline reveals (never m",
+      "L105 [spider]: | Rive | `@rive-app/react-canvas` | MIT (runtime) | ⚠️ CONDITIONAL | Runtime is MIT; community files vary. Evaluate per "
+    ]
+  },
+  {
+    "file": "docs/DB_SCHEMA.md",
+    "count": 4,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L60 [spider]: spider_type       TEXT DEFAULT 'Reader'",
+      "L61 [spider]: CHECK(spider_type IN ('Reader','Scout','Weaver','RedAlert','Archive','Swarm')),",
+      "L79 [spider]: One row per keyword per article (normalised for Weaver spider cross-linking).",
+      "L221 [spider]: -- max_spiders = 6"
+    ]
+  },
+  {
+    "file": "docs/DESIGN_SYSTEM.md",
+    "count": 14,
+    "terms": [
+      "legs",
+      "reader",
+      "spider"
+    ],
+    "samples": [
+      "L54 [legs]: /* Accent — slightly brighter for dark bg legibility */",
+      "L146 [reader]: /* Main Reader */",
+      "L147 [reader]: --reader-left-width:  60%;",
+      "L148 [reader]: --reader-right-width: 40%;",
+      "L196 [spider]: /* Spider */"
+    ]
+  },
+  {
+    "file": "docs/FRONTEND_BACKEND_CONTRACT.md",
+    "count": 11,
+    "terms": [
+      "spider",
+      "reader"
+    ],
+    "samples": [
+      "L42 [spider]: spider_type: SpiderType;",
+      "L65 [spider]: // ─── SpiderType (legacy field — keep for DB compat) ───────────────────────────",
+      "L66 [spider]: export type SpiderType = 'Reader' | 'Scout' | 'Weaver' | 'RedAlert' | 'Archive' | 'Swarm';",
+      "L68 [spider]: // ─── SpiderMode (new UI concept) ──────────────────────────────────────────────",
+      "L69 [spider]: export type SpiderMode = 'reading' | 'breaking' | 'compare' | 'archive';"
+    ]
+  },
+  {
+    "file": "docs/FRONTEND_PRD.md",
+    "count": 20,
+    "terms": [
+      "spider",
+      "reader",
+      "legs"
+    ],
+    "samples": [
+      "L25 [spider]: - Spider animation: one real spider walks the article text — not a loading icon, not a progress bar.",
+      "L78 [reader]: | a | Main Reader | `/` |",
+      "L94 [spider]: ## 5. Spider Anchor-Phrase Backend Change (small migration)",
+      "L96 [spider]: Full spec: [SPIDER_SPEC.md](./SPIDER_SPEC.md)",
+      "L109 [spider]: ## 6. Spider Crawler"
+    ]
+  },
+  {
+    "file": "docs/PRD.md",
+    "count": 14,
+    "terms": [
+      "spider",
+      "reader",
+      "weaver",
+      "red alert",
+      "inverse kinematics"
+    ],
+    "samples": [
+      "L8 [spider]: **AI World News Desk** is a self-hosted, single-user web application that runs on the user's laptop. It collects news fr",
+      "L17 [spider]: | G2 | AI-translate every article to English and produce summary, keywords, categories, breaking score, and spider-type ",
+      "L19 [spider]: | G4 | Display animated spider readers with inverse-kinematics legs stepping on keywords |",
+      "L74 [spider]: ### 5.3 Spider Characters",
+      "L76 [spider]: | Spider | Role |"
+    ]
+  },
+  {
+    "file": "docs/SPIDER_SPEC.md",
+    "count": 56,
+    "terms": [
+      "spider",
+      "ik",
+      "crawl",
+      "legs",
+      "red alert"
+    ],
+    "samples": [
+      "L1 [spider]: # Spider Spec — AI World News Desk",
+      "L2 [spider]: *Version 1.0 · 2026-11-01 · Single SpiderCrawler (replaces all old spiders)*",
+      "L8 [spider]: The following old spider files **must be deleted** before or at the start of Step 5:",
+      "L12 [spider]: frontend/src/spider/BaseSpider.ts",
+      "L13 [spider]: frontend/src/spider/spiderTypes/Reader.ts"
+    ]
+  },
+  {
+    "file": "docs/TASKS.md",
+    "count": 24,
+    "terms": [
+      "spider",
+      "ik",
+      "reader",
+      "weaver"
+    ],
+    "samples": [
+      "L108 [spider]: ## Phase 4 — Reader & Scout Spiders",
+      "L110 [spider]: **Goal:** Reader spider walks the summary panel keywords with IK legs; Scout pre-marks next article.",
+      "L115 [ik]: - [x] P4-02 `canvas/ik.ts` — 2-segment FABRIK solver; Lerp foot target",
+      "L116 [spider]: - [x] P4-03 `spider/SpiderCanvas.tsx` — `<canvas>` absolute overlay over summary panel",
+      "L117 [spider]: - [x] P4-04 `spider/spiderTypes/Reader.ts` — walk keyword chips; trigger typewriter"
+    ]
+  },
+  {
+    "file": "docs/TEST_PLAN.md",
+    "count": 9,
+    "terms": [
+      "ik",
+      "spider"
+    ],
+    "samples": [
+      "L40 [ik]: │           │   ├── ik.test.ts",
+      "L96 [spider]: ### Phase 4 — Spider Animation",
+      "L100 [ik]: | T4-01 | Unit | `ik.ts` FABRIK solver: target within reach | Foot position within 1 px of target |",
+      "L101 [ik]: | T4-02 | Unit | `ik.ts` FABRIK solver: target out of reach | Foot at max extension; no NaN |",
+      "L102 [ik]: | T4-03 | Unit | `ik.ts` Lerp convergence | After 20 frames at dt=16ms, foot within 2 px of target |"
+    ]
+  },
+  {
+    "file": "docs/UI_SPEC.md",
+    "count": 20,
+    "terms": [
+      "reader",
+      "spider"
+    ],
+    "samples": [
+      "L35 [reader]: │  [Reader]     [Globe]     [TV] │",
+      "L58 [spider]: | `Esc` | Close overlay / pause spider |",
+      "L62 [reader]: ## Screen (a): Main Reader `/`",
+      "L64 [spider]: **Purpose**: Read an article with spider crawl sync.",
+      "L85 [spider]: │  │  [spider walks here, legs plant    │  │                  │ │ │"
+    ]
+  },
+  {
+    "file": "docs/WIRING_CHECKLIST.md",
+    "count": 15,
+    "terms": [
+      "legs",
+      "reader",
+      "spider"
+    ],
+    "samples": [
+      "L6 [legs]: Legend: `[ ]` pending · `[~]` in progress · `[x]` done with proof",
+      "L24 [reader]: ## Step 4: Main Reader (screen a)",
+      "L36 [spider]: - [ ] Breaking score mapped to correct spider mode (≥75 → breaking mode)",
+      "L40 [spider]: ## Step 5: Spider + Anchor Phrases",
+      "L47 [spider]: - [ ] SpiderCrawler receives real `anchor_phrases` from article"
+    ]
+  },
+  {
+    "file": "frontend/index.html",
+    "count": 1,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L6 [spider]: <meta name=\"description\" content=\"AI World News Desk — Real-time multi-country news intelligence with AI summarization a"
+    ]
+  },
+  {
+    "file": "frontend/src/components/alert/AlertsCenter.tsx",
+    "count": 9,
+    "terms": [
+      "legs",
+      "redalert",
+      "reader"
+    ],
+    "samples": [
+      "L4 [legs]: * Master telegraph dispatch monitor for breaking news, quota limits, provider switches, and wire errors.",
+      "L79 [redalert]: const filteredAlerts = useMemo(",
+      "L105 [legs]: toast.success('All telegraph alerts marked as acknowledged.');",
+      "L114 [reader]: // Open story cluster in compare or reader",
+      "L153 [legs]: TELEGRAPH LOG"
+    ]
+  },
+  {
+    "file": "frontend/src/components/article/ArticlePanel.tsx",
+    "count": 5,
+    "terms": [
+      "reader",
+      "spider"
+    ],
+    "samples": [
+      "L3 [reader]: * Left Main Reader Column (60%): Broadsheet newspaper article desk.",
+      "L10 [spider]: import { SpiderCrawler } from '../spider/SpiderCrawler';",
+      "L146 [spider]: {/* Procedural SpiderCrawler walking on DOM words */}",
+      "L147 [spider]: <SpiderCrawler",
+      "L268 [spider]: className={`spider-anchor cursor-pointer px-1 py-0.5 rounded-xs transition-all ${"
+    ]
+  },
+  {
+    "file": "frontend/src/components/article/CardStrip.tsx",
+    "count": 9,
+    "terms": [
+      "scout",
+      "spider"
+    ],
+    "samples": [
+      "L14 [scout]: isScoutTarget: boolean;",
+      "L22 [scout]: isScoutTarget,",
+      "L50 [scout]: : isScoutTarget",
+      "L55 [scout]: {/* Scout Indicator */}",
+      "L56 [scout]: {isScoutTarget && !isSelected && ("
+    ]
+  },
+  {
+    "file": "frontend/src/components/article/SummaryPanel.tsx",
+    "count": 1,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L95 [spider]: {article.spider_type || 'Reader'} Desk"
+    ]
+  },
+  {
+    "file": "frontend/src/components/bat/BatMenuOverlay.tsx",
+    "count": 2,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L39 [spider]: { view: 'reader', label: 'Main Reader', icon: BookOpen, shortcut: 'j / k', description: 'Dual-pane translated article te",
+      "L51 [spider]: { view: 'settings', label: 'Desk Preferences', icon: Sliders, description: 'Spider crawl speeds, sound, & database reten"
+    ]
+  },
+  {
+    "file": "frontend/src/components/bat/SettingsMenu.tsx",
+    "count": 22,
+    "terms": [
+      "spider",
+      "legs",
+      "crawl"
+    ],
+    "samples": [
+      "L5 [spider]: * procedural spider crawler settings, sound effects, and retention auto-cleanup.",
+      "L110 [spider]: Editorial wire polling intervals, spider crawler mechanics & sound",
+      "L169 [legs]: <span>Telegraph Refresh Interval</span>",
+      "L221 [spider]: {/* Section 4: Spider Crawler Kinematics */}",
+      "L225 [spider]: <span className=\"font-serif font-bold text-ink\">Spider Crawler Mechanics</span>"
+    ]
+  },
+  {
+    "file": "frontend/src/components/briefing/MorningBriefing.tsx",
+    "count": 4,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L4 [legs]: * Broadsheet telegraph console, Web Speech API audio synthesis, karaoke sentence highlighting,",
+      "L297 [legs]: Morning Telegraph Radio",
+      "L443 [legs]: TUNING TELEGRAPH RELAYS",
+      "L503 [legs]: <span>Format: Radio Broadcast • Autonomous Editorial Telegraph Desk</span>"
+    ]
+  },
+  {
+    "file": "frontend/src/components/category/CategoryRailView.tsx",
+    "count": 9,
+    "terms": [
+      "reader",
+      "spider",
+      "legs"
+    ],
+    "samples": [
+      "L84 [reader]: setCurrentView('reader');",
+      "L116 [reader]: {/* Action: Switch to Article Reader */}",
+      "L118 [reader]: onClick={() => setCurrentView('reader')}",
+      "L121 [reader]: <span>Return to Dual Reader Desk</span>",
+      "L266 [spider]: /* Empty State: Broadsheet spider hunting illustration */"
+    ]
+  },
+  {
+    "file": "frontend/src/components/chat/ArchiveChat.tsx",
+    "count": 15,
+    "terms": [
+      "spider",
+      "crawl",
+      "legs",
+      "reader"
+    ],
+    "samples": [
+      "L5 [spider]: * instant query chips, procedural archive spider canvas, and full empty/loading/error states.",
+      "L37 [spider]: // Procedural Slow Walking Archive Spider (dim, slow, analytical)",
+      "L48 [crawl]: t += 0.015; // Slow, contemplative crawl",
+      "L52 [legs]: const legColor = isNight ? 'rgba(232, 228, 218, 0.12)' : 'rgba(26, 18, 8, 0.09)';",
+      "L55 [spider]: // Centered or trailing archive spider in top-right folio margin"
+    ]
+  },
+  {
+    "file": "frontend/src/components/compare/CompareCoverage.css",
+    "count": 3,
+    "terms": [
+      "spider",
+      "weaver"
+    ],
+    "samples": [
+      "L51 [spider]: color: var(--accent-spider, #a78bfa);",
+      "L97 [weaver]: /* SVG Weaver thread canvas overlay */",
+      "L98 [weaver]: .compare-weaver-canvas {"
+    ]
+  },
+  {
+    "file": "frontend/src/components/compare/CompareCoverage.tsx",
+    "count": 5,
+    "terms": [
+      "weaver",
+      "reader"
+    ],
+    "samples": [
+      "L5 [weaver]: * Features shared keyword extraction, Weaver catenary silk thread cross-linking,",
+      "L158 [weaver]: // Calculate Weaver silk threads connecting shared keyword chips (P7-06)",
+      "L211 [reader]: setCurrentView('reader');",
+      "L380 [weaver]: {/* Weaver Silk Threads SVG Canvas */}",
+      "L475 [reader]: {/* Footer Action: Read Full Article in Main Reader */}"
+    ]
+  },
+  {
+    "file": "frontend/src/components/dev/DesignSystemShowcase.tsx",
+    "count": 6,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L16 [spider]: const [spiderSpeed, setSpiderSpeed] = useState([1.0]);",
+      "L226 [spider]: <span>Spider Crawler Speed</span>",
+      "L227 [spider]: <span className=\"font-mono\">{spiderSpeed[0]}x</span>",
+      "L230 [spider]: value={spiderSpeed}",
+      "L231 [spider]: onValueChange={setSpiderSpeed}"
+    ]
+  },
+  {
+    "file": "frontend/src/components/layout/NewsTicker.tsx",
+    "count": 2,
+    "terms": [
+      "reader"
+    ],
+    "samples": [
+      "L4 [reader]: * Pauses on hover; clicking a dispatch focuses that story in the Main Reader.",
+      "L22 [reader]: setCurrentView('reader');"
+    ]
+  },
+  {
+    "file": "frontend/src/components/layout/Shell.tsx",
+    "count": 5,
+    "terms": [
+      "reader",
+      "spider"
+    ],
+    "samples": [
+      "L4 [reader]: * Orchestrates TopBar, Bat Masthead Menu, Main Split Reader, Global Router, Bottom Ticker, and Lenis Scroll.",
+      "L128 [reader]: /* Main Reader View (Default) */",
+      "L131 [reader]: <ErrorBoundary panelName=\"Article Reader Desk\">",
+      "L135 [spider]: {/* Right Panel: Summary Column & Spider Mount (40%) */}",
+      "L143 [reader]: {/* 4. Bottom Horizontal Dispatch Strip (rendered on reader view) */}"
+    ]
+  },
+  {
+    "file": "frontend/src/components/layout/TopBar.tsx",
+    "count": 5,
+    "terms": [
+      "reader"
+    ],
+    "samples": [
+      "L63 [reader]: onClick={() => setCurrentView('reader')}",
+      "L129 [reader]: {/* View Toggle: Dual Reader ↔ Category Directory */}",
+      "L132 [reader]: onClick={() => setCurrentView(currentView === 'category' ? 'reader' : 'category')}",
+      "L133 [reader]: title={currentView === 'category' ? 'Return to Dual Reader Desk' : 'Open Section Directory Grid'}",
+      "L141 [reader]: <span>{currentView === 'category' ? 'Reader' : 'Directory'}</span>"
+    ]
+  },
+  {
+    "file": "frontend/src/components/map/WorldMap.css",
+    "count": 4,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L239 [legs]: /* Footer / Legend */",
+      "L251 [legs]: .world-map-legend {",
+      "L258 [legs]: .world-map-legend-item {",
+      "L264 [legs]: .world-map-legend-dot {"
+    ]
+  },
+  {
+    "file": "frontend/src/components/map/WorldMap.tsx",
+    "count": 3,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L13 [legs]: ZoomableGroup,",
+      "L210 [legs]: <ZoomableGroup center={[20, 25]} zoom={1} minZoom={0.8} maxZoom={4}>",
+      "L344 [legs]: </ZoomableGroup>"
+    ]
+  },
+  {
+    "file": "frontend/src/components/pdf/DailyPdfDesk.tsx",
+    "count": 10,
+    "terms": [
+      "legs",
+      "spider"
+    ],
+    "samples": [
+      "L54 [legs]: const handleGeneratePdf = async (targetDate: string = selectedDate) => {",
+      "L93 [legs]: handleGeneratePdf(selectedDate);",
+      "L180 [legs]: onClick={() => handleGeneratePdf(selectedDate)}",
+      "L251 [legs]: The composition engine encountered an error while formatting today&apos;s telegraph wire dispatches.",
+      "L255 [legs]: onClick={() => handleGeneratePdf(selectedDate)}"
+    ]
+  },
+  {
+    "file": "frontend/src/components/spider/SpiderCrawler.tsx",
+    "count": 57,
+    "terms": [
+      "spider",
+      "ik",
+      "legs",
+      "crawl"
+    ],
+    "samples": [
+      "L2 [spider]: * frontend/src/components/spider/SpiderCrawler.tsx",
+      "L3 [spider]: * Procedural SpiderCrawler React module (Step 5).",
+      "L4 [ik]: * Feet plant on real words in the DOM; 8 articulated IK legs step in alternating insect gait;",
+      "L6 [spider]: * Pure clean-room implementation conforming to SPIDER_SPEC.md.",
+      "L10 [spider]: SpiderCrawlerProps,"
+    ]
+  },
+  {
+    "file": "frontend/src/components/spider/SpiderCrawler.types.ts",
+    "count": 11,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L2 [spider]: * frontend/src/components/spider/SpiderCrawler.types.ts",
+      "L3 [spider]: * Strongly-typed data structures for procedural spider kinematics and anchor navigation.",
+      "L4 [spider]: * Conforms to SPIDER_SPEC.md Section 2.2.",
+      "L8 [spider]: export type SpiderMode = 'reading' | 'breaking' | 'compare' | 'archive';",
+      "L15 [spider]: export interface SpiderLegState {"
+    ]
+  },
+  {
+    "file": "frontend/src/components/spider/SpiderLeg.ts",
+    "count": 33,
+    "terms": [
+      "spider",
+      "ik",
+      "legs",
+      "inverse kinematics"
+    ],
+    "samples": [
+      "L2 [spider]: * frontend/src/components/spider/SpiderLeg.ts",
+      "L3 [ik]: * Procedural 2-joint Inverse Kinematics (IK) leg solver and insect gait coordinator.",
+      "L6 [spider]: import type { SpiderLegState } from './SpiderCrawler.types';",
+      "L8 [legs]: export interface LegConfig {",
+      "L11 [legs]: femurLength: number;  // Upper leg segment (L1)"
+    ]
+  },
+  {
+    "file": "frontend/src/components/spider/useSpiderFPS.ts",
+    "count": 3,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L2 [spider]: * frontend/src/components/spider/useSpiderFPS.ts",
+      "L4 [spider]: * Automatically throttles rendering and alerts parent if performance drops (SPIDER_SPEC §2.6).",
+      "L8 [spider]: export function useSpiderFPS(threshold: number = 45): {"
+    ]
+  },
+  {
+    "file": "frontend/src/components/timeline/StoryTimeline.tsx",
+    "count": 2,
+    "terms": [
+      "reader"
+    ],
+    "samples": [
+      "L116 [reader]: setCurrentView('reader');",
+      "L361 [reader]: {/* Open in Main Reader Button */}"
+    ]
+  },
+  {
+    "file": "frontend/src/store/useAppStore.ts",
+    "count": 2,
+    "terms": [
+      "reader",
+      "spider"
+    ],
+    "samples": [
+      "L111 [reader]: currentView: 'reader',",
+      "L270 [spider]: max_spiders: 6,"
+    ]
+  },
+  {
+    "file": "frontend/src/styles/global.css",
+    "count": 7,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L58 [spider]: /* Spider Speeds */",
+      "L59 [spider]: --spider-step-reading:  1800ms;",
+      "L60 [spider]: --spider-step-breaking: 800ms;",
+      "L61 [spider]: --spider-step-compare:  1400ms;",
+      "L62 [spider]: --spider-step-archive:  2800ms;"
+    ]
+  },
+  {
+    "file": "frontend/src/types/index.ts",
+    "count": 11,
+    "terms": [
+      "spider",
+      "reader",
+      "legs"
+    ],
+    "samples": [
+      "L18 [spider]: // ─── Categories & Spiders ─────────────────────────────────────────────────────",
+      "L32 [spider]: export type SpiderType = 'Reader' | 'Scout' | 'Weaver' | 'RedAlert' | 'Archive' | 'Swarm';",
+      "L34 [spider]: export type SpiderMode = 'reading' | 'breaking' | 'compare' | 'archive';",
+      "L39 [reader]: | 'reader'",
+      "L68 [spider]: spider_type: SpiderType;"
+    ]
+  },
+  {
+    "file": "frontend/src/utils/alerts.ts",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L41 [legs]: * Formats ISO date into clean broadsheet telegraph timestamp: \"14:32\" or \"Nov 1, 14:32\"."
+    ]
+  },
+  {
+    "file": "frontend/src/utils/briefing-pdf.ts",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L21 [legs]: * Valid speed rates supported by the broadsheet telegraph console."
+    ]
+  },
+  {
+    "file": "frontend/src/utils/sources.ts",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L29 [legs]: * Renders 5-dot quota telegraph indicator string (e.g. \"[●●●●○ 80%]\")."
+    ]
+  },
+  {
+    "file": "frontend/src/__tests__/unit/api-wiring.test.ts",
+    "count": 2,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L84 [spider]: json: async () => ({ max_spiders: 2, alert_threshold: 80 }),",
+      "L95 [spider]: expect(settings.max_spiders).toBe(2);"
+    ]
+  },
+  {
+    "file": "frontend/src/__tests__/unit/briefing-pdf-broadsheet.test.ts",
+    "count": 2,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L19 [legs]: 'Good morning world. Here are the top dispatches from our global telegraph bureaus! A major storm has made landfall? We ",
+      "L23 [legs]: expect(sentences[1]).toBe('Here are the top dispatches from our global telegraph bureaus!');"
+    ]
+  },
+  {
+    "file": "frontend/src/__tests__/unit/compare-timeline-broadsheet.test.ts",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L75 [legs]: { id: 103, title: 'Delegations Arrive in Geneva', published_at: '2026-10-30T06:00:00Z' },"
+    ]
+  },
+  {
+    "file": "frontend/src/__tests__/unit/settings-sources.test.ts",
+    "count": 1,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L40 [legs]: it('renders 5-dot telegraph string accurately', () => {"
+    ]
+  },
+  {
+    "file": "frontend/src/__tests__/unit/spider-crawler.test.ts",
+    "count": 26,
+    "terms": [
+      "spider",
+      "legs",
+      "inverse kinematics"
+    ],
+    "samples": [
+      "L2 [spider]: * frontend/src/__tests__/unit/spider-crawler.test.ts",
+      "L3 [spider]: * Unit tests for Step 5: Procedural SpiderCrawler IK leg solver & gait kinematics.",
+      "L10 [legs]: updateLegStep,",
+      "L11 [legs]: DEFAULT_LEG_CONFIGS,",
+      "L12 [spider]: } from '../../components/spider/SpiderLeg';"
+    ]
+  },
+  {
+    "file": "GEMINI.md",
+    "count": 2,
+    "terms": [
+      "spider"
+    ],
+    "samples": [
+      "L22 [spider]: - Before any UI work, make sure /docs/DESIGN_SYSTEM.md exists (palette, fonts, spacing, motion rules, bat and spider art",
+      "L25 [spider]: - Spiders, bat, and globe are custom SVG/Canvas drawings, not stock icons."
+    ]
+  },
+  {
+    "file": "package-lock.json",
+    "count": 17,
+    "terms": [
+      "spawn",
+      "legs"
+    ],
+    "samples": [
+      "L872 [spawn]: \"cross-spawn\": \"^7.0.3\",",
+      "L3359 [legs]: \"integrity\": \"sha512-yCWRvLeGv9Pz3+efwHqGPp70mZ56r3kfIgQVF56Oj2aAa4uP/Tb+IE59wNcc+758rctqbCKx4LbK8II/r7Bn0Q==\",",
+      "L4060 [legs]: \"integrity\": \"sha512-yCWRvLeGv9Pz3+efwHqGPp70mZ56r3kfIgQVF56Oj2aAa4uP/Tb+IE59wNcc+758rctqbCKx4LbK8II/r7Bn0Q==\",",
+      "L4670 [legs]: \"integrity\": \"sha512-yCWRvLeGv9Pz3+efwHqGPp70mZ56r3kfIgQVF56Oj2aAa4uP/Tb+IE59wNcc+758rctqbCKx4LbK8II/r7Bn0Q==\",",
+      "L5840 [legs]: \"integrity\": \"sha512-yCWRvLeGv9Pz3+efwHqGPp70mZ56r3kfIgQVF56Oj2aAa4uP/Tb+IE59wNcc+758rctqbCKx4LbK8II/r7Bn0Q==\","
+    ]
+  },
+  {
+    "file": "README.md",
+    "count": 15,
+    "terms": [
+      "spider",
+      "reader",
+      "redalert",
+      "scout",
+      "weaver",
+      "ik"
+    ],
+    "samples": [
+      "L4 [spider]: > *Real-time global news aggregation, multi-provider AI translation & enrichment, 8-legged inverse kinematics spiders, o",
+      "L24 [spider]: │  - Native outlet attribution  │  - 8-Legged IK Spider radar overlay         │",
+      "L28 [spider]: │  DISPATCH WIRE (Virtualised card strip with Scout Spider pre-marking)       │",
+      "L39 [spider]: - **Zero Stock Slop**: No generic purple/blue gradients, no stock icon kits, and no emojis used as interface icons. Spid",
+      "L108 [spider]: ## 🕷️ The 6 Biomechanical Spider Types"
+    ]
+  },
+  {
+    "file": "scripts/autostart-windows.js",
+    "count": 2,
+    "terms": [
+      "legs"
+    ],
+    "samples": [
+      "L41 [legs]: <RunLevel>LeastPrivilege</RunLevel>",
+      "L87 [legs]: console.log(`[autostart:windows] Note: Automatic registration requires standard privileges or manual confirmation.`);"
+    ]
+  }
+]

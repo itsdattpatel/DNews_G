@@ -4,7 +4,6 @@
  */
 
 export type ArticleStatus = 'pending' | 'processing' | 'done' | 'ai_failed' | 'skipped';
-export type SpiderType = 'Reader' | 'Scout' | 'Weaver' | 'RedAlert' | 'Archive' | 'Swarm';
 export type Category =
   | 'World' | 'Politics' | 'Business' | 'Tech' | 'Science'
   | 'Health' | 'Sports' | 'Entertainment' | 'Environment' | 'Crime' | 'Animals';
@@ -49,7 +48,6 @@ export interface DbArticle {
   ai_processed_at: string | null;
   status: ArticleStatus;
   breaking_score: number;
-  spider_type: SpiderType;
   cluster_id: number | null;
   bookmarked: number;
   anchor_phrases?: string | null;

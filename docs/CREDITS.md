@@ -2,7 +2,7 @@
 *Version 1.0 · 2026-11-01 · Last updated by: docs pass (Step 0)*
 
 All packages listed here have been vetted for license compliance.
-**Rule**: Only MIT / Apache-2.0 / ISC / OFL-1.1 / GSAP-No-Charge items may be installed.
+**Rule**: Only MIT / Apache-2.0 / ISC / OFL-1.1 items may be installed.
 Every install must be logged here with exact npm name + version locked in package.json.
 
 ---
@@ -15,19 +15,9 @@ Every install must be logged here with exact npm name + version locked in packag
 
 ---
 
-## 1. Spider / Crawler Animation
+## 1. Package Approval & Install Governance
 
-| Item | URL | License | Decision | Notes |
-|------|-----|---------|----------|-------|
-| cyohei9907/web-crawlers | https://github.com/cyohei9907/web-crawlers | **No LICENSE file found** | 💡 INSPIRATION ONLY | Algorithm *technique* (procedural legs, planting feet on DOM word rectangles) serves as inspirational reference only. No code copied (all rights reserved by author). Completely rewritten from scratch in TypeScript (`SpiderCrawler.tsx`). |
-
-**Approved approach**: New `SpiderCrawler.tsx` — clean-room, original TypeScript implementation of procedural IK walking and DOM word coordinate targeting. Fully compliant with OSS standards.
-
----
-
-## 2. Package Approval & Install Governance
-
-### 2.1 Approved CORE List (Approved for immediate installation in Step 1)
+### 1.1 Approved CORE List (Approved for installation)
 All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or `~`), must have been published **more than 14 days ago** (no zero-day packages), and must pass `npm audit`:
 
 1. `tailwindcss` (and `@tailwindcss/typography`, `postcss`, `autoprefixer`)
@@ -38,11 +28,10 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
    - `tailwind-merge`
    - `lucide-react` (already present, keep)
 3. `motion` (Framer Motion v11+) — for all general UI transitions & route reveals
-4. `gsap` (v3.13+, No-Charge license) — exclusively for spider crawling timeline and SplitText headline reveals (never mixed on same job with Motion)
-5. `lenis` (^1.x) — smooth scrolling engine
-6. `@tanstack/react-query` — server state & cache management
-7. `zustand` (already present, keep) — global UI state
-8. `sonner` — clean toast notifications
+4. `lenis` (^1.x) — smooth scrolling engine
+5. `@tanstack/react-query` — server state & cache management
+6. `zustand` (already present, keep) — global UI state
+7. `sonner` — clean toast notifications
 9. `@fontsource` packages:
    - `@fontsource/playfair-display`
    - `@fontsource/unifrakturcook`
@@ -79,9 +68,7 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 | Package | npm name | Version | License | Decision | Notes |
 |---------|----------|---------|---------|----------|-------|
 | Motion (Framer Motion) | `motion` | ^11.x | MIT | ✅ APPROVED | Primary animation engine. `animate`, `scroll`, `inView`. Replaces all CSS transitions. |
-| GSAP (with SplitText) | `gsap` | ^3.13+ | GSAP No-Charge License | ✅ APPROVED | Post-Webflow acquisition: free for all commercial use. SplitText now free. Only restriction: cannot build a competing visual web builder. Used for headline text reveals and split-char animations. |
-| Lenis | `lenis` | ^1.x | MIT | ✅ APPROVED | Smooth scroll. Replaces native scroll. Integrates with GSAP ScrollTrigger. |
-| GSAP ScrollTrigger | bundled with `gsap` | — | GSAP No-Charge | ✅ APPROVED | Scroll-driven animations for article reveal, globe entrance. |
+| Lenis | `lenis` | ^1.x | MIT | ✅ APPROVED | Smooth broadsheet scrolling. |
 
 ---
 
@@ -113,7 +100,7 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 | Lucide React | `lucide-react` | MIT | ✅ APPROVED | Already installed. Primary icon set. |
 | Phosphor Icons | `@phosphor-icons/react` | MIT | ✅ APPROVED | Additional icons (newspaper, radar, creature motifs). Supplement lucide where needed. |
 
-> **Note**: Bat, spider, and globe are CUSTOM SVG/Canvas drawings — not from any icon library.
+> **Note**: Bat and globe are CUSTOM SVG/Canvas drawings — not from any icon library.
 
 ---
 
@@ -170,8 +157,6 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 |--------|-----|-------|
 | Codrops | https://tympanus.net/codrops | Design inspiration, tutorials. No code copied without explicit license. |
 | Awwwards | https://awwwards.com | Visual direction reference only. |
-| cyohei9907/web-crawlers | https://github.com/cyohei9907/web-crawlers | Algorithm *concept* studied; rewritten from scratch. |
-| GSAP SplitText docs | https://gsap.com/docs/v3/Plugins/SplitText | Reference for API usage. |
 
 ---
 
@@ -195,7 +180,6 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 | 2026-11-01 | `@radix-ui/react-slider` | `1.2.1` | MIT | Approved (Core) | Settings speed & threshold sliders |
 | 2026-11-01 | `@radix-ui/react-switch` | `1.1.1` | MIT | Approved (Core) | Settings toggle switches |
 | 2026-11-01 | `motion` | `14.3.0` | MIT | Approved (Core) | UI & route transition animations |
-| 2026-11-01 | `gsap` | `3.12.5` | GSAP No-Charge | Approved (Core) | Spider timeline & SplitText reveals |
 | 2026-11-01 | `lenis` | `1.1.14` | MIT | Approved (Core) | Smooth broadsheet scrolling |
 | 2026-11-01 | `@tanstack/react-query` | `5.59.16` | MIT | Approved (Core) | Server state, cache, & polling |
 | 2026-11-01 | `sonner` | `1.5.0` | MIT | Approved (Core) | Alerts & connection status toasts |
@@ -213,7 +197,7 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 
 | Package | Reason |
 |---------|--------|
-| `anime.js` | Covered by `motion` + GSAP |
+| `anime.js` | Covered by `motion` |
 | `react-spring` | Covered by `motion` |
 | `velocity-react` | Abandoned |
 | Any random CodePen/blog code | No explicit license |

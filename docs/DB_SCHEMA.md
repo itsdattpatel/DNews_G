@@ -57,8 +57,7 @@ CREATE TABLE IF NOT EXISTS articles (
   status            TEXT NOT NULL DEFAULT 'pending'
     CHECK(status IN ('pending','processing','done','ai_failed','skipped')),
   breaking_score    INTEGER DEFAULT 0 CHECK(breaking_score BETWEEN 0 AND 100),
-  spider_type       TEXT DEFAULT 'Reader'
-    CHECK(spider_type IN ('Reader','Scout','Weaver','RedAlert','Archive','Swarm')),
+  spider_type       TEXT DEFAULT 'Reader', -- [DEPRECATED / DORMANT as of Migration 004]
   cluster_id        INTEGER REFERENCES clusters(id),
   bookmarked        INTEGER NOT NULL DEFAULT 0,
   anchor_phrases    TEXT DEFAULT NULL,   -- JSON array: [{"phrase":"...","sentence_index":0}, ...] (Migration 003)
@@ -261,7 +260,10 @@ END;
 
 ## 4. Migration Strategy
 
-- File: `backend/src/db/migrations/001_initial.sql` (all DDL above)
+- `001_initial.sql`: Core schema and settings
+- `002_tv_channels.sql`: TV broadcasting channels table
+- `003_anchor_phrases.sql`: Anchor phrases column for verbatim evidence linking
+- `004_remove_spider_settings.sql`: Remove spider keys from settings table, deprecating spider_type column safely without data loss
 - On startup `db.ts` reads DB version from `PRAGMA user_version`
 - Applies numbered migrations in order
 - Migration failures abort startup with a descriptive error

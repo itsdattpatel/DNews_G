@@ -263,12 +263,12 @@ export const CategoryRailView: React.FC = () => {
           ))}
         </div>
       ) : sortedArticles.length === 0 ? (
-        /* Empty State: Broadsheet spider hunting illustration */
+        /* Empty State: Broadsheet wire dispatch illustration */
         <div
           id="category-grid-empty"
           className="flex-1 flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-paper-border rounded-xs bg-paper-alt min-h-[380px]"
         >
-          {/* Custom SVG Spider Hunting Illustration */}
+          {/* Custom SVG Broadsheet Newspaper Dispatch Illustration */}
           <div className="p-4 border-2 border-ink rounded-xs bg-paper mb-4 shadow-sm">
             <svg
               width="64"
@@ -281,23 +281,15 @@ export const CategoryRailView: React.FC = () => {
               strokeLinejoin="round"
               className="text-ink"
             >
-              {/* Web background threads */}
-              <line x1="32" y1="4" x2="32" y2="60" strokeDasharray="3 3" opacity="0.4" />
-              <line x1="4" y1="32" x2="60" y2="32" strokeDasharray="3 3" opacity="0.4" />
-              <line x1="12" y1="12" x2="52" y2="52" strokeDasharray="3 3" opacity="0.4" />
-              <line x1="12" y1="52" x2="52" y2="12" strokeDasharray="3 3" opacity="0.4" />
-              {/* Spider body */}
-              <ellipse cx="32" cy="30" rx="4.5" ry="5.5" fill="currentColor" />
-              <circle cx="32" cy="40" r="7" fill="currentColor" />
-              {/* 8 Legs */}
-              <path d="M 30 28 Q 16 16 8 22" />
-              <path d="M 30 30 Q 14 26 6 34" />
-              <path d="M 30 32 Q 14 38 8 48" />
-              <path d="M 30 34 Q 18 48 14 58" />
-              <path d="M 34 28 Q 48 16 56 22" />
-              <path d="M 34 30 Q 50 26 58 34" />
-              <path d="M 34 32 Q 50 38 56 48" />
-              <path d="M 34 34 Q 46 48 50 58" />
+              {/* Folded newspaper folio */}
+              <rect x="10" y="8" width="44" height="48" rx="2" />
+              <line x1="16" y1="16" x2="48" y2="16" strokeWidth="2.5" />
+              <line x1="16" y1="22" x2="36" y2="22" />
+              <line x1="16" y1="28" x2="30" y2="28" />
+              <line x1="16" y1="34" x2="30" y2="34" />
+              <line x1="16" y1="40" x2="30" y2="40" />
+              <rect x="34" y="26" width="14" height="18" fill="currentColor" fillOpacity="0.1" />
+              <line x1="16" y1="46" x2="48" y2="46" strokeDasharray="2 2" />
             </svg>
           </div>
 
@@ -305,7 +297,7 @@ export const CategoryRailView: React.FC = () => {
             No Wire Dispatches Found
           </h3>
           <p className="font-body text-sm text-ink-secondary max-w-md mb-6 leading-relaxed">
-            The crawler spiders are actively hunting for new feeds across the global syndicates, but
+            The editorial wire monitors are actively polling global syndicates, but
             no reports currently match your selected filters.
           </p>
 

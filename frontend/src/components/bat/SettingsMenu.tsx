@@ -2,7 +2,7 @@
  * frontend/src/components/bat/SettingsMenu.tsx
  * Screen (l): Desk Preferences & Settings Drawer (v2.0 Broadsheet).
  * Controls theme switching (Paper vs Night), wire polling intervals, alert thresholds,
- * procedural spider crawler settings, sound effects, and retention auto-cleanup.
+ * sound effects, and retention auto-cleanup.
  */
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
@@ -16,10 +16,11 @@ import {
   Moon,
   Clock,
   Flame,
-  Bug,
   Database,
   Save,
   RotateCcw,
+  Highlighter,
+  BookOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -107,7 +108,7 @@ export const SettingsMenu: React.FC = () => {
                 </h2>
               </div>
               <p className="font-serif text-xs text-ink-secondary italic mt-0.5">
-                Editorial wire polling intervals, spider crawler mechanics & sound
+                Editorial wire polling intervals, alert thresholds & sound
               </p>
             </div>
           </div>
@@ -218,90 +219,7 @@ export const SettingsMenu: React.FC = () => {
             </div>
           </div>
 
-          {/* Section 4: Spider Crawler Kinematics */}
-          <div className="border-b border-paper-border pb-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <Bug className="w-4 h-4 text-ink-secondary" />
-              <span className="font-serif font-bold text-ink">Spider Crawler Mechanics</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs">
-              {/* Spider Speed */}
-              <div>
-                <label className="block text-ink-secondary mb-1">Crawl Speed</label>
-                <div className="flex items-center gap-1 border border-ink p-0.5 bg-paper-alt">
-                  {[
-                    { label: 'Slow', val: 0.7 },
-                    { label: 'Medium', val: 1.0 },
-                    { label: 'Fast', val: 1.5 },
-                  ].map((s) => (
-                    <button
-                      key={s.label}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, spider_speed: s.val })}
-                      className={`flex-1 py-1 text-center font-bold uppercase transition-colors ${
-                        (formData.spider_speed ?? 1.0) === s.val
-                          ? 'bg-ink text-paper'
-                          : 'hover:bg-paper text-ink'
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Max Spiders */}
-              <div>
-                <label htmlFor="max-spiders-select" className="block text-ink-secondary mb-1">
-                  Active Spiders
-                </label>
-                <select
-                  id="max-spiders-select"
-                  value={formData.max_spiders}
-                  onChange={(e) =>
-                    setFormData({ ...formData, max_spiders: parseInt(e.target.value, 10) })
-                  }
-                  className="w-full px-2 py-1.5 border border-ink bg-paper-alt text-ink font-mono text-xs focus:outline-none"
-                >
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>
-                      {n} spider{n > 1 ? 's' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Spider Behavior Toggles */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <label className="flex items-center gap-2 cursor-pointer font-serif text-xs">
-                <input
-                  type="checkbox"
-                  checked={formData.spider_pause_on_hover ?? true}
-                  onChange={(e) =>
-                    setFormData({ ...formData, spider_pause_on_hover: e.target.checked })
-                  }
-                  className="accent-ink"
-                />
-                <span>Pause crawl on mouse hover</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer font-serif text-xs">
-                <input
-                  type="checkbox"
-                  checked={formData.spider_glitch ?? false}
-                  onChange={(e) =>
-                    setFormData({ ...formData, spider_glitch: e.target.checked })
-                  }
-                  className="accent-ink"
-                />
-                <span>Glitch distortion effect</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Section 5: Retention & Sound Effects */}
+          {/* Section 4: Retention & Sound Effects */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="font-serif font-bold text-ink flex items-center gap-1.5">
@@ -357,6 +275,70 @@ export const SettingsMenu: React.FC = () => {
                 >
                   {formData.auto_cleanup_enabled ? 'ON' : 'OFF'}
                 </button>
+              </div>
+            </div>
+
+            {/* Section 5: Evidence Desk & Reading Mode */}
+            <div className="border-t border-paper-border pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="font-serif font-bold text-ink flex items-center gap-1.5">
+                    <Highlighter className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <span>Evidence Marker Highlights</span>
+                  </label>
+                  <p className="font-ui text-[11px] text-ink-secondary mt-0.5">
+                    Marker highlights on verbatim text supporting summary sentences
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  id="btn-toggle-evidence-highlight"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      evidence_highlight_enabled: !(formData.evidence_highlight_enabled ?? true),
+                    })
+                  }
+                  className={`px-3 py-0.5 border font-mono text-xs font-bold uppercase ${
+                    (formData.evidence_highlight_enabled ?? true)
+                      ? 'border-ink bg-ink text-paper'
+                      : 'border-paper-border bg-paper text-ink-muted'
+                  }`}
+                >
+                  {(formData.evidence_highlight_enabled ?? true) ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <div>
+                  <label className="font-serif font-bold text-ink flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-accent" />
+                    <span>Synchronized Reading Mode</span>
+                  </label>
+                  <p className="font-ui text-[11px] text-ink-secondary mt-0.5">
+                    Sweeps evidence highlights sequentially with summary reveal
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  id="btn-toggle-reading-mode"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      reading_mode_enabled: !(formData.reading_mode_enabled ?? true),
+                    })
+                  }
+                  className={`px-3 py-0.5 border font-mono text-xs font-bold uppercase ${
+                    (formData.reading_mode_enabled ?? true)
+                      ? 'border-ink bg-ink text-paper'
+                      : 'border-paper-border bg-paper text-ink-muted'
+                  }`}
+                >
+                  {(formData.reading_mode_enabled ?? true) ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+              <div className="font-mono text-[10px] text-ink-muted italic pt-1">
+                * Both features respect system reduced-motion preferences (`prefers-reduced-motion: reduce`).
               </div>
             </div>
           </div>

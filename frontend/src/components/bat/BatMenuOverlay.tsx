@@ -36,7 +36,7 @@ interface MenuItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
-  { view: 'reader', label: 'Main Reader', icon: BookOpen, shortcut: 'j / k', description: 'Dual-pane translated article text with synchronized spider crawler' },
+  { view: 'reader', label: 'Main Reader', icon: BookOpen, shortcut: 'j / k', description: 'Dual-pane translated article text with verbatim evidence linking' },
   { view: 'category', label: 'Category Rail', icon: Layers, shortcut: '/', description: 'Instant category filtering with outlet & country tags' },
   { view: 'compare', label: 'Compare Coverage', icon: GitCompare, description: 'Side-by-side international reporting on identical real-world events' },
   { view: 'timeline', label: 'Story Timeline', icon: History, description: 'Chronological progression of evolving world stories' },
@@ -48,7 +48,7 @@ const MENU_ITEMS: MenuItem[] = [
   { view: 'briefing', label: 'Morning Briefing', icon: Radio, description: 'Two-minute AI audio radio briefing' },
   { view: 'alerts', label: 'Alerts Center', icon: Bell, description: 'Breaking news dispatches & provider switch records' },
   { view: 'sources-settings', label: 'API & Sources', icon: RadioTower, description: 'Provider adapters, quotas, masked keys, & rate limits' },
-  { view: 'settings', label: 'Desk Preferences', icon: Sliders, description: 'Spider crawl speeds, sound, & database retention' },
+  { view: 'settings', label: 'Desk Preferences', icon: Sliders, description: 'Theme preferences, sound, & database retention' },
 ];
 
 export const BatMenuOverlay: React.FC = () => {

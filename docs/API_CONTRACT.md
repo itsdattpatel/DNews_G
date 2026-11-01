@@ -39,7 +39,6 @@ Returns paginated list of processed articles.
       "keywords": ["keyword1","keyword2"],
       "categories": ["World","Politics"],
       "breaking_score": 88,
-      "spider_type": "RedAlert",
       "cluster_id": 7,
       "source": { "id": 3, "name": "The Hindu", "country": "India" },
       "published_at": "2026-10-30T10:00:00Z",
@@ -69,7 +68,6 @@ Returns full article including original and translated body.
   "keywords": ["keyword1"],
   "categories": ["World"],
   "breaking_score": 88,
-  "spider_type": "RedAlert",
   "cluster_id": 7,
   "bookmarked": false,
   "source": { "id": 3, "name": "The Hindu", "country": "India", "url": "..." },
@@ -217,7 +215,7 @@ Returns per-provider usage for current day.
 ## 7. Settings
 
 ### GET /api/settings
-**Response 200** `{ "refresh_interval_minutes": 5, "max_spiders": 6, "alert_threshold": 75, "auto_cleanup_enabled": false, "retention_days": 30 }`
+**Response 200** `{ "refresh_interval_minutes": 5, "alert_threshold": 75, "auto_cleanup_enabled": false, "retention_days": 30 }`
 
 ### PATCH /api/settings
 **Body** `{ "refresh_interval_minutes": 10 }` (partial update; validates ranges)

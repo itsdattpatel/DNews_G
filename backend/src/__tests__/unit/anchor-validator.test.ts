@@ -1,6 +1,6 @@
 /**
  * backend/src/__tests__/unit/anchor-validator.test.ts
- * Unit tests for Step 5: Anchor-phrase verbatim validator (SPIDER_SPEC §3.3)
+ * Unit tests for Step 5: Anchor-phrase verbatim validator for evidence linking
  */
 import { describe, it, expect } from 'vitest';
 import { validateAnchorPhrases } from '../../ai/schema';

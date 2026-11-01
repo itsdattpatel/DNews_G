@@ -39,7 +39,6 @@ export interface ArticleListItem {
   keywords: string[];
   categories: Category[];
   breaking_score: number;
-  spider_type: SpiderType;
   cluster_id: number | null;
   source: Pick<Source, 'id' | 'name' | 'country'>;
   published_at: string | null;
@@ -61,12 +60,6 @@ export interface ArticleFull extends ArticleListItem {
 export type Category =
   | 'World' | 'Politics' | 'Business' | 'Tech' | 'Science'
   | 'Health' | 'Sports' | 'Entertainment' | 'Environment' | 'Crime' | 'Animals';
-
-// ─── SpiderType (legacy field — keep for DB compat) ───────────────────────────
-export type SpiderType = 'Reader' | 'Scout' | 'Weaver' | 'RedAlert' | 'Archive' | 'Swarm';
-
-// ─── SpiderMode (new UI concept) ──────────────────────────────────────────────
-export type SpiderMode = 'reading' | 'breaking' | 'compare' | 'archive';
 
 // ─── Cluster ──────────────────────────────────────────────────────────────────
 export interface Cluster {
@@ -134,9 +127,6 @@ export interface AppSettings {
   retention_days: number;
   // UI-only settings (stored in backend settings table):
   theme: 'paper' | 'night';
-  spider_speed: number;          // multiplier 0.5–2.0
-  spider_glitch: boolean;
-  spider_pause_on_hover: boolean;
 }
 
 // ─── Search / Archive Chat ────────────────────────────────────────────────────
@@ -412,7 +402,7 @@ Frontend error handling:
 
 | Step | Endpoint | Rationale |
 |------|----------|-----------|
-| Step 5 | DB migration 002 (anchor_phrases) | Spider anchor sync |
+| Step 5 | DB migration 003 (anchor_phrases) | Verbatim evidence linking |
 | Step 7 | GET /api/providers | API & Sources page |
 | Step 7 | POST /api/providers/:id/test | Test button |
 | Step 7 | PATCH /api/providers/:id | Enable/disable |

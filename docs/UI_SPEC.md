@@ -55,13 +55,13 @@ Primary nav via bat bar (top); keyboard shortcuts noted per screen.
 | `/` | Focus search |
 | `g` | Go to Globe |
 | `t` | Go to TV |
-| `Esc` | Close overlay / pause spider |
+| `Esc` | Close overlay / modal |
 
 ---
 
 ## Screen (a): Main Reader `/`
 
-**Purpose**: Read an article with spider crawl sync.
+**Purpose**: Read an article with verbatim evidence highlighting.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -78,13 +78,13 @@ Primary nav via bat bar (top); keyboard shortcuts noted per screen.
 │  │                                    │                        │ │
 │  │  [EN ↔ Original]                   │  ┌──────────────────┐ │ │
 │  │                                    │  │ § 1              │ │ │
-│  │  Full article body text in         │  │ Heavy rains...   │ │ │  ← typing reveal
+│  │  Full article body text in         │  │ Heavy rains...   │ │ │  ← evidence highlight
 │  │  Source Serif 4 at 1.125rem        │  │                  │ │ │
 │  │  line-height 1.7                   │  │ § 2              │ │ │
 │  │                                    │  │ At least 30...   │ │ │
-│  │  [spider walks here, legs plant    │  │                  │ │ │
-│  │   on anchor phrases, highlighted   │  │ § 3 (pending)    │ │ │
-│  │   in --color-accent-light]         │  │ ···              │ │ │
+│  │  [verbatim anchor phrases          │  │                  │ │ │
+│  │   highlighted in marker style      │  │ § 3              │ │ │
+│  │   matching hovered sentence]       │  │ Thousands of...  │ │ │
 │  │                                    │  └──────────────────┘ │ │
 │  │                                    │                        │ │
 │  │                                    │  [Bookmark ♦] [Share] │ │
@@ -98,21 +98,20 @@ Primary nav via bat bar (top); keyboard shortcuts noted per screen.
 **Article Panel (left, 60%)**
 - Language toggle `[EN ↔ Original]` — switches `body_english` ↔ `body_original`
 - Body text: `--font-body` `--text-body-lg`
-- Anchor phrases wrapped in `<mark class="spider-anchor">` spans
-- Active anchor: `spider-anchor--active` class (highlight + underline)
-- Spider canvas overlay: absolute, z-spider, pointer-events none
+- Anchor phrases wrapped in `<mark class="evidence-anchor">` spans
+- Active anchor: highlight + underline linked to active summary sentence
 
 **Summary Panel (right, 40%)**
-- Each summary sentence reveals letter-by-letter (GSAP SplitText) when spider reaches its anchor phrase
-- Sentences linked to left-panel anchors by `data-sentence-index`
-- Pending sentences shown as `···` placeholder
+- Summary sentences linked to left-panel verbatim anchors by `data-sentence-index`
+- Hovering/clicking a summary sentence illuminates matching anchor phrases with marker-style ink highlight
+- Optional reading mode sweeps highlights in sync with typing
 - Bookmark + Share actions
 
 **Loading state**: Article skeleton (shimmer strips for headline, byline, body lines)
 **Empty state**: "Select an article from the category rail below."
 **Error state**: "Could not load article. [Retry]" with ErrorBoundary
 
-**Keyboard**: `j`/`k` next/prev article; `Esc` pause spider
+**Keyboard**: `j`/`k` next/prev article; `Esc` close modal
 
 ---
 
@@ -154,7 +153,7 @@ Primary nav via bat bar (top); keyboard shortcuts noted per screen.
 - Virtualized with `@tanstack/react-virtual` if list > 50 items
 
 **Loading**: 9 skeleton cards
-**Empty**: "No articles in this category yet. The spiders are hunting." (custom illustration or SVG spider)
+**Empty**: "No wire dispatches found. The editorial wire monitors are actively polling global syndicates." (custom broadsheet dispatch illustration)
 **Error**: "Feed unavailable. [Retry]"
 
 ---
@@ -194,7 +193,7 @@ Primary nav via bat bar (top); keyboard shortcuts noted per screen.
 
 - 2-column grid of article summaries; overflow "N more" card
 - Shared keyword tags highlighted across all panels
-- Spider compare mode: thread drawn between matching anchor phrases across columns
+- Thematic curves: catenary silk curves drawn between matching themes across columns
 - `[Read full →]` opens Main Reader in drawer or new route
 
 **Loading**: 4 skeleton panels
@@ -289,7 +288,7 @@ Primary nav via bat bar (top); keyboard shortcuts noted per screen.
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│ [BAT]  Archive Chat              Spider mode: Archive  [Gemini ●] │
+│ [BAT]  The News Morgue · Investigative Archive         [Gemini ●] │
 ├────────────────────────────────────────────────────────────────────┤
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐ │
@@ -319,10 +318,9 @@ Primary nav via bat bar (top); keyboard shortcuts noted per screen.
 
 - FTS5 full-text search; optional AI synthesis toggle
 - Result source cards are article mini-cards (outlet, score, title)
-- Spider mode: archive (slow, dim)
-- AI answer streamed via SSE or polled
+- AI answer synthesized with interactive footnote citation badges
 
-**Loading**: animated "Searching archive..." with archive spider walking
+**Loading**: animated broadsheet shimmer loading state
 **Empty**: "No results for this query. Try broader terms."
 **Error**: "Search failed. [Retry]"
 
@@ -539,11 +537,6 @@ Accessible via bat menu → Settings link.
 │  Refresh        Every [5 ▾] minutes          │
 │                                              │
 │  Alert threshold  [75 ───────●──── 100]      │
-│                                              │
-│  Spider speed     [Slow ────●────── Fast]    │
-│  Max spiders      [1 ▾]                      │
-│  Glitch effect    [OFF ●]                    │
-│  Pause on hover   [ON ●]                     │
 │                                              │
 │  Auto cleanup     [OFF ●]                    │
 │  Retention        [30] days                  │

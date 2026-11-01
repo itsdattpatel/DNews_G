@@ -55,16 +55,9 @@
   --ease-enter:           cubic-bezier(0, 0, 0.2, 1);
   --ease-exit:            cubic-bezier(0.4, 0, 1, 1);
 
-  /* Spider Speeds */
-  --spider-step-reading:  1800ms;
-  --spider-step-breaking: 800ms;
-  --spider-step-compare:  1400ms;
-  --spider-step-archive:  2800ms;
-
   /* Z-Index Layers */
   --z-base:               0;
   --z-article:            10;
-  --z-spider:             20;
   --z-ticker:             30;
   --z-topbar:             40;
   --z-overlay:            50;
@@ -271,8 +264,46 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-
-  .spider-canvas {
-    display: none !important;
-  }
 }
+
+/* ─── 6. Evidence Highlight Marker Styles ────────────────────────────────── */
+.evidence-marker {
+  position: relative;
+  background-color: rgba(249, 231, 159, 0.5);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0.1em 0.25em;
+  margin: 0 -0.05em;
+  border-radius: var(--radius-sm);
+  border-bottom: 1.5px solid rgba(212, 172, 13, 0.55);
+  transition: background-color var(--duration-fast) var(--ease-paper),
+              border-color var(--duration-fast) var(--ease-paper),
+              box-shadow var(--duration-fast) var(--ease-paper);
+}
+
+[data-theme="night"] .evidence-marker,
+.dark .evidence-marker {
+  background-color: rgba(212, 172, 13, 0.22);
+  border-bottom: 1.5px solid rgba(241, 196, 15, 0.5);
+}
+
+.evidence-marker--active {
+  background-color: rgba(243, 156, 18, 0.38) !important;
+  border-bottom: 2px solid var(--color-accent) !important;
+  box-shadow: 0 1px 3px rgba(192, 57, 43, 0.18);
+  font-weight: 500;
+}
+
+[data-theme="night"] .evidence-marker--active,
+.dark .evidence-marker--active {
+  background-color: rgba(243, 156, 18, 0.42) !important;
+  border-bottom: 2px solid var(--color-accent) !important;
+  box-shadow: 0 1px 4px rgba(231, 76, 60, 0.3);
+}
+
+@keyframes reading-progress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+

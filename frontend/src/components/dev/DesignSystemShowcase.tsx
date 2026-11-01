@@ -13,7 +13,7 @@ const CATEGORIES = [
 
 export const DesignSystemShowcase: React.FC = () => {
   const [theme, setTheme] = useState<'paper' | 'night'>('paper');
-  const [spiderSpeed, setSpiderSpeed] = useState([1.0]);
+  const [readingSpeed, setReadingSpeed] = useState([1.0]);
 
   const toggleTheme = (isNight: boolean) => {
     const next = isNight ? 'night' : 'paper';
@@ -223,16 +223,16 @@ export const DesignSystemShowcase: React.FC = () => {
               <span className="text-xs text-ink-muted font-mono block">Settings Slider & CSS Shimmer Skeletons</span>
               <div className="space-y-2">
                 <div className="flex justify-between text-xs text-ink">
-                  <span>Spider Crawler Speed</span>
-                  <span className="font-mono">{spiderSpeed[0]}x</span>
+                  <span>Reading Mode Speed</span>
+                  <span className="font-mono">{readingSpeed[0]}x</span>
                 </div>
                 <Slider
-                  value={spiderSpeed}
-                  onValueChange={setSpiderSpeed}
+                  value={readingSpeed}
+                  onValueChange={setReadingSpeed}
                   min={0.5}
                   max={2.0}
                   step={0.1}
-                  aria-label="Spider Speed Slider"
+                  aria-label="Reading Mode Speed Slider"
                 />
               </div>
 

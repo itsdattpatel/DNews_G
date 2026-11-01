@@ -105,7 +105,7 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
         {article.title_english || article.title_original}
       </h4>
 
-      {/* Card Footer: Category Stamps & Spider Badge */}
+      {/* Card Footer: Category Stamps */}
       <div className="flex items-center justify-between pt-2 border-t border-paper-border/60">
         <div className="flex gap-1 overflow-hidden">
           {(article.categories || []).slice(0, 2).map((cat: string, i: number) => (
@@ -117,10 +117,6 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
             </span>
           ))}
         </div>
-
-        <span className="font-mono text-[0.5625rem] text-ink-muted">
-          {article.spider_type || 'Reader'}
-        </span>
       </div>
     </div>
   );
@@ -136,7 +132,7 @@ export const CardStrip: React.FC = () => {
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Identify next upcoming card for Scout Spider pre-marking
+  // Identify next upcoming card in queue
   const currentIndex = articles.findIndex((art) => art.id === selectedArticleId);
   const nextIndex = currentIndex >= 0 && articles.length > 1 ? (currentIndex + 1) % articles.length : -1;
 

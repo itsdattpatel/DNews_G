@@ -81,7 +81,7 @@ describe('Step 3: Backend Wiring Layer (API Client & Query Keys)', () => {
           return Promise.resolve({
             ok: true,
             status: 200,
-            json: async () => ({ max_spiders: 2, alert_threshold: 80 }),
+            json: async () => ({ refresh_interval_minutes: 5, alert_threshold: 80 }),
           });
         }
         return Promise.reject(new Error('Unknown URL'));
@@ -92,7 +92,7 @@ describe('Step 3: Backend Wiring Layer (API Client & Query Keys)', () => {
       expect(quota.current_provider).toBe('gemini');
 
       const settings = await api.getSettings();
-      expect(settings.max_spiders).toBe(2);
+      expect(settings.refresh_interval_minutes).toBe(5);
     });
   });
 

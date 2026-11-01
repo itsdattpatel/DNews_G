@@ -337,7 +337,7 @@ export const DailyPdfDesk: React.FC = () => {
                             'Dispatches received via high-frequency telegraph wire describe ongoing negotiations and developments shaping the international diplomatic landscape.'}
                         </p>
                         <p className="text-ink-secondary italic border-l border-paper-border pl-4">
-                          "Autonomous editorial spiders operating across four continents confirmed rapid consensus among monitoring stations, ensuring verified intelligence reaches international readers."
+                          "Autonomous editorial bureaus operating across four continents confirmed rapid consensus among monitoring stations, ensuring verified intelligence reaches international readers."
                         </p>
                       </div>
                     </div>

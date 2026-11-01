@@ -21,11 +21,14 @@ interface AppState {
   selectedArticleId: number | null;
   selectedArticle: Article | null;
   activeSentenceIndex: number | null;
+  isReadingModeActive: boolean;
   totalArticles: number;
   isLoading: boolean;
   setArticles: (articles: Article[], total: number) => void;
   setSelectedArticle: (article: Article | null) => void;
   setActiveSentenceIndex: (index: number | null) => void;
+  setReadingModeActive: (active: boolean) => void;
+  toggleReadingMode: () => void;
   selectArticleById: (id: number) => Promise<void>;
   addOrPrependArticle: (article: Article) => void;
   toggleBookmark: (articleId: number) => Promise<void>;
@@ -146,10 +149,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedArticleId: null,
   selectedArticle: null,
   activeSentenceIndex: null,
+  isReadingModeActive: false,
   totalArticles: 0,
   isLoading: false,
 
   setActiveSentenceIndex: (index) => set({ activeSentenceIndex: index }),
+  setReadingModeActive: (active) => set({ isReadingModeActive: active }),
+  toggleReadingMode: () => set((state) => ({ isReadingModeActive: !state.isReadingModeActive })),
 
   setArticles: (articles, total) => {
     const currentSelected = get().selectedArticleId;
@@ -169,6 +175,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectedArticleId: nextSelected?.id ?? null,
       isLoading: false,
     });
+
+    if (nextSelected && !nextSelected.body_english) {
+      get().selectArticleById(nextSelected.id);
+    }
   },
 
   setSelectedArticle: (article) => {
@@ -176,7 +186,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       selectedArticle: article,
       selectedArticleId: article?.id ?? null,
+      activeSentenceIndex: null,
+      isReadingModeActive: false,
     });
+    if (article && !article.body_english) {
+      get().selectArticleById(article.id);
+    }
   },
 
   selectArticleById: async (id: number) => {
@@ -267,11 +282,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   isSettingsOpen: false,
   settings: {
     refresh_interval_minutes: 5,
-    max_spiders: 6,
     alert_threshold: 75,
     auto_cleanup_enabled: false,
     retention_days: 30,
     sound_enabled: true,
+    evidence_highlight_enabled: true,
+    reading_mode_enabled: true,
   },
 
   setSettingsOpen: (open) => {

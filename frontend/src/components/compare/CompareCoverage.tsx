@@ -2,7 +2,7 @@
  * frontend/src/components/compare/CompareCoverage.tsx
  * Screen (c): Multi-Outlet Coverage Comparison Desk (Step 7).
  * Side-by-side same-story reporting across world outlets and countries.
- * Features shared keyword extraction, Weaver catenary silk thread cross-linking,
+ * Features shared keyword extraction, catenary silk curve cross-linking,
  * broadsheet serif typography, and zero cyberpunk inline styles.
  */
 import React, { useEffect, useState, useRef, useMemo } from 'react';
@@ -155,7 +155,7 @@ export const CompareCoverage: React.FC = () => {
     return shared;
   }, [clusterData]);
 
-  // Calculate Weaver silk threads connecting shared keyword chips (P7-06)
+  // Calculate catenary silk threads connecting shared keyword chips (P7-06)
   const computeSilkThreads = () => {
     if (!containerRef.current) return;
     const bodyRect = containerRef.current.getBoundingClientRect();
@@ -377,7 +377,7 @@ export const CompareCoverage: React.FC = () => {
           ) : (
             /* Populated Side-by-Side Broadsheet Columns */
             <div className="relative flex gap-6 min-w-max pb-4">
-              {/* Weaver Silk Threads SVG Canvas */}
+              {/* Thematic Silk Threads SVG Canvas */}
               <svg
                 className="absolute inset-0 pointer-events-none z-10 w-full h-full"
                 aria-hidden="true"

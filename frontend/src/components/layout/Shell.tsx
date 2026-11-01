@@ -132,7 +132,7 @@ export const Shell: React.FC = () => {
               <ArticlePanel />
             </ErrorBoundary>
 
-            {/* Right Panel: Summary Column & Spider Mount (40%) */}
+            {/* Right Panel: Summary Column & Evidence Desk (40%) */}
             <ErrorBoundary panelName="Summary Wire Desk">
               <SummaryPanel />
             </ErrorBoundary>

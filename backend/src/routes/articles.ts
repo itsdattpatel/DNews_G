@@ -26,7 +26,7 @@ articlesRouter.get('/', (req: Request, res: Response) => {
   if (q) {
     // Full-text search path
     query = `
-      SELECT a.id, a.url, a.title_english, a.summary, a.breaking_score, a.spider_type,
+      SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.anchor_phrases, a.breaking_score,
              a.cluster_id, a.bookmarked, a.published_at, a.fetched_at,
              s.id AS source_id, s.name AS source_name, s.country AS source_country,
              GROUP_CONCAT(DISTINCT ac.category) AS categories,
@@ -53,7 +53,7 @@ articlesRouter.get('/', (req: Request, res: Response) => {
     params.push(limit, offset);
   } else {
     query = `
-      SELECT a.id, a.url, a.title_english, a.summary, a.breaking_score, a.spider_type,
+      SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.anchor_phrases, a.breaking_score,
              a.cluster_id, a.bookmarked, a.published_at, a.fetched_at,
              s.id AS source_id, s.name AS source_name, s.country AS source_country,
              GROUP_CONCAT(DISTINCT ac.category) AS categories,
@@ -169,20 +169,31 @@ articlesRouter.patch('/:id/bookmark', (req: Request, res: Response) => {
 
 interface RawRow {
   id: number; url: string; title_english: string | null; summary: string | null;
-  breaking_score: number; spider_type: string; cluster_id: number | null;
+  body_english?: string | null; anchor_phrases?: string | null;
+  breaking_score: number; cluster_id: number | null;
   bookmarked: number; published_at: string | null; fetched_at: string;
   source_id: number; source_name: string; source_country: string;
   categories: string | null; keywords: string | null;
 }
 
 function formatRow(row: RawRow) {
+  let anchorPhrases: any[] = [];
+  if (row.anchor_phrases) {
+    try {
+      anchorPhrases = typeof row.anchor_phrases === 'string' ? JSON.parse(row.anchor_phrases) : row.anchor_phrases;
+    } catch {
+      anchorPhrases = [];
+    }
+  }
+
   return {
     id: row.id,
     url: row.url,
     title_english: row.title_english,
     summary: row.summary,
+    body_english: row.body_english,
+    anchor_phrases: anchorPhrases,
     breaking_score: row.breaking_score,
-    spider_type: row.spider_type,
     cluster_id: row.cluster_id,
     bookmarked: row.bookmarked === 1,
     published_at: row.published_at,

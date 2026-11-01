@@ -1,7 +1,7 @@
 # 🦇 AI World News Desk
 
 > **The tactile authority of investigative print journalism meets high-velocity mechanical intelligence.**
-> *Real-time global news aggregation, multi-provider AI translation & enrichment, 8-legged inverse kinematics spiders, offline radar maps, and live streaming video desks.*
+> *Real-time global news aggregation, multi-provider AI translation & enrichment, verbatim evidence linking, offline radar maps, and live streaming video desks.*
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://react.dev/)
@@ -21,11 +21,11 @@ AI World News Desk is an offline-resilient, autonomous investigative news workst
 ├───────────────────────────────┬─────────────────────────────────────────────┤
 │  ORIGINAL ARTICLE WIRE        │  AI EXECUTIVE SYNTHESIS                     │
 │  - Multi-language source text │  - Real-time typewriter delivery (40 char/s)│
-│  - Native outlet attribution  │  - 8-Legged IK Spider radar overlay         │
+│  - Native outlet attribution  │  - Verbatim anchor phrase evidence linking  │
 │  - Country & topic classification - Dynamic breaking impact score (0-100%)  │
 │  - Direct link to origin      │  - Editorial keyword chips & bookmarks      │
 ├───────────────────────────────┴─────────────────────────────────────────────┤
-│  DISPATCH WIRE (Virtualised card strip with Scout Spider pre-marking)       │
+│  DISPATCH WIRE (Virtualised broadsheet card strip)                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  INTELLIGENCE SUITES:                                                       │
 │  🗺️ Global Radar Map   🗄️ Morgue Archive Chat   🦁 Live IPTV Feeds          │
@@ -36,7 +36,7 @@ AI World News Desk is an offline-resilient, autonomous investigative news workst
 ### The Anti-Slop Newspaper Aesthetic
 - **Tactile Ink & Paper**: Deep midnight slate paper (`#0a0e1a`) with charcoal card surfaces (`#111827`) and architectural hairline dividers (`#1e293b`).
 - **Editorial Typography**: Classic newspaper serif headers and body (`Playfair Display` / `Merriweather`) paired with crisp sans-serif controls (`Inter`) and monospace teletypes (`JetBrains Mono`).
-- **Zero Stock Slop**: No generic purple/blue gradients, no stock icon kits, and no emojis used as interface icons. Spiders, the flapping mechanical bat, and the global radar are custom procedural Canvas and SVG drawings.
+- **Zero Stock Slop**: No generic purple/blue gradients, no stock icon kits, and no emojis used as interface icons. The flapping mechanical bat and the global radar are custom procedural Canvas and SVG drawings.
 - **Fail-Safe Resilience**: Every panel is isolated with an editorial `ErrorBoundary` teletype fallback, and all components support loading, empty, and error states.
 
 ---
@@ -102,21 +102,6 @@ AI_RATE_LIMIT_COOLDOWN_SEC=60
 SCHEDULER_INTERVAL_MINUTES=5
 RETENTION_DAYS=30
 ```
-
----
-
-## 🕷️ The 6 Biomechanical Spider Types
-
-The news desk features 6 procedural spider intelligence classes driven by 8-legged inverse kinematics (2-segment FABRIK algorithm) and alternating tripod gaits:
-
-| Spider | Tint & Hex | Visual Behavior | Activation Condition |
-| :--- | :--- | :--- | :--- |
-| **Reader** | Violet (`#a78bfa`) | Steps between keyword chips, synchronizing typewriter pacing | Default summary panel reading |
-| **RedAlert** | Crimson (`#ef4444`) | Pulsing red hazard strobe, dual piercing optical eyes, high-speed agile gait | Breaking score $\ge 75\%$ |
-| **Swarm** | Emerald (`#22c55e`) | Cluster of 5 mini spiders scattering and scuttling across cards | Animals / Wildlife or Catch-up |
-| **Archive** | Brass Amber (`#f59e0b`) | Miniature magnifying lens badge above body, citation inspection dwell | Historical morgue search & chat |
-| **Scout** | Slate (`#64748b`) | Dashed circular radar pulse aura, exploratory stance | Pre-marks upcoming story in wire |
-| **Weaver** | Silk Cyan (`#38bdf8`) | Weaves catenary silk lines between matching keywords | Compare Coverage cross-outlet view |
 
 ---
 
@@ -228,9 +213,7 @@ ai-world-news-desk/
 │   │   │   ├── compare/     # Multi-outlet coverage comparator with silk weft
 │   │   │   ├── map/         # react-simple-maps Global Radar with wildlife overlay
 │   │   │   ├── modal/       # Missed dispatches catch-up modal
-│   │   │   ├── spider/      # SpiderCanvas overlay and glyph components
 │   │   │   └── tv/          # Live IPTV player with hls.js & animal discovery
-│   │   ├── spider/spiderTypes/ # RedAlert, Swarm, Archive, Scout, Weaver, Reader
 │   │   └── styles/          # Anti-slop design tokens and accessible styles
 │   └── __tests__/           # 10 frontend test suites (42 tests)
 ├── docs/                    # UI specs, design system, API contracts, schema

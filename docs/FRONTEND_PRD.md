@@ -22,7 +22,7 @@ Replace the entire frontend with a polished, distinctive **newspaper-meets-natur
 - Dark "night edition" theme toggle.
 - Typography hierarchy: Fraktur masthead → Playfair Display headlines → Source Serif 4 body.
 - Category tags styled as ink stamps (colored, not generic pills).
-- Spider animation: one real spider walks the article text — not a loading icon, not a progress bar.
+- Verbatim evidence linking: clicking/hovering a summary sentence highlights its anchor phrases in the left article text with authentic ink marker styling.
 - Globe: pulsing pins on real locations from article `location_tags`.
 - TV shelf: horizontal scroll with genuine channel art.
 
@@ -41,7 +41,6 @@ See CREDITS.md for full license audit. Packages requiring user approval before i
 tailwindcss postcss autoprefixer
 @tanstack/react-query
 motion
-gsap (includes SplitText, ScrollTrigger)
 lenis
 react-globe.gl three
 @radix-ui/react-* (as needed by shadcn/ui components)
@@ -91,35 +90,19 @@ Full wireframes: [UI_SPEC.md](./UI_SPEC.md)
 
 ---
 
-## 5. Spider Anchor-Phrase Backend Change (small migration)
-
-Full spec: [SPIDER_SPEC.md](./SPIDER_SPEC.md)
+## 5. Verbatim Anchor-Phrase Evidence Linking
 
 **What changes:**
-1. `articles` table gets a new column `anchor_phrases TEXT` (JSON array of `{ phrase, sentence_index }`).
-2. Migration: `002_anchor_phrases.sql` — `ALTER TABLE articles ADD COLUMN anchor_phrases TEXT DEFAULT NULL`.
+1. `articles` table stores column `anchor_phrases TEXT` (JSON array of `{ phrase, sentence_index }`).
+2. Migration: `003_anchor_phrases.sql` — `ALTER TABLE articles ADD COLUMN anchor_phrases TEXT DEFAULT NULL`.
 3. AI enrichment prompt updated: AI must return `anchor_phrases` — exact verbatim strings from `body_english`, each mapped to a 0-based `sentence_index` in the summary.
 4. Backend validator: any phrase not found verbatim (`body_english.includes(phrase)`) is dropped before DB write.
 5. `GET /api/articles/:id` response includes `anchor_phrases` field.
-
-**No other backend changes.**
-
----
-
-## 6. Spider Crawler
-
-Full spec: [SPIDER_SPEC.md](./SPIDER_SPEC.md)
-
-- One `SpiderCrawler` React component (TypeScript, no copied code from external repos).
-- Walks the `body_english` text in the left panel of the Main Reader.
-- Legs plant procedurally on anchor phrase words; synchronized with summary sentences typing on the right.
-- Modes: `reading` (default) | `breaking` (red web, 2× speed) | `compare` | `archive` (slower).
-- FPS auto-degrade: disable visual effects if < 45 FPS; pause if < 30 FPS.
-- All old spider code deleted (list in SPIDER_SPEC.md).
+6. Evidence Highlight UI: Interactive sentence-to-text linking with marker-style highlights and optional typing sweep.
 
 ---
 
-## 7. Live Data & API Sources
+## 6. Live Data & API Sources
 
 Full spec: [API_SETTINGS_SPEC.md](./API_SETTINGS_SPEC.md)
 
@@ -148,34 +131,34 @@ Full spec: [API_SETTINGS_SPEC.md](./API_SETTINGS_SPEC.md)
 
 | Step | Deliverable |
 |------|-------------|
-| 0 | This doc + companion docs (DESIGN_SYSTEM, UI_SPEC, SPIDER_SPEC, API_SETTINGS_SPEC, CONTRACT, CREDITS, WIRING_CHECKLIST) |
+| 0 | This doc + companion docs (DESIGN_SYSTEM, UI_SPEC, API_SETTINGS_SPEC, CONTRACT, CREDITS, WIRING_CHECKLIST) |
 | 1 | Design system tokens + component kit (shadcn/ui components, Tailwind config) |
 | 2 | App shell: bat bar, routing, theme toggle, Lenis scroll, skeleton |
 | 3 | Backend wiring layer: TanStack Query setup, SSE hook, shared TS types |
 | 4 | Main Reader screen (article + summary panels, language toggle, ticker) |
-| 5 | anchor_phrases migration + SpiderCrawler module |
+| 5 | anchor_phrases migration + Verbatim Evidence Highlighting |
 | 6 | Category rail + article cards |
 | 7 | API & Sources settings + live provider adapters |
 | 8 | Compare Coverage, Story Timeline, Archive Chat, Watchlist |
 | 9 | Globe / Map screen |
 | 10 | TV View screen |
 | 11 | PDF preview, Morning Briefing, Alerts Center |
-| 12 | Performance, accessibility, Playwright QA, cleanup |
+| 12 | Performance, accessibility, QA, cleanup |
 
 ---
 
 ## 10. Acceptance Criteria (full list)
 
-- [ ] No old spider code remains anywhere in `frontend/src/`
-- [ ] SpiderCrawler only lands on phrases verified verbatim in `body_english`
+- [ ] Zero spider code anywhere in codebase
+- [ ] Evidence highlight only marks phrases verified verbatim in `body_english`
 - [ ] Every setting in UI reads/writes real backend setting via API
 - [ ] Live SSE feed updates Main Reader without manual refresh
-- [ ] One real article flows end-to-end: fetch → AI (with anchor_phrases) → DB → SSE → reader + spider
+- [ ] One real article flows end-to-end: fetch → AI (with anchor_phrases) → DB → SSE → reader + evidence highlight
 - [ ] No browser console errors in production build
 - [ ] Lighthouse Performance ≥ 85
-- [ ] Playwright screenshots captured for every screen in light + dark mode
+- [ ] Screenshots captured for light + dark mode
 - [ ] CREDITS.md complete with every installed package + license
-- [ ] WIRING_CHECKLIST.md ticked with proof (screenshot or test) for every endpoint
+- [ ] WIRING_CHECKLIST.md ticked with proof for every endpoint
 
 ---
 
@@ -185,7 +168,7 @@ Full spec: [API_SETTINGS_SPEC.md](./API_SETTINGS_SPEC.md)
 2. **Old spider tests**: Delete `ik.test.ts` and `spiders.test.ts` with the spider code, or archive them? *(Recommendation: delete entirely since the module they test is removed.)*
 3. **cyohei9907 algorithm**: Confirmed no LICENSE file. Proceeding with clean-room rewrite from scratch — OK?
 4. **shadcn/ui install**: This requires `npx shadcn@latest init` which modifies `components.json` and `tailwind.config`. OK to run?
-5. **GSAP No-Charge license**: Confirmed free for this app (not a competing visual builder). OK to install `gsap`?
+5. **Animation Engine**: Using `motion` (Framer Motion) exclusively across UI transitions.
 6. **Package approval**: Review the full install list in §2 above. Which packages are approved?
 7. **Bat animation**: Should the bat be a Lottie file (need to find OFL/CC0 one) or hand-crafted SVG animation in React? *(Recommendation: hand-crafted SVG — full control, no asset license risk.)*
 8. **Breaking accent color**: `#C0392B` (crimson) proposed. Any preference for a different hue?

@@ -4,7 +4,6 @@
  */
 import { z } from 'zod';
 
-const SPIDER_TYPES = ['Reader', 'Scout', 'Weaver', 'RedAlert', 'Archive', 'Swarm'] as const;
 const CATEGORIES = [
   'World', 'Politics', 'Business', 'Tech', 'Science',
   'Health', 'Sports', 'Entertainment', 'Environment', 'Crime', 'Animals',
@@ -38,16 +37,13 @@ export const EnrichmentResultSchema = z.object({
   species_tags: z.array(z.string()).default([]),
   location_tags: z.array(z.string()).default([]),
   anchor_phrases: z.array(AnchorPhraseSchema).default([]),
-  spider_type: z
-    .enum(SPIDER_TYPES)
-    .catch('Reader'), // default if AI sends garbage
 });
 
 export type EnrichmentResult = z.infer<typeof EnrichmentResultSchema>;
 
 /**
  * Validates anchor phrases against body_english verbatim presence and sentence_index bounds.
- * Drops any phrase not found verbatim or with out-of-bound sentence_index (SPIDER_SPEC §3.3).
+ * Drops any phrase not found verbatim or with out-of-bound sentence_index.
  */
 export function validateAnchorPhrases(
   anchorPhrases: Array<{ phrase: string; sentence_index: number }>,

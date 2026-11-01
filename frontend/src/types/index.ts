@@ -15,7 +15,7 @@ export interface Source {
   last_fetched_at?: string | null;
 }
 
-// ─── Categories & Spiders ─────────────────────────────────────────────────────
+// ─── Categories & Themes ──────────────────────────────────────────────────────
 export type Category =
   | 'World'
   | 'Politics'
@@ -28,10 +28,6 @@ export type Category =
   | 'Environment'
   | 'Crime'
   | 'Animals';
-
-export type SpiderType = 'Reader' | 'Scout' | 'Weaver' | 'RedAlert' | 'Archive' | 'Swarm';
-
-export type SpiderMode = 'reading' | 'breaking' | 'compare' | 'archive';
 
 export type ThemeMode = 'paper' | 'night';
 
@@ -65,7 +61,6 @@ export interface ArticleListItem {
   keywords: string[];
   categories: Category[];
   breaking_score: number;
-  spider_type: SpiderType;
   cluster_id: number | null;
   source: Pick<Source, 'id' | 'name' | 'country'>;
   published_at: string | null;
@@ -94,7 +89,6 @@ export interface Article {
   summary: string;
   language_detected?: string | null;
   breaking_score: number;
-  spider_type: SpiderType;
   cluster_id: number | null;
   bookmarked: boolean;
   published_at: string | null;
@@ -212,16 +206,14 @@ export interface QuotaResponse {
 // ─── Settings ─────────────────────────────────────────────────────────────────
 export interface AppSettings {
   refresh_interval_minutes: number;
-  max_spiders: number;
   alert_threshold: number;
   auto_cleanup_enabled: boolean;
   retention_days: number;
   sound_enabled: boolean;
   // UI-only tokens
   theme?: 'paper' | 'night';
-  spider_speed?: number;          // multiplier 0.5–2.0
-  spider_glitch?: boolean;
-  spider_pause_on_hover?: boolean;
+  evidence_highlight_enabled?: boolean;
+  reading_mode_enabled?: boolean;
 }
 
 // ─── Startup & Backfill ───────────────────────────────────────────────────────

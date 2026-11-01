@@ -1,4 +1,4 @@
-﻿# AI Prompts — AI World News Desk
+# AI Prompts — AI World News Desk
 *Version 1.0 · 2026-10-30*
 
 ---
@@ -42,13 +42,7 @@ Analyse the following {{COUNT}} news articles and return a JSON array of exactly
   "breaking_score": <integer 0–100 — urgency/novelty; 100 = unprecedented breaking news>,
   "species_tags":   <string[] — animal/plant species mentioned; empty array if none>,
   "location_tags":  <string[] — countries and cities mentioned>,
-  "spider_type":    <string — exactly one of:
-                    "Reader" | "Scout" | "Weaver" | "RedAlert" | "Archive" | "Swarm"
-                    Rules:
-                    - "RedAlert"  if breaking_score >= 75
-                    - "Weaver"    if location_tags has >= 2 countries
-                    - "Swarm"     if categories includes "Animals" and breaking_score < 50
-                    - "Reader"    default>
+  "anchor_phrases": <array of objects [{"phrase": string, "sentence_index": integer}] — each phrase MUST appear verbatim in body_english and support summary sentence at sentence_index>
 }
 
 Input articles:
@@ -83,7 +77,7 @@ Input articles:
   "breaking_score": 82,
   "species_tags": [],
   "location_tags": ["India","Tamil Nadu","Chennai"],
-  "spider_type": "RedAlert"
+  "anchor_phrases": [{"phrase": "Heavy rains caused severe flooding", "sentence_index": 0}]
 }
 ```
 

@@ -4,9 +4,9 @@
  * Sentence-by-sentence structured reading page linked directly to left-panel evidence.
  * Pure Tailwind, zero cyberpunk inline styles, full loading/empty/error states.
  */
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { Star, Layers, Clock, Sparkles } from 'lucide-react';
+import { Star, Layers, Clock, Sparkles, Play, Pause } from 'lucide-react';
 
 export const SummaryPanel: React.FC = () => {
   const article = useAppStore((s) => s.selectedArticle);
@@ -17,6 +17,11 @@ export const SummaryPanel: React.FC = () => {
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const activeSentenceIndex = useAppStore((s) => s.activeSentenceIndex);
   const setActiveSentenceIndex = useAppStore((s) => s.setActiveSentenceIndex);
+  const isReadingModeConfigured = useAppStore(
+    (s) => s.settings.reading_mode_enabled ?? true
+  );
+  const isReadingModeActive = useAppStore((s) => s.isReadingModeActive);
+  const toggleReadingMode = useAppStore((s) => s.toggleReadingMode);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeKeywordIndex, setActiveKeywordIndex] = useState(-1);
@@ -30,6 +35,36 @@ export const SummaryPanel: React.FC = () => {
   }, [article?.summary]);
 
   const isBreaking = (article?.breaking_score ?? 0) >= 75;
+
+  // Synchronized Reading Mode sweep (respecting prefers-reduced-motion)
+  useEffect(() => {
+    if (!isReadingModeActive || !isReadingModeConfigured || sentences.length === 0) {
+      return;
+    }
+
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion) {
+      if (activeSentenceIndex === null) {
+        setActiveSentenceIndex(0);
+      }
+      return;
+    }
+
+    if (activeSentenceIndex === null || activeSentenceIndex >= sentences.length) {
+      setActiveSentenceIndex(0);
+    }
+
+    const interval = setInterval(() => {
+      const current = useAppStore.getState().activeSentenceIndex;
+      const next = current === null ? 0 : current + 1;
+      setActiveSentenceIndex(next >= sentences.length ? 0 : next);
+    }, 3600);
+
+    return () => clearInterval(interval);
+  }, [isReadingModeActive, isReadingModeConfigured, sentences.length, setActiveSentenceIndex]);
 
   // Loading Skeleton State
   if (isLoading) {
@@ -92,12 +127,38 @@ export const SummaryPanel: React.FC = () => {
               </span>
             ) : (
               <span className="font-mono text-[0.625rem] uppercase px-2 py-0.5 rounded-xs border border-paper-border bg-paper text-ink-muted">
-                {article.spider_type || 'Reader'} Desk
+                Editorial Wire
               </span>
             )}
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Reading Mode Action */}
+            {isReadingModeConfigured && sentences.length > 0 && (
+              <button
+                id="btn-reading-mode-toggle"
+                onClick={() => toggleReadingMode()}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xs border text-xs font-semibold transition-all shadow-xs ${
+                  isReadingModeActive
+                    ? 'border-accent bg-accent/15 text-accent font-bold ring-1 ring-accent/30'
+                    : 'border-paper-border bg-paper hover:border-ink text-ink-secondary hover:text-ink'
+                }`}
+                title={isReadingModeActive ? 'Pause Reading Mode sweep' : 'Start synchronized Reading Mode'}
+              >
+                {isReadingModeActive ? (
+                  <>
+                    <Pause size={12} className="text-accent animate-pulse" />
+                    <span>Reading…</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={12} className="text-ink" />
+                    <span>Reading Mode</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {/* Bookmark Action */}
             <button
               id="bookmark-toggle-btn"
@@ -129,32 +190,65 @@ export const SummaryPanel: React.FC = () => {
           <div className="space-y-2.5">
             {sentences.map((sentence, idx) => {
               const isActive = activeSentenceIndex === idx;
+              const hasEvidence = (article.anchor_phrases || []).some(
+                (a) => a.sentence_index === idx
+              );
 
               return (
                 <div
                   key={idx}
                   data-sentence-index={idx}
-                  onMouseEnter={() => setActiveSentenceIndex(idx)}
-                  onMouseLeave={() => setActiveSentenceIndex(null)}
+                  onMouseEnter={() => {
+                    if (!isReadingModeActive) setActiveSentenceIndex(idx);
+                  }}
+                  onMouseLeave={() => {
+                    if (!isReadingModeActive) setActiveSentenceIndex(null);
+                  }}
                   onClick={() => {
                     setActiveSentenceIndex(idx);
                     const anchor = document.getElementById(`anchor-sentence-${idx}`);
-                    if (anchor) anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (anchor) {
+                      const prefersReducedMotion =
+                        typeof window !== 'undefined' &&
+                        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                      anchor.scrollIntoView({
+                        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+                        block: 'center',
+                      });
+                    }
                   }}
-                  className={`p-3.5 rounded-xs border transition-all cursor-pointer ${
+                  className={`p-3.5 rounded-xs border transition-all cursor-pointer relative overflow-hidden ${
                     isActive
                       ? 'border-ink bg-paper shadow-xs border-l-4 border-l-accent -translate-x-0.5'
                       : 'border-paper-border/80 bg-paper/70 hover:bg-paper hover:border-ink'
                   }`}
                 >
-                  <div className="flex items-start gap-2.5">
-                    <span className="font-mono text-[0.6875rem] font-bold text-ink-muted pt-0.5 select-none shrink-0">
-                      § {idx + 1}
-                    </span>
-                    <p className="font-body text-sm sm:text-[0.9375rem] leading-relaxed text-ink select-text">
-                      {sentence}
-                    </p>
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-start gap-2.5">
+                      <span className="font-mono text-[0.6875rem] font-bold text-ink-muted pt-0.5 select-none shrink-0">
+                        § {idx + 1}
+                      </span>
+                      <p className="font-body text-sm sm:text-[0.9375rem] leading-relaxed text-ink select-text">
+                        {sentence}
+                      </p>
+                    </div>
+
+                    {hasEvidence && (
+                      <span
+                        className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 font-bold shrink-0 select-none"
+                        title="Verbatim evidence anchor linked in article"
+                      >
+                        Evidence
+                      </span>
+                    )}
                   </div>
+
+                  {/* Synchronized Reading Mode Sweep Progress Bar */}
+                  {isReadingModeActive && isActive && (
+                    <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent/20 overflow-hidden">
+                      <div className="h-full bg-accent animate-[reading-progress_3.6s_linear_infinite]" />
+                    </div>
+                  )}
                 </div>
               );
             })}

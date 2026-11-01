@@ -10,7 +10,15 @@ let _db: Database.Database | null = null;
 let _currentDbPath: string | null = null;
 
 function getDataDir(): string {
-  return process.env['DATA_DIR'] ?? './data';
+  if (process.env['DATA_DIR']) {
+    return path.resolve(process.env['DATA_DIR']);
+  }
+  // If running from root and backend/data exists, use backend/data
+  const backendData = path.resolve('backend/data');
+  if (fs.existsSync(backendData)) {
+    return backendData;
+  }
+  return path.resolve('./data');
 }
 
 export function getDbPath(): string {

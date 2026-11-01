@@ -1,4 +1,4 @@
-﻿/**
+/**
  * config/features.ts
  * Master feature-flag registry. Set any flag to false to disable that module.
  * Every module checks its own flag at runtime — disabled modules are no-ops.
@@ -19,15 +19,6 @@ export const FEATURES = {
   provider_mistral: true,
   provider_cerebras: true,
   ollama: false, // disabled — no local GPU
-
-  // --- Spiders ---
-  spider_animation: true,
-  spider_reader: true,
-  spider_scout: true,
-  spider_weaver: true,
-  spider_red_alert: true,
-  spider_archive: true,
-  spider_swarm: true,
 
   // --- UI ---
   alerts: true,

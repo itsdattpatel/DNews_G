@@ -192,15 +192,6 @@ Cards: `border-t-2 border-ink` for the newspaper column top-rule.
 --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 --ease-enter:  cubic-bezier(0, 0, 0.2, 1);
 --ease-exit:   cubic-bezier(0.4, 0, 1, 1);
-
-/* Spider */
---spider-step-reading:  1800ms;
---spider-step-breaking: 800ms;
---spider-step-compare:  1400ms;
---spider-step-archive:  2800ms;
---spider-fps-target:    60;
---spider-fps-degrade:   45;
---spider-fps-pause:     30;
 ```
 
 ### 5.1 Reduced Motion
@@ -213,7 +204,6 @@ Cards: `border-t-2 border-ink` for the newspaper column top-rule.
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .spider-canvas { display: none; }
 }
 ```
 
@@ -224,7 +214,6 @@ Cards: `border-t-2 border-ink` for the newspaper column top-rule.
 ```css
 --z-base:      0;
 --z-article:   10;
---z-spider:    20;
 --z-ticker:    30;
 --z-topbar:    40;
 --z-overlay:   50;

@@ -28,7 +28,7 @@ export async function generateMorningBriefing(): Promise<string> {
     .all() as ArticleBriefingRow[];
 
   if (rows.length === 0) {
-    return 'Good morning. This is your AI World News Desk radar briefing. Monitored wire bureaus currently report calm frequencies with no critical anomalies. Stay tuned as our autonomous spiders continue tracking global dispatches throughout the day.';
+    return 'Good morning. This is your AI World News Desk radar briefing. Monitored wire bureaus currently report calm frequencies with no critical anomalies. Stay tuned as our autonomous dispatches continue tracking global news throughout the day.';
   }
 
   const todayStr = new Date().toLocaleDateString('en-US', {
@@ -78,7 +78,7 @@ Write in a warm, clear, neutral broadcast style. No markdown. Plain paragraphs. 
     fallback += highlights.join('; while ') + '.\n\n';
   }
 
-  fallback += `Our automated spiders remain on patrol across international bureaus. That concludes your morning briefing. Have a productive and safe day ahead.`;
+  fallback += `Our international wire monitoring remains active across all bureaus. That concludes your morning briefing. Have a productive and safe day ahead.`;
 
   return fallback;
 }

@@ -33,6 +33,8 @@ describe('Settings API (T1-08)', () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('refresh_interval_minutes');
     expect(res.body).toHaveProperty('sound_enabled');
+    expect(res.body).toHaveProperty('evidence_highlight_enabled', true);
+    expect(res.body).toHaveProperty('reading_mode_enabled', true);
   });
 
   it('PATCH /api/settings validates range and rejects out-of-bounds (T1-08)', async () => {
@@ -49,11 +51,12 @@ describe('Settings API (T1-08)', () => {
   it('PATCH /api/settings updates valid settings', async () => {
     const res = await request(app)
       .patch('/api/settings')
-      .send({ refresh_interval_minutes: 10, max_spiders: 5 });
+      .send({ refresh_interval_minutes: 10, alert_threshold: 65, evidence_highlight_enabled: false });
 
     expect(res.status).toBe(200);
     expect(res.body.refresh_interval_minutes).toBe(10);
-    expect(res.body.max_spiders).toBe(5);
+    expect(res.body.alert_threshold).toBe(65);
+    expect(res.body.evidence_highlight_enabled).toBe(false);
   });
 
   it('GET /api/startup-status returns gap and backfill capability (P5-02)', async () => {

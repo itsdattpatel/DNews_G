@@ -11,15 +11,13 @@ export const settingsRouter = Router();
 
 const SETTINGS_SCHEMA: Record<string, { type: 'int' | 'bool' | 'str' | 'float'; min?: number; max?: number }> = {
   refresh_interval_minutes: { type: 'int', min: 1, max: 60 },
-  max_spiders: { type: 'int', min: 1, max: 10 },
   alert_threshold: { type: 'int', min: 0, max: 100 },
   auto_cleanup_enabled: { type: 'bool' },
   retention_days: { type: 'int', min: 7, max: 365 },
   sound_enabled: { type: 'bool' },
-  spider_speed: { type: 'float', min: 0.5, max: 3.0 },
-  spider_glitch: { type: 'bool' },
-  spider_pause_on_hover: { type: 'bool' },
   theme: { type: 'str' },
+  evidence_highlight_enabled: { type: 'bool' },
+  reading_mode_enabled: { type: 'bool' },
 };
 
 settingsRouter.get('/', (_req: Request, res: Response) => {
@@ -75,7 +73,8 @@ function getAllSettings(): Record<string, unknown> {
   const keys = Object.keys(SETTINGS_SCHEMA);
   const result: Record<string, unknown> = {};
   for (const key of keys) {
-    const raw = getSetting(key, '');
+    const defaultVal = key === 'evidence_highlight_enabled' || key === 'reading_mode_enabled' ? '1' : '';
+    const raw = getSetting(key, defaultVal);
     const schema = SETTINGS_SCHEMA[key]!;
     if (schema.type === 'int') result[key] = parseInt(raw, 10);
     else if (schema.type === 'float') result[key] = parseFloat(raw);

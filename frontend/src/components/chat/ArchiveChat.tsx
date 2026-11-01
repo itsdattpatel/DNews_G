@@ -2,9 +2,9 @@
  * frontend/src/components/chat/ArchiveChat.tsx
  * Screen (f): Investigative Morgue & Historical FTS5 Search Desk (Step 9).
  * Broadsheet newspaper styling, FTS5 full-text queries, AI synthesis with interactive citations,
- * instant query chips, procedural archive spider canvas, and full empty/loading/error states.
+ * instant query chips, and full empty/loading/error states.
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import type { SearchResponse, SearchResultItem } from '../../types';
 import {
@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 export const ArchiveChat: React.FC = () => {
-  const { isArchiveChatOpen, setArchiveChatOpen, selectArticleById, theme } = useAppStore();
+  const { isArchiveChatOpen, setArchiveChatOpen, selectArticleById } = useAppStore();
   const [query, setQuery] = useState('');
   const [useAi, setUseAi] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,95 +30,8 @@ export const ArchiveChat: React.FC = () => {
   const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const citationRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  // Procedural Slow Walking Archive Spider (dim, slow, analytical)
-  useEffect(() => {
-    if (!isArchiveChatOpen || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animId: number;
-    let t = 0;
-
-    const render = () => {
-      t += 0.015; // Slow, contemplative crawl
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const isNight = theme === 'night';
-      const legColor = isNight ? 'rgba(232, 228, 218, 0.12)' : 'rgba(26, 18, 8, 0.09)';
-      const bodyColor = isNight ? 'rgba(232, 228, 218, 0.18)' : 'rgba(26, 18, 8, 0.14)';
-
-      // Centered or trailing archive spider in top-right folio margin
-      const cx = canvas.width - 90;
-      const cy = 70 + Math.sin(t * 0.5) * 8;
-
-      // Spider silk thread descending from masthead
-      ctx.strokeStyle = isNight ? 'rgba(232, 228, 218, 0.08)' : 'rgba(26, 18, 8, 0.06)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(cx, 0);
-      ctx.lineTo(cx, cy);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // 8 Slow 2-joint archival legs
-      for (let i = 0; i < 8; i++) {
-        const side = i < 4 ? -1 : 1;
-        const legIdx = i % 4;
-        const phase = t + legIdx * 0.7 + (side === 1 ? Math.PI : 0);
-
-        const hipX = cx + side * 6;
-        const hipY = cy - 4 + legIdx * 3;
-        const kneeX = hipX + side * (16 + Math.cos(phase) * 4);
-        const kneeY = hipY - 8 + Math.sin(phase) * 4;
-        const footX = hipX + side * (28 + Math.cos(phase) * 6);
-        const footY = hipY + 8 + Math.sin(phase) * 5;
-
-        ctx.strokeStyle = legColor;
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.moveTo(hipX, hipY);
-        ctx.lineTo(kneeX, kneeY);
-        ctx.lineTo(footX, footY);
-        ctx.stroke();
-      }
-
-      // Small spider abdomen & cephalothorax
-      ctx.fillStyle = bodyColor;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy + 4, 5, 7, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(cx, cy - 3, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      animId = requestAnimationFrame(render);
-    };
-
-    render();
-    return () => cancelAnimationFrame(animId);
-  }, [isArchiveChatOpen, theme]);
-
-  // Adjust canvas size to body dimensions
-  const updateCanvasBounds = useCallback(() => {
-    if (!canvasRef.current || !bodyRef.current) return;
-    const rect = bodyRef.current.getBoundingClientRect();
-    canvasRef.current.width = rect.width;
-    canvasRef.current.height = Math.max(rect.height, bodyRef.current.scrollHeight);
-  }, []);
-
-  useEffect(() => {
-    if (isArchiveChatOpen) {
-      updateCanvasBounds();
-      window.addEventListener('resize', updateCanvasBounds);
-      return () => window.removeEventListener('resize', updateCanvasBounds);
-    }
-  }, [isArchiveChatOpen, updateCanvasBounds]);
 
   // Close on Escape
   useEffect(() => {
@@ -162,10 +75,6 @@ export const ArchiveChat: React.FC = () => {
 
       const data: SearchResponse = await res.json();
       setSearchResponse(data);
-
-      setTimeout(() => {
-        updateCanvasBounds();
-      }, 100);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -202,10 +111,6 @@ export const ArchiveChat: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-ui text-[0.6875rem] font-bold uppercase tracking-widest text-ink-secondary">
                 Investigative Morgue & Archival Record · Vol. XCII No. 41
-              </span>
-              <span className="text-ink-muted text-xs">/</span>
-              <span className="font-mono text-xs font-bold text-accent">
-                Spider Mode: Archive (Analytical & Slow)
               </span>
             </div>
 
@@ -311,12 +216,6 @@ export const ArchiveChat: React.FC = () => {
           ref={bodyRef}
           className="flex-1 overflow-y-auto p-4 sm:p-6 relative bg-paper"
         >
-          {/* Background Canvas for Archive Spider */}
-          <canvas
-            ref={canvasRef}
-            className="absolute inset-0 pointer-events-none z-0"
-          />
-
           <div className="relative z-10 space-y-6">
             {/* Loading State */}
             {isLoading && (

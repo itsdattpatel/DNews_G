@@ -7,7 +7,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { ExternalLink, Globe2, Languages, Clock, BookOpen } from 'lucide-react';
-import { SpiderCrawler } from '../spider/SpiderCrawler';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
@@ -29,6 +28,9 @@ export const ArticlePanel: React.FC = () => {
   const isLoading = useAppStore((s) => s.isLoading);
   const activeSentenceIndex = useAppStore((s) => s.activeSentenceIndex);
   const setActiveSentenceIndex = useAppStore((s) => s.setActiveSentenceIndex);
+  const isEvidenceHighlightEnabled = useAppStore(
+    (s) => s.settings.evidence_highlight_enabled ?? true
+  );
 
   const [showOriginal, setShowOriginal] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -48,12 +50,18 @@ export const ArticlePanel: React.FC = () => {
     setShowOriginal(false);
   }, [article?.id]);
 
-  // Scroll to active anchor when activeSentenceIndex changes
+  // Scroll to active anchor when activeSentenceIndex changes (respecting reduced-motion)
   useEffect(() => {
     if (activeSentenceIndex !== null && scrollContainerRef.current) {
       const el = scrollContainerRef.current.querySelector(`#anchor-sentence-${activeSentenceIndex}`);
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const prefersReducedMotion =
+          typeof window !== 'undefined' &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView({
+          behavior: prefersReducedMotion ? 'auto' : 'smooth',
+          block: 'center',
+        });
       }
     }
   }, [activeSentenceIndex]);
@@ -143,16 +151,6 @@ export const ArticlePanel: React.FC = () => {
       ref={scrollContainerRef}
       className="flex-[3] h-full relative overflow-y-auto p-6 sm:p-10 lg:p-12 border-r-2 border-ink bg-paper text-ink transition-colors duration-150"
     >
-      {/* Procedural SpiderCrawler walking on DOM words */}
-      <SpiderCrawler
-        containerRef={scrollContainerRef}
-        anchorPhrases={article.anchor_phrases || []}
-        summaryCount={paragraphs.length}
-        mode={article.breaking_score >= 75 ? 'breaking' : 'reading'}
-        onPhraseActivate={(idx) => setActiveSentenceIndex(idx)}
-        onPhraseLand={(_, idx) => setActiveSentenceIndex(idx)}
-      />
-
       {/* 1. Broadsheet Kicker & Wire Byline Metadata */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-paper-border">
         <div className="flex flex-wrap items-center gap-2.5">
@@ -245,40 +243,69 @@ export const ArticlePanel: React.FC = () => {
         className="font-body text-[1.125rem] leading-[1.8] text-ink font-normal space-y-5 max-w-prose select-text"
       >
         {paragraphs.map((para, pIdx) => {
-          // If anchor phrases exist, check if paragraph contains them
           const anchors = article.anchor_phrases || [];
           let renderedContent: React.ReactNode = para;
 
-          if (anchors.length > 0 && !showOriginal) {
-            // Find anchors matching this paragraph
-            for (let aIdx = 0; aIdx < anchors.length; aIdx++) {
-              const a = anchors[aIdx];
-              if (a && a.phrase && para.includes(a.phrase)) {
-                const parts = para.split(a.phrase);
-                const isActive = activeSentenceIndex === a.sentence_index;
+          if (isEvidenceHighlightEnabled && !showOriginal && anchors.length > 0) {
+            type Match = { start: number; end: number; phrase: string; sentence_index: number };
+            const matches: Match[] = [];
 
-                renderedContent = (
-                  <>
-                    {parts[0]}
-                    <mark
-                      id={`anchor-sentence-${a.sentence_index}`}
-                      data-sentence-index={a.sentence_index}
-                      onMouseEnter={() => setActiveSentenceIndex(a.sentence_index)}
-                      onMouseLeave={() => setActiveSentenceIndex(null)}
-                      className={`spider-anchor cursor-pointer px-1 py-0.5 rounded-xs transition-all ${
-                        isActive
-                          ? 'bg-accent/25 text-ink font-medium border-b-2 border-accent'
-                          : 'bg-amber-200/50 dark:bg-amber-900/35 hover:bg-amber-300/60 dark:hover:bg-amber-800/50 text-ink'
-                      }`}
-                      title={`Linked to Summary Sentence § ${a.sentence_index + 1}`}
-                    >
-                      {a.phrase}
-                    </mark>
-                    {parts.slice(1).join(a.phrase)}
-                  </>
-                );
-                break;
+            for (const a of anchors) {
+              if (!a?.phrase) continue;
+              let pos = 0;
+              while ((pos = para.indexOf(a.phrase, pos)) !== -1) {
+                matches.push({
+                  start: pos,
+                  end: pos + a.phrase.length,
+                  phrase: a.phrase,
+                  sentence_index: a.sentence_index,
+                });
+                pos += a.phrase.length;
               }
+            }
+
+            if (matches.length > 0) {
+              matches.sort((a, b) => a.start - b.start);
+              const nonOverlapping: Match[] = [];
+              let lastEnd = 0;
+              for (const m of matches) {
+                if (m.start >= lastEnd) {
+                  nonOverlapping.push(m);
+                  lastEnd = m.end;
+                }
+              }
+
+              const nodes: React.ReactNode[] = [];
+              let cursor = 0;
+              nonOverlapping.forEach((m, mIdx) => {
+                if (m.start > cursor) {
+                  nodes.push(para.slice(cursor, m.start));
+                }
+                const isActive = activeSentenceIndex === m.sentence_index;
+                nodes.push(
+                  <mark
+                    key={`anchor-${pIdx}-${mIdx}`}
+                    id={`anchor-sentence-${m.sentence_index}`}
+                    data-sentence-index={m.sentence_index}
+                    onMouseEnter={() => setActiveSentenceIndex(m.sentence_index)}
+                    onMouseLeave={() => setActiveSentenceIndex(null)}
+                    onClick={() => setActiveSentenceIndex(m.sentence_index)}
+                    className={`evidence-anchor evidence-marker cursor-pointer ${
+                      isActive ? 'evidence-marker--active' : ''
+                    }`}
+                    title={`Verbatim evidence supporting Summary § ${m.sentence_index + 1}`}
+                  >
+                    {m.phrase}
+                  </mark>
+                );
+                cursor = m.end;
+              });
+
+              if (cursor < para.length) {
+                nodes.push(para.slice(cursor));
+              }
+
+              renderedContent = nodes;
             }
           }
 
