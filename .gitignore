@@ -1,0 +1,31 @@
+﻿# Secrets — NEVER commit these
+.env
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+
+# Database
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+data/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Coverage
+coverage/

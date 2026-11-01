@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Sample World News</title>
+    <link>https://example.com/news</link>
+    <description>Sample world news feed for testing</description>
+    <item>
+      <title>Global Summit Reaches Landmark Accord on Clean Energy</title>
+      <link>https://example.com/news/clean-energy-accord</link>
+      <description>Delegates from over 40 nations agreed on new carbon reduction targets.</description>
+      <pubDate>Fri, 30 Oct 2026 10:00:00 GMT</pubDate>
+      <guid>https://example.com/news/clean-energy-accord</guid>
+    </item>
+    <item>
+      <title>Rare Snow Leopard Spotted in Himalayan Sanctuary</title>
+      <link>https://example.com/news/snow-leopard-spotted</link>
+      <description>Wildlife researchers captured high-definition footage of a mother and cubs.</description>
+      <pubDate>Fri, 30 Oct 2026 09:30:00 GMT</pubDate>
+      <guid>https://example.com/news/snow-leopard-spotted</guid>
+    </item>
+  </channel>
+</rss>

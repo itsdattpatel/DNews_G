@@ -1,0 +1,15 @@
+[Unit]
+Description=AI World News Desk - Real-time Editorial Intelligence Desk
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=E:\DNews_G
+ExecStart=/bin/sh -c "npm run dev"
+Restart=on-failure
+RestartSec=10
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,335 @@
+/**
+ * frontend/src/components/modal/MissedNewsModal.css
+ * Styling for the Missed News Catch-Up Modal following DESIGN_SYSTEM.md.
+ */
+
+.missed-news-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn var(--dur-normal) var(--ease-out);
+}
+
+.missed-news-modal {
+  width: 90%;
+  max-width: 540px;
+  background-color: var(--bg-surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideUp var(--dur-normal) var(--ease-spring);
+}
+
+.missed-news-header {
+  padding: var(--space-4) var(--space-6);
+  background-color: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.missed-news-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.missed-news-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.missed-news-title {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.missed-news-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: var(--space-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: color var(--dur-fast) ease, background var(--dur-fast) ease;
+}
+
+.missed-news-close-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--border);
+}
+
+.missed-news-body {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.missed-news-downtime-box {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-warning);
+  border-radius: var(--radius-sm);
+}
+
+.missed-news-downtime-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--accent-warning);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.missed-news-downtime-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.missed-news-downtime-headline {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.missed-news-downtime-sub {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.missed-news-explanation {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.missed-news-disclosure {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background-color: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--radius-sm);
+}
+
+.missed-news-disclosure-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--accent-warning);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.missed-news-disclosure-text {
+  font-size: var(--font-xs);
+  color: var(--accent-warning);
+  line-height: 1.5;
+}
+
+/* Loading State */
+.missed-news-loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) 0;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.missed-news-spinner {
+  width: 36px;
+  height: 36px;
+  color: var(--accent-primary);
+  animation: spin 1s linear infinite;
+}
+
+.missed-news-loading-text {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+/* Success State */
+.missed-news-success-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: var(--radius-sm);
+}
+
+.missed-news-success-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--accent-success);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.missed-news-success-stat {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.missed-news-success-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background-color: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  color: var(--accent-warning);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.missed-news-warning-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--accent-warning);
+}
+
+/* Error State */
+.missed-news-error-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background-color: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--accent-danger);
+  font-size: var(--font-sm);
+}
+
+/* Footer & Buttons */
+.missed-news-footer {
+  padding: var(--space-4) var(--space-6);
+  background-color: var(--bg-primary);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.missed-news-btn-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.missed-news-btn-primary {
+  padding: var(--space-2) var(--space-5);
+  background-color: var(--accent-primary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.missed-news-btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-primary-hover);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+}
+
+.missed-news-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.missed-news-btn-secondary {
+  padding: var(--space-2) var(--space-4);
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+
+.missed-news-btn-secondary:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.missed-news-btn-settings {
+  padding: var(--space-2) var(--space-3);
+  background-color: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+
+.missed-news-btn-settings:hover {
+  color: var(--text-secondary);
+  background-color: var(--bg-surface);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
