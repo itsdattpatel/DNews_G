@@ -87,3 +87,4 @@ describe('Frontend Plain Mode Architecture & Contracts (PRD A Category 3)', () =
     expect(badges.providerBadge).toBe('PLAIN MODE (ZERO AI)');
   });
 });
+

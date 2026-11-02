@@ -10,6 +10,7 @@ import { startScheduler, stopScheduler, initStartupGap } from './fetch/scheduler
 import { runEnrichmentPass } from './pipeline/enricher';
 import { initCleanupScheduler } from './pipeline/cleanup';
 import { initAppSession, closeAppSession } from './services/sessionManager';
+import { initBackupScheduler, stopBackupScheduler } from './services/backupManager';
 
 const startTime = Date.now();
 const PORT = parseInt(process.env['PORT'] ?? '3001', 10);
@@ -44,6 +45,9 @@ startScheduler(async () => {
 // Initialize automatic retention cleanup & storage monitor (P8-07, P8-08)
 initCleanupScheduler();
 
+// Initialize automated daily 03:00 backups & retention monitor (PRD A Category 4)
+initBackupScheduler();
+
 const server = app.listen(PORT, HOST, () => {
   const elapsed = Date.now() - startTime;
   console.log(`[Server] AI World News Desk running at http://${HOST}:${PORT}`);
@@ -55,6 +59,7 @@ function shutdown(): void {
   console.log('\n[Server] Shutting down gracefully...');
   closeAppSession('clean');
   stopScheduler();
+  stopBackupScheduler();
   server.close(() => {
     try {
       getDb().close();

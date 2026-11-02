@@ -25,11 +25,26 @@ import {
   MousePointer,
   ZapOff,
   Sparkles,
+  Download,
+  Upload,
+  ShieldCheck,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export const SettingsMenu: React.FC = () => {
-  const isSettingsOpen = useAppStore((s) => s.isSettingsOpen);
+interface BackupRecord {
+  filename: string;
+  path: string;
+  sizeBytes: number;
+  sizeFormatted: string;
+  createdAt: string;
+  trigger: 'daily' | 'migration' | 'manual' | 'pre-restore' | 'pre-upgrade';
+}
+
+export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) => {
+  const storeSettingsOpen = useAppStore((s) => s.isSettingsOpen);
+  const isSettingsOpen = forceOpen ?? storeSettingsOpen;
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
   const storeSettings = useAppStore((s) => s.settings);
   const updateStoreSettings = useAppStore((s) => s.updateSettings);
@@ -42,10 +57,35 @@ export const SettingsMenu: React.FC = () => {
   const [unenrichedCount, setUnenrichedCount] = useState<number>(0);
   const [isSummarizing, setIsSummarizing] = useState(false);
 
+  // Backups and safety net states (PRD A Category 4)
+  const [backups, setBackups] = useState<BackupRecord[]>([]);
+  const [isLoadingBackups, setIsLoadingBackups] = useState(false);
+  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<BackupRecord | null>(null);
+  const [restoreConfirmInput, setRestoreConfirmInput] = useState('');
+  const [isRestoring, setIsRestoring] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const fetchBackups = async () => {
+    setIsLoadingBackups(true);
+    try {
+      const res = await fetch('/api/backups');
+      if (res.ok) {
+        const data = await res.json();
+        setBackups(data.backups ?? []);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLoadingBackups(false);
+    }
+  };
+
   // Sync draft state whenever settings drawer opens
   useEffect(() => {
     if (isSettingsOpen) {
       setFormData(storeSettings);
+      fetchBackups();
       fetch('/api/settings/unenriched-count')
         .then((res) => res.json())
         .then((data) => setUnenrichedCount(data.count ?? 0))
@@ -75,16 +115,116 @@ export const SettingsMenu: React.FC = () => {
     }
   };
 
+  const handleCreateBackup = async () => {
+    setIsCreatingBackup(true);
+    try {
+      const res = await fetch('/api/backups/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trigger: 'manual' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Backup creation failed');
+      toast.success(`Backup created: ${data.backup?.filename || 'Snapshot saved'}`);
+      fetchBackups();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create backup snapshot.');
+    } finally {
+      setIsCreatingBackup(false);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!restoreTarget || restoreConfirmInput !== 'RESTORE') return;
+    setIsRestoring(true);
+    try {
+      const res = await fetch('/api/backups/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: restoreTarget.filename,
+          confirmation: 'RESTORE',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Restore failed');
+      toast.success(`Restored successfully (${data.articlesCount} articles verified).`);
+      setRestoreTarget(null);
+      setRestoreConfirmInput('');
+      fetchBackups();
+      // Reload settings & state
+      const freshSettings = await fetch('/api/settings').then((r) => r.json());
+      setFormData(freshSettings);
+      updateStoreSettings(freshSettings);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to restore backup snapshot.');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const handleExportSettings = async () => {
+    try {
+      const res = await fetch('/api/settings/export');
+      if (!res.ok) throw new Error('Export failed');
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const ts = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `ai-news-desk-settings-${ts}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Settings exported (sanitized JSON).');
+    } catch {
+      toast.error('Failed to export settings.');
+    }
+  };
+
+  const handleImportSettingsFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      const res = await fetch('/api/settings/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(json),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Import failed');
+      }
+      toast.success(`Settings imported: ${data.applied_count} preference(s) updated.`);
+      const freshSettings = await fetch('/api/settings').then((r) => r.json());
+      setFormData(freshSettings);
+      updateStoreSettings(freshSettings);
+    } catch (err: any) {
+      toast.error(err.message || 'Invalid settings JSON file.');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
   // Keyboard navigation: Close on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isSettingsOpen) {
-        setSettingsOpen(false);
+      if (e.key === 'Escape') {
+        if (restoreTarget) {
+          setRestoreTarget(null);
+          setRestoreConfirmInput('');
+        } else if (isSettingsOpen) {
+          setSettingsOpen(false);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSettingsOpen, setSettingsOpen]);
+  }, [isSettingsOpen, restoreTarget, setSettingsOpen]);
 
   if (!isSettingsOpen) return null;
 
@@ -555,6 +695,161 @@ export const SettingsMenu: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Section 8: Safety Net: Backups & Data Portability (PRD A Category 4) */}
+            <div className="border-t border-paper-border pt-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="font-serif font-bold text-ink flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-positive" />
+                    <span>Safety Net & Backups</span>
+                  </label>
+                  <p className="font-ui text-[11px] text-ink-secondary mt-0.5">
+                    Automated pre-migration hooks, daily snapshots & sanitized settings portability
+                  </p>
+                </div>
+              </div>
+
+              {/* Data Portability (Export / Import) */}
+              <div className="p-3 border border-paper-border bg-paper-alt/40 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-serif text-xs font-semibold text-ink">
+                    Settings Data Portability
+                  </span>
+                  <span className="font-mono text-[10px] text-ink-muted uppercase">
+                    Schema v1
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    id="btn-export-settings"
+                    onClick={handleExportSettings}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 border border-paper-border hover:border-ink bg-paper font-mono text-xs font-bold text-ink hover:bg-paper-alt transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5 text-ink-secondary" />
+                    <span>Export Settings (JSON)</span>
+                  </button>
+
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImportSettingsFile}
+                    accept=".json,application/json"
+                    className="hidden"
+                    id="input-import-settings-file"
+                  />
+                  <button
+                    type="button"
+                    id="btn-import-settings"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 border border-paper-border hover:border-ink bg-paper font-mono text-xs font-bold text-ink hover:bg-paper-alt transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-ink-secondary" />
+                    <span>Import Settings</span>
+                  </button>
+                </div>
+                <p className="font-ui text-[10px] text-ink-muted italic">
+                  * API keys and provider secrets are strictly redacted and never exported or imported.
+                </p>
+              </div>
+
+              {/* Database Snapshot Archives */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Database className="w-4 h-4 text-ink-secondary" />
+                    <span className="font-serif text-xs font-semibold text-ink">
+                      Database Snapshots ({backups.length})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    id="btn-create-backup"
+                    disabled={isCreatingBackup}
+                    onClick={handleCreateBackup}
+                    className="flex items-center gap-1 px-2.5 py-1 border border-paper-border hover:border-ink bg-paper font-mono text-[11px] font-bold text-ink hover:bg-paper-alt disabled:opacity-50 transition-colors"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isCreatingBackup ? 'animate-spin' : ''}`} />
+                    <span>{isCreatingBackup ? 'Saving Snapshot…' : 'Create Backup Now'}</span>
+                  </button>
+                </div>
+
+                {/* Backups List Box */}
+                <div
+                  data-lenis-prevent="true"
+                  className="max-h-48 overflow-y-auto overscroll-contain border border-paper-border bg-paper-alt/20 divide-y divide-paper-border/60"
+                >
+                  {isLoadingBackups ? (
+                    <div className="p-3 text-center font-mono text-xs text-ink-muted">
+                      Scanning backup archives…
+                    </div>
+                  ) : backups.length === 0 ? (
+                    <div className="p-4 text-center font-serif text-xs text-ink-muted italic">
+                      No snapshot archives found. Click "Create Backup Now" to record one.
+                    </div>
+                  ) : (
+                    backups.map((b, idx) => {
+                      const triggerBadgeClass =
+                        b.trigger === 'daily'
+                          ? 'border-positive/60 text-positive bg-positive/10'
+                          : b.trigger === 'migration'
+                          ? 'border-ink/60 text-ink bg-paper'
+                          : b.trigger === 'pre-restore'
+                          ? 'border-amber-600 text-amber-700 bg-amber-50 dark:bg-amber-950/30'
+                          : b.trigger === 'pre-upgrade'
+                          ? 'border-blue-600 text-blue-700 bg-blue-50 dark:bg-blue-950/30'
+                          : 'border-accent/60 text-accent bg-accent/10';
+
+                      return (
+                        <div
+                          key={b.filename}
+                          className="p-2.5 flex items-center justify-between gap-2 hover:bg-paper-alt/60 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span
+                                className={`font-mono text-[9px] font-bold uppercase px-1 py-0.2 border ${triggerBadgeClass}`}
+                              >
+                                {b.trigger}
+                              </span>
+                              <span
+                                className="font-mono text-xs text-ink font-medium truncate max-w-[240px] sm:max-w-[280px]"
+                                title={b.filename}
+                              >
+                                {b.filename}
+                              </span>
+                            </div>
+                            <div className="font-mono text-[10px] text-ink-muted mt-0.5 flex items-center gap-2">
+                              <span>{b.sizeFormatted}</span>
+                              <span>·</span>
+                              <span>
+                                {new Date(b.createdAt).toLocaleString([], {
+                                  dateStyle: 'short',
+                                  timeStyle: 'short',
+                                })}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            id={`btn-restore-${idx}`}
+                            onClick={() => {
+                              setRestoreTarget(b);
+                              setRestoreConfirmInput('');
+                            }}
+                            className="shrink-0 px-2.5 py-1 border border-paper-border hover:border-accent hover:text-accent bg-paper font-mono text-[11px] font-bold uppercase transition-colors"
+                          >
+                            Restore
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </form>
 
@@ -580,6 +875,88 @@ export const SettingsMenu: React.FC = () => {
             <span>{isSaving ? 'Saving…' : 'Save Changes'}</span>
           </button>
         </footer>
+
+        {/* Double-Confirmation Restore Modal (PRD A Category 4.2) */}
+        {restoreTarget && (
+          <div
+            id="restore-modal-backdrop"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="restore-modal-title"
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-ink/80 backdrop-blur-xs"
+          >
+            <div className="w-full max-w-md bg-paper text-ink border-2 border-accent shadow-overlay p-6 font-serif space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 border border-accent bg-accent/10 text-accent shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3
+                    id="restore-modal-title"
+                    className="font-masthead text-lg font-black uppercase text-accent tracking-tight"
+                  >
+                    Confirm Database Restore
+                  </h3>
+                  <p className="font-serif text-xs text-ink-secondary mt-1">
+                    You are preparing to overwrite the active database with this snapshot.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-2.5 border border-paper-border bg-paper-alt font-mono text-xs text-ink break-all font-semibold">
+                {restoreTarget.filename}
+              </div>
+
+              <div className="space-y-1 font-ui text-xs text-ink-secondary">
+                <p>
+                  <strong>Safety guarantee:</strong> A safety pre-restore backup will be created immediately before overwriting so you can roll back at any time.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <label
+                  htmlFor="input-confirm-restore"
+                  className="block font-serif text-xs font-bold uppercase text-ink mb-1.5"
+                >
+                  To confirm, type <span className="text-accent underline">RESTORE</span> in capital letters:
+                </label>
+                <input
+                  id="input-confirm-restore"
+                  type="text"
+                  value={restoreConfirmInput}
+                  onChange={(e) => setRestoreConfirmInput(e.target.value)}
+                  placeholder="Type RESTORE to confirm"
+                  className="w-full px-3 py-1.5 border-2 border-ink bg-paper font-mono text-xs uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-paper-border">
+                <button
+                  type="button"
+                  id="btn-cancel-restore"
+                  disabled={isRestoring}
+                  onClick={() => {
+                    setRestoreTarget(null);
+                    setRestoreConfirmInput('');
+                  }}
+                  className="px-3 py-1.5 border border-paper-border hover:border-ink bg-paper font-mono text-xs font-bold text-ink uppercase transition-colors"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  id="btn-confirm-restore"
+                  disabled={restoreConfirmInput !== 'RESTORE' || isRestoring}
+                  onClick={handleConfirmRestore}
+                  className="px-4 py-1.5 border-2 border-accent bg-accent text-paper hover:bg-accent-dark font-mono text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                >
+                  {isRestoring ? 'Restoring Snapshot…' : 'Overwrite & Restore'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

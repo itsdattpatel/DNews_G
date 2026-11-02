@@ -53,3 +53,4 @@ describe('Category 2: Auto-Advance Settings API (PRD A 2.2)', () => {
     expect(highRes.body.error).toContain('auto_advance_interval_sec max is 60');
   });
 });
+

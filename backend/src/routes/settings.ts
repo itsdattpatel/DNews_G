@@ -99,6 +99,136 @@ settingsRouter.post('/summarize-unenriched', async (req: Request, res: Response)
   }
 });
 
+const SECRET_KEY_PATTERNS = [
+  /api[_-]?key/i,
+  /secret/i,
+  /token/i,
+  /password/i,
+  /credential/i,
+  /gemini/i,
+  /groq/i,
+  /mistral/i,
+  /cerebras/i,
+  /youtube/i,
+];
+
+function isSecretKey(key: string): boolean {
+  return SECRET_KEY_PATTERNS.some((pat) => pat.test(key));
+}
+
+/**
+ * GET /api/settings/export
+ * Exports user settings with strict redaction of all API keys and secrets (PRD A §4.2).
+ */
+settingsRouter.get('/export', (_req: Request, res: Response) => {
+  const allSettings = getAllSettings();
+  const sanitized: Record<string, unknown> = {};
+
+  for (const [key, val] of Object.entries(allSettings)) {
+    if (!isSecretKey(key)) {
+      sanitized[key] = val;
+    }
+  }
+
+  const exportPayload = {
+    app: 'ai-world-news-desk',
+    schema_version: 1,
+    exported_at: new Date().toISOString(),
+    settings: sanitized,
+  };
+
+  const filename = `ai-news-desk-settings-${new Date().toISOString().slice(0, 10)}.json`;
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Type', 'application/json');
+  res.json(exportPayload);
+});
+
+/**
+ * POST /api/settings/import
+ * Validates schema and applies imported settings, strictly stripping secrets and malicious payloads (PRD A §4.2).
+ */
+settingsRouter.post('/import', (req: Request, res: Response) => {
+  const payload = req.body;
+
+  if (!payload || typeof payload !== 'object') {
+    return res.status(400).json({ error: 'Invalid JSON payload', code: 'INVALID_PAYLOAD' });
+  }
+
+  if (payload.schema_version !== undefined && payload.schema_version !== 1) {
+    return res.status(400).json({
+      error: `Unsupported settings schema version: ${payload.schema_version}`,
+      code: 'UNSUPPORTED_VERSION',
+    });
+  }
+
+  const importedSettings = payload.settings || payload;
+  if (!importedSettings || typeof importedSettings !== 'object') {
+    return res.status(400).json({ error: 'Settings object is required', code: 'MISSING_SETTINGS' });
+  }
+
+  const errors: string[] = [];
+  const validUpdates: Record<string, string> = {};
+
+  for (const [key, rawValue] of Object.entries(importedSettings)) {
+    // Strict Redaction: ignore any secret or sensitive key
+    if (isSecretKey(key)) {
+      console.warn(`[Settings] Redacted sensitive key attempted during import: ${key}`);
+      continue;
+    }
+
+    const schema = SETTINGS_SCHEMA[key];
+    if (!schema) {
+      continue; // Skip unknown keys safely without failure
+    }
+
+    if (schema.type === 'int') {
+      const num = parseInt(String(rawValue), 10);
+      if (isNaN(num)) {
+        errors.push(`${key} must be an integer`);
+        continue;
+      }
+      if (schema.min !== undefined && num < schema.min) {
+        errors.push(`${key} min is ${schema.min}`);
+        continue;
+      }
+      if (schema.max !== undefined && num > schema.max) {
+        errors.push(`${key} max is ${schema.max}`);
+        continue;
+      }
+      validUpdates[key] = String(num);
+    } else if (schema.type === 'bool') {
+      validUpdates[key] = rawValue ? '1' : '0';
+    } else if (schema.type === 'float') {
+      const flt = parseFloat(String(rawValue));
+      if (isNaN(flt)) {
+        errors.push(`${key} must be a number`);
+        continue;
+      }
+      validUpdates[key] = String(flt);
+    } else {
+      validUpdates[key] = String(rawValue);
+    }
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json({ error: errors.join('; '), code: 'VALIDATION_ERROR' });
+  }
+
+  for (const [k, v] of Object.entries(validUpdates)) {
+    setSetting(k, v);
+  }
+
+  if ('refresh_interval_minutes' in validUpdates) {
+    refreshInterval();
+  }
+
+  res.json({
+    success: true,
+    applied_keys: Object.keys(validUpdates),
+    settings: getAllSettings(),
+  });
+});
+
 function getAllSettings(): Record<string, unknown> {
   const keys = Object.keys(SETTINGS_SCHEMA);
   const result: Record<string, unknown> = {};

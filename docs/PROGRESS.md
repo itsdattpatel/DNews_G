@@ -12,7 +12,7 @@
 | **1B** | **Real-Time Foundation** | 🟢 `DONE` | Migration 007 (`app_sessions`), 30s heartbeat, crash/unclean exit detector, `/api/time` clock sync, `<WelcomeBackCard>`, `<HatchedSparkline>`, Vitest (87 backend + 112 frontend pass), screenshots | 2026-11-01 23:18 |
 | **2** | **Auto-Advance (7 Seconds)** | 🟢 `DONE` | 7s countdown hairline, left panel hover pause, settings drawer slider (3-60s), Spacebar toggle, Arrow resets, Vitest (90 backend + 118 frontend tests pass), Playwright screenshots | 2026-11-02 09:50 |
 | **3** | **Plain Mode (Zero AI)** | 🟢 `DONE` | Plain mode switch, zero AI call engine, rule-based category tagging & breaking heuristics, full-width reader (100%), offline badges across surfaces, catch-up summarization endpoint, Vitest (99 backend + 122 frontend tests pass), Playwright screenshots | 2026-11-02 10:12 |
-| **4** | **Safety Net: Backups & Guards** | ⚪ `PENDING` | Automated DB backup test, test-data guard blocking test runs on real DB, export/import test | - |
+| **4** | **Safety Net: Backups & Guards** | 🟢 `DONE` | Automated WAL flush backups, retention pruning (7 daily + 4 weekly), double-confirmation restore with safety pre-restore snapshot, Test-Data Guard blocking test execution on production SQLite, sanitized settings JSON export/import (schema v1), CLI script `db:restore`, Vitest (107 backend + 124 frontend pass), Playwright screenshots | 2026-11-02 10:51 |
 | **5** | **TV Channel Catalog & Top 5** | ⚪ `PENDING` | IPTV catalog caching, `config/channels-top5.json` verified links, deduplication tests | - |
 | **6** | **Playback & YouTube Adder** | ⚪ `PENDING` | HLS stream proxy with SSRF check, YouTube embed API, link adder with oEmbed preview | - |
 | **7** | **TV Screen UI & Subpages** | ⚪ `PENDING` | Live/Faulty/Stopped tabs, 16:9 player, health indicators (Live/Slow/Offline), screenshots | - |
@@ -105,3 +105,32 @@
 
 
 
+
+### Step 4: Safety Net: Backups, Settings Export/Import & Test-Data Guard (Completed)
+- Built `backupManager.ts`:
+  - `createBackup(trigger, label)`: checkpoints active WAL journal (`wal_checkpoint(TRUNCATE)`) and takes atomic snapshot into `backups/news.backup_{trigger}_{label}_{ts}.sqlite`.
+  - `listBackups()`: lists all snapshots sorted newest first with human-readable byte sizes and trigger badges.
+  - `pruneBackups()`: enforces retention policy (preserves baseline pre-upgrade snapshots, keeps last 7 daily + last 4 weekly backups; never prunes below 3 snapshots).
+  - `restoreBackup(filename)`: validates 16-byte SQLite format 3 header, takes safety `pre-restore` snapshot before overwriting, closes connections, swaps file, clears stale WAL/SHM, verifies SQLite integrity check, and counts restored articles.
+  - `initBackupScheduler()`: checks daily at 03:00 local time to trigger automated daily snapshot.
+- Automated Pre-Migration Backup Hook in `db.ts`:
+  - Before executing any pending migrations, automatically creates a `migration` snapshot.
+- Applied Migration 008 (`008_purge_bootstrap_dummy_rows.sql`):
+  - Audited production database and purged legacy bootstrap dummy test rows (id 901 and 902).
+- Test-Data Guard in `db.ts`:
+  - Blocks test executions from connecting to production `news.sqlite`, throwing fatal exception if `process.env.NODE_ENV === 'test'` and target path resolves to production database.
+- Settings Export & Import in `settings.ts`:
+  - `GET /api/settings/export`: exports sanitized settings with `schema_version: 1` and strict redaction of API keys/secrets.
+  - `POST /api/settings/import`: validates schema version, strips sensitive keys, validates values against `SETTINGS_SCHEMA`, applies updates.
+- Standalone CLI Script `scripts/db-restore.cjs`:
+  - Added `npm run db:restore` command with CLI argument or interactive prompt requiring `"RESTORE"` confirmation.
+- Frontend Settings Drawer in `SettingsMenu.tsx`:
+  - Added Section 8: "Safety Net & Backups" with Data Portability controls (`Export Settings (JSON)` and `Import Settings` file upload) and Database Snapshots archive list.
+  - "Create Backup Now" button triggers immediate snapshot creation.
+  - "Restore" button opens high-contrast double-confirmation modal requiring exact word `"RESTORE"` to unlock overwrite.
+- All 107 backend tests (29 suites) and 124 frontend tests (26 suites) pass cleanly (total 231 tests passing).
+- Visual validation completed with Playwright:
+  - `ui-step4-settings-backups-paper.png`
+  - `ui-step4-restore-modal-locked.png`
+  - `ui-step4-restore-modal-unlocked.png`
+  - `ui-step4-settings-backups-night.png`

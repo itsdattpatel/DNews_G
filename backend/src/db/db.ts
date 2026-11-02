@@ -22,11 +22,27 @@ function getDataDir(): string {
 }
 
 export function getDbPath(): string {
+  if (process.env['DB_PATH']) {
+    if (process.env['DB_PATH'] === ':memory:') {
+      return ':memory:';
+    }
+    return path.resolve(process.env['DB_PATH']);
+  }
   return path.join(getDataDir(), 'news.sqlite');
 }
 
 export function getDb(): Database.Database {
   const dbPath = getDbPath();
+
+  // Test-Data Guard (PRD A §4.3): Block test execution against production database
+  if (process.env.NODE_ENV === 'test' && process.env['ALLOW_PROD_DB_IN_TEST'] !== 'true') {
+    const normalized = path.resolve(dbPath).toLowerCase().replace(/\\/g, '/');
+    if (normalized.endsWith('/data/news.sqlite')) {
+      throw new Error(
+        `[Test-Data Guard] FATAL: Tests attempted to connect to production database (${dbPath}). Tests must use an isolated test directory or in-memory database (:memory:) to prevent test pollution of production news.`
+      );
+    }
+  }
 
   // If already open to the same path and not closed, return it
   if (_db && _currentDbPath === dbPath) {
@@ -50,7 +66,9 @@ export function getDb(): Database.Database {
 
   _db = new Database(dbPath, { timeout: 10000 });
   _currentDbPath = dbPath;
-  _db.pragma('journal_mode = WAL');
+  if (dbPath !== ':memory:') {
+    _db.pragma('journal_mode = WAL');
+  }
   _db.pragma('foreign_keys = ON');
   _db.pragma('synchronous = NORMAL');
 
@@ -81,6 +99,27 @@ function runMigrations(db: Database.Database): void {
     .readdirSync(migrationsDir)
     .filter((f) => /^\d+.*\.sql$/.test(f))
     .sort();
+
+  const pendingMigrations = migrationFiles.filter((file) => {
+    const fileVersion = parseInt(file.split('_')[0]!, 10);
+    return fileVersion > currentVersion;
+  });
+
+  // Automated Pre-Migration Backup Hook (PRD A §4.1)
+  if (pendingMigrations.length > 0) {
+    const dbPath = getDbPath();
+    if (fs.existsSync(dbPath) && process.env.NODE_ENV !== 'test') {
+      try {
+        const { createBackup } = require('../services/backupManager');
+        createBackup(
+          'migration',
+          `v${currentVersion}_to_v${pendingMigrations[pendingMigrations.length - 1]!.split('_')[0]}`
+        );
+      } catch (err) {
+        console.warn('[DB] Pre-migration backup hook warning:', err);
+      }
+    }
+  }
 
   for (const file of migrationFiles) {
     const fileVersion = parseInt(file.split('_')[0]!, 10);
