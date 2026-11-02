@@ -453,6 +453,33 @@
   - `ui-step11-control-room-night.png` (Night Edition Control Room dashboard)
   - `ui-step11-bat-menu-control-room.png` (Bat Menu navigation with Control Room)
 
+---
+
+# Progress Tracker — PRD B: The Library (Reading Room)
+*Version 1.0 · 2026-11-02 · AI World News Desk*
+
+## Overall Status — PRD B
+
+| Step | Category | Status | Proof / Evidence Required | Timestamp |
+| :--- | :--- | :---: | :--- | :--- |
+| **0** | **Documentation & Setup** | 🟢 `DONE` | `/docs/PRD_B.md`, `/docs/LIBRARY_SPEC.md`, `/docs/LIBRARY_SOURCES.md`, `/docs/LIBRARY_DESIGN.md`, `/docs/OPEN_QUESTIONS.md`, Package Shortlist, DB backup | 2026-11-02 20:30 |
+| **B1** | **Isolation and UI Kit** | ⚪ `PENDING` | Scoped tokens (`.lib-root`), zero changes to global CSS/Tailwind, baseline Playwright pixel-diff suite of main app screens, package installation upon approval | Pending Approval |
+| **B2** | **Library Shell** | ⚪ `PENDING` | Route `/library`, 3 subpage tabs, local store, search, bookmarks drawer, day/night reading room mode, responsive resizable panes | Pending Approval |
+| **B3** | **Historical News (Archives)** | ⚪ `PENDING` | Real archives fetcher (Wikimedia, LoC Chronicling America, Internet Archive), `library_history_cache`, date/decade/country filters, source attribution | Pending Approval |
+| **B4** | **Wisdom (Scriptures & Quotes)** | ⚪ `PENDING` | Holy book registry (Gita, Mahabharata, Ramayana), Sanskrit Devanagari, transliteration, Ganguli/Arnold/Griffith translations, AI-assisted meaning workflow & approval | Pending Approval |
+| **B5** | **Mind Helps (Psychology)** | ⚪ `PENDING` | 9 categories, OpenStax/WHO/William James techniques, step-by-step guidance, crisis helplines footer (IN, US, CN, JP, AU), zero AI chat guarantee | Pending Approval |
+| **B6** | **QA & Final Verification** | ⚪ `PENDING` | Playwright tests for 3 subpages, pixel-diff showing 0% change in main app screens, git diff verifying only allowed files, CREDITS.md and audit | Pending Approval |
+
+### Step 0: Documentation & Prerequisites (Completed)
+- Pre-upgrade database backup safely stored at `backups/news.backup_before_prd_b_step0_20261102.sqlite` (12.73 MB).
+- Authored `/docs/PRD_B.md` defining scope, architectural isolation, subpages, and non-functional requirements.
+- Authored `/docs/LIBRARY_SPEC.md` detailing frontend/backend directory tree, REST endpoints, SQLite migration `014_library_tables.sql`, and offline Plain Mode guarantees.
+- Authored `/docs/LIBRARY_SOURCES.md` providing authoritative license audits for Wikimedia, Library of Congress, Internet Archive, Edwin Arnold, Kisari Mohan Ganguli, Valmiki Ramayana, OpenStax, WHO, William James, and official crisis helplines.
+- Shortlisted 6 vetted packages (pinned, >14 days old, MIT/OFL-1.1): `rough-notation@0.5.1`, `embla-carousel-react@8.6.0`, `@fontsource/noto-serif-devanagari@5.3.0`, `@fontsource/eb-garamond@5.3.0`, `@fontsource/cormorant-garamond@5.3.0`, `@fontsource/lora@5.3.0`.
+- Authored `/docs/LIBRARY_DESIGN.md` defining "The Reading Room" aesthetic with scoped `--lib-*` tokens under `.lib-root` in day and night modes.
+- Appended questions 6-9 in `/docs/OPEN_QUESTIONS.md` regarding package shortlist approval, international archives, scripture registry expansion, and AI meaning approval workflow.
+
+
 
 
 
