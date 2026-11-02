@@ -7,6 +7,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getDb } from '../db/db';
 import { computeConfirmationStatus } from '../utils/confirmation';
+import { enrichArticlePass2 } from '../pipeline/enricher';
 
 export const articlesRouter = Router();
 
@@ -29,6 +30,7 @@ articlesRouter.get('/', (req: Request, res: Response) => {
     query = `
       SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.anchor_phrases, a.breaking_score,
              a.cluster_id, a.bookmarked, a.published_at, a.ingested_at, a.is_catchup, a.fetched_at,
+             a.pass1_completed_at, a.pass2_completed_at,
              s.id AS source_id, s.name AS source_name, s.country AS source_country,
              c.outlet_count AS cluster_outlet_count, c.country_count AS cluster_country_count, c.is_breaking AS cluster_is_breaking,
              GROUP_CONCAT(DISTINCT ac.category) AS categories,
@@ -58,6 +60,7 @@ articlesRouter.get('/', (req: Request, res: Response) => {
     query = `
       SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.anchor_phrases, a.breaking_score,
              a.cluster_id, a.bookmarked, a.published_at, a.ingested_at, a.is_catchup, a.fetched_at,
+             a.pass1_completed_at, a.pass2_completed_at,
              s.id AS source_id, s.name AS source_name, s.country AS source_country,
              c.outlet_count AS cluster_outlet_count, c.country_count AS cluster_country_count, c.is_breaking AS cluster_is_breaking,
              GROUP_CONCAT(DISTINCT ac.category) AS categories,
@@ -112,11 +115,8 @@ articlesRouter.get('/', (req: Request, res: Response) => {
   }
 });
 
-articlesRouter.get('/:id', (req: Request, res: Response) => {
+export function getDetailedArticle(id: number) {
   const db = getDb();
-  const id = parseInt(req.params['id']!, 10);
-  if (isNaN(id)) return res.status(400).json({ error: 'Invalid id', code: 'VALIDATION_ERROR' });
-
   const row = db.prepare(`
     SELECT a.*, s.name AS source_name, s.country AS source_country, s.url AS source_url,
            c.outlet_count AS cluster_outlet_count, c.country_count AS cluster_country_count, c.is_breaking AS cluster_is_breaking,
@@ -131,9 +131,9 @@ articlesRouter.get('/:id', (req: Request, res: Response) => {
     GROUP BY a.id
   `).get(id) as (RawRow & { body_original: string; body_english: string; language_detected: string; source_url: string }) | undefined;
 
-  if (!row) return res.status(404).json({ error: 'Article not found', code: 'NOT_FOUND' });
+  if (!row) return null;
 
-  res.json({
+  return {
     ...formatRow(row),
     body_original: row.body_original,
     body_english: row.body_english,
@@ -151,7 +151,36 @@ articlesRouter.get('/:id', (req: Request, res: Response) => {
       country: row.source_country,
       url: row.source_url,
     },
-  });
+  };
+}
+
+articlesRouter.get('/:id', (req: Request, res: Response) => {
+  const id = parseInt(req.params['id']!, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid id', code: 'VALIDATION_ERROR' });
+
+  const article = getDetailedArticle(id);
+  if (!article) return res.status(404).json({ error: 'Article not found', code: 'NOT_FOUND' });
+  res.json(article);
+});
+
+/**
+ * POST /api/articles/:id/enrich-pass2
+ * On-demand Pass 2 enrichment for unsummarized articles (PRD A §10.1).
+ */
+articlesRouter.post('/:id/enrich-pass2', async (req: Request, res: Response) => {
+  const id = parseInt(req.params['id']!, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid id', code: 'VALIDATION_ERROR' });
+
+  try {
+    await enrichArticlePass2(id);
+    const updated = getDetailedArticle(id);
+    if (!updated) return res.status(404).json({ error: 'Article not found', code: 'NOT_FOUND' });
+    return res.json(updated);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[ArticlesRouter] Pass 2 enrichment error for article ${id}:`, err);
+    return res.status(500).json({ error: msg, code: 'ENRICHMENT_ERROR' });
+  }
 });
 
 articlesRouter.patch('/:id/bookmark', (req: Request, res: Response) => {
@@ -183,6 +212,7 @@ interface RawRow {
   cluster_is_breaking?: number | null;
   bookmarked: number; published_at: string | null; fetched_at: string;
   ingested_at?: string | null; is_catchup?: number | null;
+  pass1_completed_at?: string | null; pass2_completed_at?: string | null;
   source_id: number; source_name: string; source_country: string;
   categories: string | null; keywords: string | null;
 }
@@ -222,6 +252,8 @@ function formatRow(row: RawRow) {
     ingested_at: row.ingested_at || row.fetched_at,
     is_catchup: row.is_catchup === 1,
     fetched_at: row.fetched_at,
+    pass1_completed_at: row.pass1_completed_at ?? null,
+    pass2_completed_at: row.pass2_completed_at ?? null,
     source: { id: row.source_id, name: row.source_name, country: row.source_country },
     categories: row.categories ? row.categories.split(',') : [],
     keywords: row.keywords ? row.keywords.split(',') : [],

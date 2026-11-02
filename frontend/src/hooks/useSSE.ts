@@ -118,6 +118,28 @@ export function useSSE(options?: UseSSEOptions): {
         }
       });
 
+      es.addEventListener('article_enriched_pass2', async (e: MessageEvent) => {
+        try {
+          const payload = JSON.parse(e.data) as { article_id: number };
+          if (payload.article_id) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.articles.all });
+            const selected = useAppStore.getState().selectedArticle;
+            if (selected?.id === payload.article_id) {
+              const res = await fetch(`/api/articles/${payload.article_id}`);
+              if (res.ok) {
+                const updated = (await res.json()) as Article;
+                useAppStore.setState((state) => ({
+                  selectedArticle: updated,
+                  articles: state.articles.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)),
+                }));
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[SSE] Error handling article_enriched_pass2 event:', err);
+        }
+      });
+
       es.addEventListener('alert', (e: MessageEvent) => {
         try {
           const payload = JSON.parse(e.data) as {

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import React from 'react';
 import { SettingsMenu } from '../../components/bat/SettingsMenu';
 import { useAppStore } from '../../store/useAppStore';
 

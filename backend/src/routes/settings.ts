@@ -4,7 +4,7 @@
  * PATCH /api/settings — partial update with validation.
  */
 import { Router, type Request, type Response } from 'express';
-import { getSetting, setSetting } from '../db/db';
+import { getDb, getSetting, setSetting } from '../db/db';
 import { refreshInterval } from '../fetch/scheduler';
 import { getUnenrichedCount, summarizeUnenrichedBatch } from '../pipeline/enricher';
 
@@ -25,6 +25,9 @@ const SETTINGS_SCHEMA: Record<string, { type: 'int' | 'bool' | 'str' | 'float'; 
   auto_advance_pause_on_hover: { type: 'bool' },
   // Plain Mode (PRD A Category 3)
   plain_mode_enabled: { type: 'bool' },
+  // Two-Pass AI Ingestion & Quota Telemetry (PRD A Category 10)
+  two_pass_ai_enabled: { type: 'bool' },
+  pass2_threshold: { type: 'int', min: 50, max: 100 },
 };
 
 settingsRouter.get('/', (_req: Request, res: Response) => {
@@ -82,6 +85,41 @@ settingsRouter.patch('/', (req: Request, res: Response) => {
  */
 settingsRouter.get('/unenriched-count', (_req: Request, res: Response) => {
   res.json({ count: getUnenrichedCount() });
+});
+
+/**
+ * GET /api/settings/two-pass-telemetry
+ * Returns live Two-Pass AI processing stats and estimated tokens saved (PRD A §10.1).
+ */
+settingsRouter.get('/two-pass-telemetry', (_req: Request, res: Response) => {
+  const db = getDb();
+  let stats = db.prepare('SELECT * FROM two_pass_stats WHERE id = 1').get() as {
+    pass1_count: number;
+    pass2_count: number;
+    pass2_skipped_count: number;
+    estimated_tokens_saved: number;
+    last_updated_at: string;
+  } | undefined;
+
+  if (!stats) {
+    stats = {
+      pass1_count: 0,
+      pass2_count: 0,
+      pass2_skipped_count: 0,
+      estimated_tokens_saved: 0,
+      last_updated_at: new Date().toISOString(),
+    };
+  }
+
+  res.json({
+    two_pass_ai_enabled: getSetting('two_pass_ai_enabled', '1') === '1',
+    pass2_threshold: parseInt(getSetting('pass2_threshold', '75'), 10),
+    pass1_count: stats.pass1_count,
+    pass2_count: stats.pass2_count,
+    pass2_skipped_count: stats.pass2_skipped_count,
+    estimated_tokens_saved: stats.estimated_tokens_saved,
+    last_updated_at: stats.last_updated_at,
+  });
 });
 
 /**
@@ -237,11 +275,14 @@ function getAllSettings(): Record<string, unknown> {
     if (
       key === 'evidence_highlight_enabled' ||
       key === 'reading_mode_enabled' ||
-      key === 'auto_advance_pause_on_hover'
+      key === 'auto_advance_pause_on_hover' ||
+      key === 'two_pass_ai_enabled'
     ) {
       defaultVal = '1';
     } else if (key === 'auto_advance_interval_sec') {
       defaultVal = '7';
+    } else if (key === 'pass2_threshold') {
+      defaultVal = '75';
     } else if (key === 'auto_advance_enabled' || key === 'plain_mode_enabled') {
       defaultVal = '0';
     }

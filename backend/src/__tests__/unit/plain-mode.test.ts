@@ -103,8 +103,20 @@ describe('Plain Mode Engine & Deterministic Rules (PRD A Category 3)', () => {
           anchor_phrases TEXT DEFAULT NULL,
           ingested_at TEXT,
           is_catchup INTEGER DEFAULT 0,
+          pass1_completed_at TEXT,
+          pass2_completed_at TEXT,
           created_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS two_pass_stats (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          pass1_count INTEGER NOT NULL DEFAULT 0,
+          pass2_count INTEGER NOT NULL DEFAULT 0,
+          pass2_skipped_count INTEGER NOT NULL DEFAULT 0,
+          estimated_tokens_saved INTEGER NOT NULL DEFAULT 0,
+          last_updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT OR IGNORE INTO two_pass_stats (id, pass1_count, pass2_count, pass2_skipped_count, estimated_tokens_saved, last_updated_at)
+        VALUES (1, 0, 0, 0, 0, datetime('now'));
         CREATE TABLE IF NOT EXISTS keywords (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           article_id INTEGER,

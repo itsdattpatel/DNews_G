@@ -771,7 +771,7 @@ export const TVView: React.FC = () => {
             )}
 
             {/* Top-5 Curated Outlet Banner (PRD A Category 5) */}
-            {Boolean(selectedChannel?.is_top5) && (
+            {Boolean(selectedChannel?.is_top5) && selectedChannel && (
               <div
                 id="top5-channel-banner"
                 className="mt-3 p-3 border-2 border-accent/40 bg-paper-alt rounded-xs space-y-1.5"

@@ -6,7 +6,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import type { AppSettings, ThemeMode } from '../../types';
+import type { AppSettings, ThemeMode, TwoPassTelemetry } from '../../types';
 import {
   Sliders,
   X,
@@ -64,7 +64,20 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
   const [restoreTarget, setRestoreTarget] = useState<BackupRecord | null>(null);
   const [restoreConfirmInput, setRestoreConfirmInput] = useState('');
   const [isRestoring, setIsRestoring] = useState(false);
+  const [twoPassTelemetry, setTwoPassTelemetry] = useState<TwoPassTelemetry | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const fetchTwoPassTelemetry = async () => {
+    try {
+      const res = await fetch('/api/settings/two-pass-telemetry');
+      if (res.ok) {
+        const data = await res.json();
+        setTwoPassTelemetry(data);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const fetchBackups = async () => {
     setIsLoadingBackups(true);
@@ -86,6 +99,7 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
     if (isSettingsOpen) {
       setFormData(storeSettings);
       fetchBackups();
+      fetchTwoPassTelemetry();
       fetch('/api/settings/unenriched-count')
         .then((res) => res.json())
         .then((data) => setUnenrichedCount(data.count ?? 0))
@@ -848,6 +862,113 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
                     })
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Section 9: Two-Pass AI Ingestion & Quota Telemetry (PRD A Category 10) */}
+            <div className="p-4 border border-paper-border bg-paper-alt/40 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-paper-border">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-ink-muted uppercase">§ 9</span>
+                  <h3 className="font-serif text-sm font-bold text-ink">
+                    Two-Pass AI Ingestion & Quota Telemetry
+                  </h3>
+                </div>
+                <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-xs border border-accent/40 bg-accent/10 text-accent font-bold">
+                  PRD A §10
+                </span>
+              </div>
+
+              {/* Toggle Two-Pass AI */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <label htmlFor="two_pass_ai_enabled" className="font-serif text-xs font-semibold text-ink cursor-pointer">
+                    Two-Pass AI Ingestion
+                  </label>
+                  <p className="font-ui text-[11px] text-ink-secondary">
+                    Pass 1 scores urgency/categories cheaply in batches of 20. Pass 2 is reserved for top-tier breaking news or manual demand.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="two_pass_ai_enabled"
+                  checked={formData.two_pass_ai_enabled ?? true}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, two_pass_ai_enabled: e.target.checked }))}
+                  className="w-4 h-4 accent-ink cursor-pointer"
+                />
+              </div>
+
+              {/* Pass 2 Urgency Threshold */}
+              <div className="space-y-1.5 pt-2 border-t border-paper-border/60">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="pass2_threshold" className="font-serif text-xs font-semibold text-ink cursor-pointer">
+                    Pass 2 Auto-Enrichment Threshold
+                  </label>
+                  <span className="font-mono text-xs font-bold text-accent">
+                    {formData.pass2_threshold ?? 75}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  id="pass2_threshold"
+                  min={50}
+                  max={100}
+                  step={5}
+                  value={formData.pass2_threshold ?? 75}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, pass2_threshold: parseInt(e.target.value, 10) }))}
+                  className="w-full accent-ink cursor-pointer"
+                />
+                <div className="flex justify-between font-mono text-[10px] text-ink-muted">
+                  <span>50% (Permissive)</span>
+                  <span>75% (Top 30% Stories)</span>
+                  <span>100% (Strict Breaking Only)</span>
+                </div>
+              </div>
+
+              {/* Live Quota Telemetry Box */}
+              <div className="pt-3 border-t border-paper-border/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-serif text-xs font-semibold text-ink">
+                    Quota Telemetry & Savings
+                  </span>
+                  <button
+                    type="button"
+                    onClick={fetchTwoPassTelemetry}
+                    className="font-mono text-[10px] text-ink-secondary hover:text-ink underline cursor-pointer"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-center">
+                  <div className="p-2 border border-paper-border bg-paper rounded-xs">
+                    <span className="text-[10px] text-ink-muted block uppercase">Pass 1 Triaged</span>
+                    <span id="telemetry-pass1-count" className="text-sm font-bold text-ink">
+                      {twoPassTelemetry?.pass1_count?.toLocaleString() ?? '—'}
+                    </span>
+                  </div>
+                  <div className="p-2 border border-paper-border bg-paper rounded-xs">
+                    <span className="text-[10px] text-ink-muted block uppercase">Pass 2 Enriched</span>
+                    <span id="telemetry-pass2-count" className="text-sm font-bold text-ink">
+                      {twoPassTelemetry?.pass2_count?.toLocaleString() ?? '—'}
+                    </span>
+                  </div>
+                  <div className="p-2 border border-paper-border bg-paper rounded-xs">
+                    <span className="text-[10px] text-ink-muted block uppercase">Stories Deferred</span>
+                    <span id="telemetry-skipped-count" className="text-sm font-bold text-accent">
+                      {twoPassTelemetry?.pass2_skipped_count?.toLocaleString() ?? '—'}
+                    </span>
+                  </div>
+                  <div className="p-2 border border-paper-border bg-paper rounded-xs">
+                    <span className="text-[10px] text-ink-muted block uppercase">Tokens Saved</span>
+                    <span id="telemetry-tokens-saved" className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                      {twoPassTelemetry?.estimated_tokens_saved?.toLocaleString() ?? '—'}
+                    </span>
+                  </div>
+                </div>
+                <p className="font-ui text-[10px] text-ink-muted text-right italic">
+                  * Calculates ~740 tokens saved per Pass-1-only dispatch vs single-pass model.
+                </p>
               </div>
             </div>
           </div>

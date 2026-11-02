@@ -3,7 +3,6 @@
  * Unit tests for Feed Counter Popover & Broadsheet Telemetry (PRD A Category 8).
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { FeedCounterPopover } from '../../components/telemetry/FeedCounterPopover';
 import { useAppStore } from '../../store/useAppStore';

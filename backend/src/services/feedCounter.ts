@@ -5,7 +5,7 @@
  * Hourly activity sparkline with hatched downtime indicators and session stats.
  */
 import { getDb } from '../db/db';
-import type { DbIngestHourly, DbIngestDaily, DbLifetimeCounter, DbAppSession } from '../db/types';
+import type { DbIngestHourly, DbLifetimeCounter, DbAppSession } from '../db/types';
 import { emitSseEvent } from '../routes/sse';
 
 export interface HourlySparklinePoint {

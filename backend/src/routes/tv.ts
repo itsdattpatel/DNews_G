@@ -5,7 +5,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getDb } from '../db/db';
 import { checkChannelHealth } from '../tv/health';
-import { syncIptvCatalog, loadTop5Channels } from '../tv/catalog';
+import { syncIptvCatalog } from '../tv/catalog';
 import { validateSsrfTarget, rewriteM3u8Playlist } from '../tv/proxy';
 import { previewYouTubeSource, createCustomChannel } from '../tv/youtube';
 

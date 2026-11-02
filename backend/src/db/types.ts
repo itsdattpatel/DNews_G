@@ -47,6 +47,8 @@ export interface DbArticle {
   fetched_at: string;
   ingested_at?: string | null;
   is_catchup?: number;
+  pass1_completed_at?: string | null;
+  pass2_completed_at?: string | null;
   ai_processed_at: string | null;
   status: ArticleStatus;
   breaking_score: number;
@@ -131,4 +133,14 @@ export interface DbLifetimeCounter {
   total_duplicates_skipped: number;
   last_updated_at: string;
 }
+
+export interface DbTwoPassStats {
+  id: number;
+  pass1_count: number;
+  pass2_count: number;
+  pass2_skipped_count: number;
+  estimated_tokens_saved: number;
+  last_updated_at: string;
+}
+
 

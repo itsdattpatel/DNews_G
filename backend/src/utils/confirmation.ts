@@ -13,14 +13,14 @@ export interface ConfirmationStatus {
   countryCount: number;
   isConfirmed: boolean; // true when outlets >= 3 && countries >= 2
   isBreaking: boolean;
-  breakingLabel?: 'Unconfirmed Breaking' | 'Confirmed Breaking';
+  breakingLabel?: 'Unconfirmed Breaking' | 'Confirmed Breaking' | undefined;
 }
 
 export interface ConfirmationParams {
-  outletCount?: number | null;
-  countryCount?: number | null;
-  breakingScore?: number | null;
-  isBreakingCluster?: boolean | number | null;
+  outletCount?: number | null | undefined;
+  countryCount?: number | null | undefined;
+  breakingScore?: number | null | undefined;
+  isBreakingCluster?: boolean | number | null | undefined;
 }
 
 /**
@@ -74,3 +74,4 @@ export function computeConfirmationStatus(params: ConfirmationParams): Confirmat
     breakingLabel,
   };
 }
+

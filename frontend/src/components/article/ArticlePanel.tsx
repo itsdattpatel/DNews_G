@@ -6,7 +6,7 @@
  */
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { ExternalLink, Globe2, Languages, BookOpen } from 'lucide-react';
+import { ExternalLink, Globe2, Languages, BookOpen, Sparkles } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
 import { WelcomeBackCard } from './WelcomeBackCard';
 import { AutoAdvanceProgressBar } from './AutoAdvanceProgressBar';
@@ -27,19 +27,41 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string
   Animals: { bg: 'bg-[#2A3A1A]/15', text: 'text-[#2A3A1A] dark:text-[#A8E888]', border: 'border-[#2A3A1A]/40' },
 };
 
-export const ArticlePanel: React.FC = () => {
-  const article = useAppStore((s) => s.selectedArticle);
+export interface ArticlePanelProps {
+  article?: Article | null;
+  plainMode?: boolean;
+}
+
+export const ArticlePanel: React.FC<ArticlePanelProps> = ({
+  article: propArticle,
+  plainMode: propPlainMode,
+}) => {
+  const storeArticle = useAppStore((s) => s.selectedArticle);
+  const storePlainMode = useAppStore((s) => s.settings.plain_mode_enabled ?? false);
+  const article = propArticle !== undefined ? propArticle : storeArticle;
+  const isPlainMode = propPlainMode !== undefined ? propPlainMode : storePlainMode;
   const isLoading = useAppStore((s) => s.isLoading);
   const activeSentenceIndex = useAppStore((s) => s.activeSentenceIndex);
   const setActiveSentenceIndex = useAppStore((s) => s.setActiveSentenceIndex);
   const isEvidenceHighlightEnabled = useAppStore(
     (s) => s.settings.evidence_highlight_enabled ?? true
   );
-  const isPlainMode = useAppStore((s) => s.settings.plain_mode_enabled ?? false);
   const setIsArticlePanelHovered = useAppStore((s) => s.setIsArticlePanelHovered);
+  const enrichArticlePass2 = useAppStore((s) => s.enrichArticlePass2);
 
   const [showOriginal, setShowOriginal] = useState(false);
+  const [isEnriching, setIsEnriching] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleSummarizeStory = async () => {
+    if (!article?.id || isEnriching) return;
+    setIsEnriching(true);
+    try {
+      await enrichArticlePass2(article.id);
+    } finally {
+      setIsEnriching(false);
+    }
+  };
 
   const rawBody = showOriginal && article?.body_original
     ? article.body_original
@@ -275,6 +297,49 @@ export const ArticlePanel: React.FC = () => {
         <div className="h-[2px] bg-ink w-full" />
         <div className="h-[1px] bg-ink/50 w-full" />
       </div>
+
+      {/* Pass 1 Lightweight Triage Banner & Summarize Story Action (PRD A Category 10) */}
+      {!article.summary && !isPlainMode && (
+        <div
+          id="pass1-triage-callout"
+          className="my-5 p-4 sm:p-5 rounded-xs border-2 border-dashed border-ink/40 bg-paper-alt shadow-xs"
+        >
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2">
+                <span className="font-mono text-[0.6875rem] font-bold text-accent uppercase tracking-wider px-2 py-0.5 rounded-xs border border-accent bg-accent/15">
+                  ✦ Triaged via Pass 1
+                </span>
+                <span className="font-ui text-xs font-semibold text-ink-secondary">
+                  Urgency Score: {article.breaking_score}%
+                </span>
+              </div>
+              <p className="font-ui text-xs text-ink-secondary mt-1.5 leading-relaxed">
+                In-depth executive synthesis and verbatim anchor phrases deferred to conserve AI quota.
+              </p>
+            </div>
+            <button
+              id="btn-summarize-story-pass2"
+              onClick={handleSummarizeStory}
+              disabled={isEnriching}
+              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-ink bg-ink text-paper hover:bg-paper hover:text-ink rounded-xs font-ui text-xs font-bold uppercase tracking-wider transition-all shadow-xs shrink-0 disabled:opacity-50 cursor-pointer"
+              title="Request deep executive summary and verbatim anchor phrases"
+            >
+              {isEnriching ? (
+                <>
+                  <span className="animate-spin text-sm">✦</span>
+                  <span>Synthesizing Story…</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={13} />
+                  <span>Summarize Story</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 4. Article Body Reading Surface */}
       <article

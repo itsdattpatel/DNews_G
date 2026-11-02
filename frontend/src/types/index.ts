@@ -83,6 +83,8 @@ export interface ArticleListItem {
   published_at: string | null;
   ingested_at?: string;
   is_catchup?: boolean;
+  pass1_completed_at?: string | null;
+  pass2_completed_at?: string | null;
   fetched_at: string;
   delayed?: boolean;
 }
@@ -117,6 +119,8 @@ export interface Article {
   published_at: string | null;
   ingested_at?: string;
   is_catchup?: boolean;
+  pass1_completed_at?: string | null;
+  pass2_completed_at?: string | null;
   fetched_at: string;
   source: Source;
   categories: string[];
@@ -167,7 +171,6 @@ export interface AlertItem {
   fromProvider?: string;
   toProvider?: string;
   confirmation?: ConfirmationStatus;
-}
 }
 
 // ─── Watchlist ────────────────────────────────────────────────────────────────
@@ -258,6 +261,19 @@ export interface AppSettings {
   auto_advance_pause_on_hover?: boolean;
   // Plain Mode (PRD A Category 3)
   plain_mode_enabled?: boolean;
+  // Two-Pass AI Ingestion & Quota Telemetry (PRD A Category 10)
+  two_pass_ai_enabled?: boolean;
+  pass2_threshold?: number;
+}
+
+export interface TwoPassTelemetry {
+  two_pass_ai_enabled: boolean;
+  pass2_threshold: number;
+  pass1_count: number;
+  pass2_count: number;
+  pass2_skipped_count: number;
+  estimated_tokens_saved: number;
+  last_updated_at: string;
 }
 
 // ─── Startup & Backfill ───────────────────────────────────────────────────────

@@ -9,8 +9,21 @@ import { getDb, getSetting } from '../db/db';
 import { FEATURES } from '../../../config/features';
 import { PROVIDER_CHAIN } from '../../../config/ai-providers';
 import { routeAIRequest } from '../ai/router';
-import { buildEnrichmentPrompt, type EnrichmentInput } from '../ai/prompts';
-import { parseEnrichmentResponse, validateAnchorPhrases, type EnrichmentResult } from '../ai/schema';
+import {
+  buildEnrichmentPrompt,
+  buildPass1Prompt,
+  buildPass2Prompt,
+  type EnrichmentInput,
+  type Pass1Input,
+  type Pass2Input,
+} from '../ai/prompts';
+import {
+  parseEnrichmentResponse,
+  parsePass1Response,
+  validateAnchorPhrases,
+  type EnrichmentResult,
+  type Pass1Result,
+} from '../ai/schema';
 import type { DbArticle } from '../db/types';
 import { emitSseEvent } from '../routes/sse';
 import { runClusteringPass } from './cluster';
@@ -267,16 +280,374 @@ export async function runEnrichmentPass(): Promise<void> {
     return;
   }
 
+  const isTwoPassEnabled = getSetting('two_pass_ai_enabled', '1') === '1';
   // Determine batch size from primary provider config
   const primaryConfig = PROVIDER_CHAIN[0];
   const batchSize = primaryConfig?.batchSize ?? 20;
 
-  console.log(`[Enricher] Processing ${pending.length} articles in batches of ${batchSize}`);
+  console.log(`[Enricher] Processing ${pending.length} articles (Two-Pass: ${isTwoPassEnabled}) in batches of ${batchSize}`);
 
   for (let i = 0; i < pending.length; i += batchSize) {
     const batch = pending.slice(i, i + batchSize);
-    await processBatch(batch);
+    if (isTwoPassEnabled) {
+      await processTwoPassBatch(batch);
+    } else {
+      await processBatch(batch);
+    }
   }
+}
+
+/**
+ * Processes a batch of articles using Pass 1 (Lightweight Batched Scoring).
+ * Automatically triggers Pass 2 for top-tier articles meeting the urgency threshold (PRD A §10.1).
+ */
+export async function processTwoPassBatch(batch: ArticleRow[]): Promise<void> {
+  const db = getDb();
+  const pass2Threshold = parseInt(getSetting('pass2_threshold', '75'), 10);
+
+  // 1. Pass 1 Lightweight Input (Truncate body to 500 chars to save prompt tokens)
+  const pass1Inputs: Pass1Input[] = batch.map((a, idx) => ({
+    article_index: idx,
+    title_original: a.title_original ?? '',
+    body_original: (a.body_original ?? a.title_original ?? '').slice(0, 500),
+    language: a.language_detected ?? 'unknown',
+    source_country: a.source_country,
+    source_name: a.source_name,
+  }));
+
+  const pass1Prompt = buildPass1Prompt(pass1Inputs);
+  let rawText: string | null = null;
+  let useFallback = false;
+
+  try {
+    const result = await routeAIRequest(pass1Prompt);
+    rawText = result.text;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Enricher] Pass 1 AI providers unavailable (${msg}). Applying deterministic triage.`);
+    useFallback = true;
+  }
+
+  let pass1Results: Pass1Result[] = [];
+
+  if (useFallback || !rawText) {
+    pass1Results = batch.map((a, idx) => {
+      const title = a.title_original || 'World News Dispatch';
+      const body = a.body_original || '';
+      return {
+        article_index: idx,
+        title_english: title,
+        breaking_score: calculateDeterministicBreakingScore(title, body),
+        categories: applyRuleBasedCategorization(title, body, a.source_country, a.source_name),
+      };
+    });
+  } else {
+    const parsed = parsePass1Response(rawText, batch.length);
+    if (parsed.errors.length > 0) {
+      console.warn(`[Enricher] Pass 1 validation warnings: ${parsed.errors.join('; ')}`);
+    }
+    const aiResultsByIndex = new Map(parsed.results.map((r) => [r.article_index, r]));
+    pass1Results = batch.map((a, idx) => {
+      const fromAi = aiResultsByIndex.get(idx);
+      if (fromAi) return fromAi;
+      const title = a.title_original || 'World News Dispatch';
+      const body = a.body_original || '';
+      return {
+        article_index: idx,
+        title_english: title,
+        breaking_score: calculateDeterministicBreakingScore(title, body),
+        categories: applyRuleBasedCategorization(title, body, a.source_country, a.source_name),
+      };
+    });
+  }
+
+  // 2. Write Pass 1 results to database
+  const updatePass1 = db.prepare(`
+    UPDATE articles SET
+      title_english = @title_english,
+      breaking_score = @breaking_score,
+      pass1_completed_at = datetime('now'),
+      status = 'done'
+    WHERE id = @id
+  `);
+
+  const insertCategory = db.prepare(`
+    INSERT OR IGNORE INTO article_categories (article_id, category) VALUES (?, ?)
+  `);
+
+  const writePass1 = db.transaction((results: Pass1Result[]) => {
+    for (const r of results) {
+      const article = batch[r.article_index];
+      if (!article) continue;
+      updatePass1.run({
+        id: article.id,
+        title_english: r.title_english,
+        breaking_score: r.breaking_score,
+      });
+      for (const cat of r.categories) {
+        insertCategory.run(article.id, cat);
+      }
+      emitSseEvent('new_article', { article_id: article.id });
+    }
+  });
+
+  writePass1(pass1Results);
+
+  // Update telemetry: pass1_count
+  db.prepare(`
+    UPDATE two_pass_stats SET
+      pass1_count = pass1_count + ?,
+      last_updated_at = datetime('now')
+    WHERE id = 1
+  `).run(pass1Results.length);
+
+  // 3. Partition articles by Pass 2 urgency threshold
+  const qualifyingArticles: ArticleRow[] = [];
+  const skippedArticles: ArticleRow[] = [];
+
+  for (const r of pass1Results) {
+    const article = batch[r.article_index];
+    if (!article) continue;
+    if (r.breaking_score >= pass2Threshold) {
+      qualifyingArticles.push(article);
+    } else {
+      skippedArticles.push(article);
+    }
+  }
+
+  // Record quota tokens saved for deferred dispatches (~740 tokens saved per skipped pass 2)
+  if (skippedArticles.length > 0) {
+    const tokensSaved = skippedArticles.length * 740;
+    db.prepare(`
+      UPDATE two_pass_stats SET
+        pass2_skipped_count = pass2_skipped_count + ?,
+        estimated_tokens_saved = estimated_tokens_saved + ?,
+        last_updated_at = datetime('now')
+      WHERE id = 1
+    `).run(skippedArticles.length, tokensSaved);
+  }
+
+  // 4. Pass 2: In-Depth Enrichment for Qualifying Articles
+  if (qualifyingArticles.length > 0) {
+    console.log(`[Enricher] Pass 2 auto-triggering for ${qualifyingArticles.length} top-tier articles (score >= ${pass2Threshold})`);
+    await processPass2Batch(qualifyingArticles);
+  }
+
+  // 5. Clustering and Alert Detection
+  try {
+    runClusteringPass();
+  } catch (err) {
+    console.warn('[Enricher] Clustering pass warning:', err);
+  }
+
+  try {
+    const batchIds = batch.map((a) => a.id);
+    detectAlerts(batchIds);
+    checkWatchlistMatches(batchIds);
+  } catch (err) {
+    console.warn('[Enricher] Alert detection warning:', err);
+  }
+}
+
+/**
+ * Processes Pass 2 (In-Depth Enrichment) on a set of articles:
+ * Generates executive summary, verbatim anchor phrases, entity tags, and keywords.
+ */
+export async function processPass2Batch(articles: ArticleRow[]): Promise<void> {
+  const db = getDb();
+  const inputs: Pass2Input[] = articles.map((a, idx) => ({
+    article_index: idx,
+    title_original: a.title_original ?? '',
+    body_original: (a.body_original ?? a.title_original ?? '').slice(0, 4000),
+    language: a.language_detected ?? 'unknown',
+    source_country: a.source_country,
+    source_name: a.source_name,
+  }));
+
+  const prompt = buildPass2Prompt(inputs);
+  let rawText: string | null = null;
+  let useFallback = false;
+
+  try {
+    const result = await routeAIRequest(prompt);
+    rawText = result.text;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Enricher] Pass 2 AI providers unavailable (${msg}). Applying editorial fallback.`);
+    useFallback = true;
+  }
+
+  let results: EnrichmentResult[] = [];
+  if (useFallback || !rawText) {
+    results = articles
+      .map((a, idx) => {
+        const textLen = (a.title_original?.length || 0) + (a.body_original?.length || 0);
+        if (textLen < 15) return null;
+        return createEditorialFallback(a, idx);
+      })
+      .filter((r): r is EnrichmentResult => r !== null);
+  } else {
+    const parsed = parseEnrichmentResponse(rawText, articles.length);
+    const aiResultsByIndex = new Map(parsed.results.map((r) => [r.article_index, r]));
+    results = articles
+      .map((a, idx) => {
+        const fromAi = aiResultsByIndex.get(idx);
+        if (fromAi) return fromAi;
+        return createEditorialFallback(a, idx);
+      })
+      .filter((r): r is EnrichmentResult => r !== null);
+  }
+
+  const updatePass2 = db.prepare(`
+    UPDATE articles SET
+      summary = @summary,
+      body_english = @body_english,
+      anchor_phrases = @anchor_phrases,
+      pass2_completed_at = datetime('now'),
+      ai_processed_at = datetime('now')
+    WHERE id = @id
+  `);
+
+  const insertKeyword = db.prepare(`
+    INSERT OR IGNORE INTO keywords (article_id, keyword) VALUES (?, ?)
+  `);
+
+  const writePass2 = db.transaction((validResults: EnrichmentResult[]) => {
+    for (const r of validResults) {
+      const article = articles[r.article_index];
+      if (!article) continue;
+      const summarySentences = (r.summary.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || []).length;
+      const validAnchors = validateAnchorPhrases(r.anchor_phrases || [], r.body_english, summarySentences);
+
+      updatePass2.run({
+        id: article.id,
+        summary: r.summary,
+        body_english: r.body_english,
+        anchor_phrases: validAnchors.length > 0 ? JSON.stringify(validAnchors) : null,
+      });
+
+      for (const kw of r.keywords) {
+        insertKeyword.run(article.id, kw);
+      }
+
+      emitSseEvent('article_enriched_pass2', { article_id: article.id });
+    }
+  });
+
+  writePass2(results);
+
+  // Update telemetry: pass2_count
+  db.prepare(`
+    UPDATE two_pass_stats SET
+      pass2_count = pass2_count + ?,
+      last_updated_at = datetime('now')
+    WHERE id = 1
+  `).run(results.length);
+}
+
+/**
+ * On-demand Pass 2 enrichment for a single dispatch (PRD A §10.1).
+ * Invoked by user clicking "[✦ Summarize Story]" in the Main Reader.
+ */
+export async function enrichArticlePass2(articleId: number): Promise<void> {
+  const db = getDb();
+  const row = db.prepare(`
+    SELECT a.*, s.name AS source_name, s.country AS source_country, s.url AS source_url
+    FROM articles a
+    JOIN sources s ON a.source_id = s.id
+    WHERE a.id = ?
+  `).get(articleId) as (ArticleRow & { source_url: string }) | undefined;
+
+  if (!row) {
+    throw new Error(`Article ${articleId} not found`);
+  }
+
+  // If already Pass 2 completed with summary, return immediately
+  if (row.pass2_completed_at && row.summary && row.summary.trim().length > 0) {
+    return;
+  }
+
+  const inputs: Pass2Input[] = [{
+    article_index: 0,
+    title_original: row.title_original ?? '',
+    body_original: (row.body_original ?? row.title_original ?? '').slice(0, 4000),
+    language: row.language_detected ?? 'unknown',
+    source_country: row.source_country,
+    source_name: row.source_name,
+  }];
+
+  const prompt = buildPass2Prompt(inputs);
+  let rawText: string | null = null;
+  let useFallback = false;
+
+  try {
+    const result = await routeAIRequest(prompt);
+    rawText = result.text;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Enricher] On-demand Pass 2 AI unavailable (${msg}). Applying editorial fallback.`);
+    useFallback = true;
+  }
+
+  let enriched: EnrichmentResult;
+  if (useFallback || !rawText) {
+    enriched = createEditorialFallback(row, 0);
+  } else {
+    const parsed = parseEnrichmentResponse(rawText, 1);
+    enriched = parsed.results[0] || createEditorialFallback(row, 0);
+  }
+
+  const summarySentences = (enriched.summary.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || []).length;
+  const validAnchors = validateAnchorPhrases(enriched.anchor_phrases || [], enriched.body_english, summarySentences);
+
+  const wasSkipped = row.pass1_completed_at !== null && row.pass2_completed_at === null;
+
+  db.transaction(() => {
+    db.prepare(`
+      UPDATE articles SET
+        summary = @summary,
+        body_english = @body_english,
+        title_english = COALESCE(title_english, @title_english),
+        anchor_phrases = @anchor_phrases,
+        pass2_completed_at = datetime('now'),
+        ai_processed_at = datetime('now'),
+        status = 'done'
+      WHERE id = @id
+    `).run({
+      id: row.id,
+      summary: enriched.summary,
+      body_english: enriched.body_english,
+      title_english: enriched.title_english,
+      anchor_phrases: validAnchors.length > 0 ? JSON.stringify(validAnchors) : null,
+    });
+
+    const insertKeyword = db.prepare(`
+      INSERT OR IGNORE INTO keywords (article_id, keyword) VALUES (?, ?)
+    `);
+    for (const kw of enriched.keywords) {
+      insertKeyword.run(row.id, kw);
+    }
+
+    if (wasSkipped) {
+      db.prepare(`
+        UPDATE two_pass_stats SET
+          pass2_count = pass2_count + 1,
+          pass2_skipped_count = MAX(0, pass2_skipped_count - 1),
+          estimated_tokens_saved = MAX(0, estimated_tokens_saved - 740),
+          last_updated_at = datetime('now')
+        WHERE id = 1
+      `).run();
+    } else {
+      db.prepare(`
+        UPDATE two_pass_stats SET
+          pass2_count = pass2_count + 1,
+          last_updated_at = datetime('now')
+        WHERE id = 1
+      `).run();
+    }
+  })();
+
+  emitSseEvent('article_enriched_pass2', { article_id: row.id });
 }
 
 async function processBatch(batch: ArticleRow[]): Promise<void> {
@@ -345,6 +716,8 @@ async function processBatch(batch: ArticleRow[]): Promise<void> {
       summary       = @summary,
       breaking_score = @breaking_score,
       anchor_phrases = @anchor_phrases,
+      pass1_completed_at = datetime('now'),
+      pass2_completed_at = datetime('now'),
       ai_processed_at = datetime('now'),
       status        = 'done'
     WHERE id = @id
@@ -398,6 +771,15 @@ async function processBatch(batch: ArticleRow[]): Promise<void> {
   });
 
   writeAll(results);
+
+  // Update telemetry for single-pass mode
+  db.prepare(`
+    UPDATE two_pass_stats SET
+      pass1_count = pass1_count + ?,
+      pass2_count = pass2_count + ?,
+      last_updated_at = datetime('now')
+    WHERE id = 1
+  `).run(results.length, results.length);
   console.log(`[Enricher] Batch completed — ${results.length}/${batch.length} enriched (status: done)`);
 
   // Group newly enriched articles into story clusters
@@ -440,6 +822,8 @@ export function processPlainModeBatch(batch: ArticleRow[]): void {
       summary       = NULL,
       breaking_score = @breaking_score,
       anchor_phrases = NULL,
+      pass1_completed_at = datetime('now'),
+      pass2_completed_at = NULL,
       ai_processed_at = NULL,
       status        = 'done'
     WHERE id = @id
@@ -509,6 +893,17 @@ export function processPlainModeBatch(batch: ArticleRow[]): void {
   });
 
   writeAll(batch);
+
+  // Update telemetry for Plain Mode (all articles counted as pass 1 triaged & quota conserved)
+  db.prepare(`
+    UPDATE two_pass_stats SET
+      pass1_count = pass1_count + ?,
+      pass2_skipped_count = pass2_skipped_count + ?,
+      estimated_tokens_saved = estimated_tokens_saved + ?,
+      last_updated_at = datetime('now')
+    WHERE id = 1
+  `).run(batch.length, batch.length, batch.length * 740);
+
   console.log(`[Enricher] Plain Mode batch completed — ${batch.length} articles processed with zero AI calls`);
 
   // Group newly enriched articles into story clusters

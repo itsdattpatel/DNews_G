@@ -102,3 +102,61 @@ export function parseEnrichmentResponse(
 
   return { results, errors };
 }
+
+// ── Pass 1 Result Schema & Parser (PRD A Category 10) ─────────────────────────
+
+export const Pass1ResultSchema = z.object({
+  article_index: z.number().int().nonnegative(),
+  title_english: z.string().min(1),
+  breaking_score: z
+    .number()
+    .int()
+    .transform((n) => Math.min(100, Math.max(0, n))),
+  categories: z
+    .array(z.enum(CATEGORIES))
+    .min(1)
+    .catch(['World']),
+});
+
+export type Pass1Result = z.infer<typeof Pass1ResultSchema>;
+
+export const Pass1BatchSchema = z.array(Pass1ResultSchema);
+
+/** Parse raw AI text → validated Pass 1 array, partial on failure */
+export function parsePass1Response(
+  rawText: string,
+  expectedCount: number,
+): { results: Pass1Result[]; errors: string[] } {
+  const cleaned = rawText
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/, '')
+    .trim();
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    return { results: [], errors: [`JSON parse failed: ${cleaned.slice(0, 200)}`] };
+  }
+
+  if (!Array.isArray(parsed)) {
+    return { results: [], errors: ['AI response was not a JSON array'] };
+  }
+
+  const results: Pass1Result[] = [];
+  const errors: string[] = [];
+
+  for (const item of parsed) {
+    const result = Pass1ResultSchema.safeParse(item);
+    if (result.success) {
+      if (result.data.article_index < expectedCount) {
+        results.push(result.data);
+      }
+    } else {
+      errors.push(`Pass 1 item validation failed: ${result.error.message}`);
+    }
+  }
+
+  return { results, errors };
+}
+

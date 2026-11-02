@@ -31,6 +31,7 @@ interface AppState {
   setReadingModeActive: (active: boolean) => void;
   toggleReadingMode: () => void;
   selectArticleById: (id: number) => Promise<void>;
+  enrichArticlePass2: (id: number) => Promise<void>;
   addOrPrependArticle: (article: Article) => void;
   toggleBookmark: (articleId: number) => Promise<void>;
 
@@ -293,6 +294,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (found) {
         set({ selectedArticle: found, selectedArticleId: id });
       }
+    }
+  },
+
+  enrichArticlePass2: async (id: number) => {
+    playButtonSound(get().settings.sound_enabled);
+    try {
+      const res = await fetch(`/api/articles/${id}/enrich-pass2`, { method: 'POST' });
+      if (res.ok) {
+        const enriched = (await res.json()) as Article;
+        set((state) => ({
+          selectedArticle: state.selectedArticle?.id === id ? enriched : state.selectedArticle,
+          articles: state.articles.map((a) => (a.id === id ? { ...a, ...enriched } : a)),
+        }));
+      }
+    } catch (err) {
+      console.error(`[AppStore] Pass 2 enrichment failed for article ${id}:`, err);
     }
   },
 

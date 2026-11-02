@@ -87,3 +87,4 @@ export function getArticleConfirmation(
     isBreakingCluster: article.cluster_is_breaking,
   });
 }
+

@@ -18,7 +18,7 @@
 | **7** | **TV Screen UI & Subpages** | 🟢 `DONE` | Live/Faulty/Stopped tabs, 16:9 player, health indicators (Live/Slow/Offline), PiP & volume, Vitest (135 backend + 125 frontend pass), Playwright screenshots | 2026-11-02 12:10 |
 | **8** | **Live Feed Counter** | 🟢 `DONE` | Migration 011, rolling 24h count, sparkline with downtime hatches, independent telemetry tables, retention immunity, Vitest (141 backend + 129 frontend pass), Playwright screenshots | 2026-11-02 13:02 |
 | **9** | **Confirmation Labels** | 🟢 `DONE` | Single source / 2 outlets / Confirmed N in M stamps, breaking alert calm/urgent styles, 5 surfaces, Vitest (151 backend + 141 frontend pass), Playwright screenshots | 2026-11-02 14:00 |
-| **10** | **Two-Pass AI** | ⚪ `PENDING` | Pass 1 cheap scoring, Pass 2 selective enrichment, quota savings telemetry | - |
+| **10** | **Two-Pass AI** | 🟢 `DONE` | Migration 012 (`two_pass_stats`), Pass 1 triage prompt & batch scoring, Pass 2 threshold & on-demand summarization, quota telemetry (~740 tokens saved/skip), Settings Section 9, Vitest (161 backend + 147 frontend pass), Playwright screenshots | 2026-11-02 18:40 |
 | **11** | **Control Room Page** | ⚪ `PENDING` | Freshness telemetry, error log, scheduler metrics, live SSE updates, screenshot | - |
 | **12** | **QA & Final Audits** | ⚪ `PENDING` | End-to-end Playwright tests, zero console errors, security-auditor pass, all screenshots | - |
 
@@ -303,6 +303,41 @@
   - `ui-step9-confirmation-category-rail.png` (Category Rail grid displaying Single Source, 2 Outlets, and Unconfirmed Breaking badges)
   - `ui-step9-confirmation-alerts.png` (Telegraph Alerts Center showing Unconfirmed Breaking ochre badges vs Confirmed Breaking crimson badges)
   - `ui-step9-confirmation-compare-desk.png` (Compare Coverage desk with Confirmed Breaking & Confirmed: 4 outlets in 2 countries)
+
+### Step 10: Two-Pass AI Processing & Quota Telemetry (Completed)
+- Pre-work SQLite snapshot created at `backups/news.backup_before_cat10_2026-11-02T12-25-47-375Z.sqlite` (14.54 MB).
+- Applied Migration 012 (`012_two_pass_ai.sql`):
+  - Added indexed `pass1_completed_at TEXT` and `pass2_completed_at TEXT` to `articles` table.
+  - Created persistent `two_pass_stats` table tracking `pass1_count`, `pass2_count`, `pass2_skipped_count`, and `estimated_tokens_saved`.
+  - Added configurable settings `two_pass_ai_enabled` (default `'1'`) and `pass2_threshold` (default `'75'`).
+  - Safely backfilled all existing 4,385 articles and seeded initial stats.
+- Pass 1 Lightweight Batched Scoring Engine:
+  - Built minimal-token prompt (`SYSTEM_PASS1` and `buildPass1Prompt` in `backend/src/ai/prompts.ts`) consuming ~50-60 tokens per article with truncated text input (~500 chars).
+  - Triage prompt scores urgency/breaking score (0-100) and primary category across batches of up to 20 articles.
+  - Validated by strict Zod schema `Pass1BatchSchema` in `backend/src/ai/schema.ts`.
+- Pass 2 In-Depth Enrichment Engine:
+  - Qualifying criteria: articles with `breaking_score >= pass2_threshold` (default 75, top 30% of stories) automatically qualify for full enrichment.
+  - On-demand dispatch: stories deferred by Pass 1 can be summarized on demand via `POST /api/articles/:id/enrich-pass2`.
+  - Generates comprehensive 3-5 sentence executive briefing, translated body, verbatim anchor phrases, and entity tags.
+  - Emits real-time SSE event `article_enriched_pass2` for instant UI update without full reload.
+- Quota Telemetry & Economics:
+  - Real-time token economics tracking: saves ~740 tokens per Pass-1-only story compared to the monolithic single-pass enrichment model (~800 vs ~60 tokens).
+  - Maintained in `two_pass_stats` table and exposed via `GET /api/settings/two-pass-telemetry`.
+  - On-demand Pass 2 upgrades decrement `pass2_skipped_count` and adjust `estimated_tokens_saved`.
+- Broadsheet UI Integration:
+  - Main Article Reader (`ArticlePanel.tsx`): displays physical red-ink boxed banner `✦ TRIAGED VIA PASS 1` with urgency score and `[✦ SUMMARIZE STORY]` button when Pass 2 synthesis was deferred.
+  - Executive Briefing Desk (`SummaryPanel.tsx`): displays dotted broadsheet card with `✦ QUICK-SCORED DISPATCH (PASS 1)` red ink stamp, threshold indicator, and `[✦ SUMMARIZE STORY (PASS 2)]` button.
+  - Settings Drawer (`SettingsMenu.tsx`): Section 9 "Two-Pass AI Ingestion & Quota Telemetry" featuring master toggle, auto-enrichment threshold slider (50% to 100%), and live 4-card telemetry grid (Pass 1 Triaged, Pass 2 Enriched, Stories Deferred, Tokens Saved) with live refresh button.
+- Test Suite:
+  - Added 10 new unit tests in `backend/src/__tests__/unit/two-pass-ai.test.ts`.
+  - Added 6 new unit tests in `frontend/src/__tests__/unit/two-pass-ui.test.tsx`.
+  - Full test suite passing cleanly: **161 backend tests across 34 suites** + **147 frontend tests across 29 suites** (total **308 tests passing**, 0 failed).
+  - Strict TypeScript build passes with 0 errors across backend and frontend workspaces.
+- Visual Validation completed with Playwright:
+  - `ui-step10-pass1-banner-paper.png` (Pass 1 triaged banner in reader and deferred broadsheet card in summary column, Paper mode)
+  - `ui-step10-pass2-summarized-night.png` (Instant Pass 2 enrichment with executive takeaways and verbatim quote highlighting, Night Edition mode)
+  - `ui-step10-two-pass-settings-telemetry.png` (Settings Drawer Section 9 showing master toggle, 75% threshold slider, and live Quota Telemetry grid with 370,000 tokens saved)
+
 
 
 

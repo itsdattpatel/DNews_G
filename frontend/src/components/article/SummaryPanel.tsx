@@ -8,8 +8,19 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Star, Layers, Clock, Sparkles, Play, Pause } from 'lucide-react';
 
-export const SummaryPanel: React.FC = () => {
-  const article = useAppStore((s) => s.selectedArticle);
+export interface SummaryPanelProps {
+  article?: Article | null;
+  plainMode?: boolean;
+}
+
+export const SummaryPanel: React.FC<SummaryPanelProps> = ({
+  article: propArticle,
+  plainMode: propPlainMode,
+}) => {
+  const storeArticle = useAppStore((s) => s.selectedArticle);
+  const storePlainMode = useAppStore((s) => s.settings.plain_mode_enabled ?? false);
+  const article = propArticle !== undefined ? propArticle : storeArticle;
+  const isPlainMode = propPlainMode !== undefined ? propPlainMode : storePlainMode;
   const isLoading = useAppStore((s) => s.isLoading);
   const toggleBookmark = useAppStore((s) => s.toggleBookmark);
   const setCompareClusterId = useAppStore((s) => s.setCompareClusterId);
@@ -22,9 +33,22 @@ export const SummaryPanel: React.FC = () => {
   );
   const isReadingModeActive = useAppStore((s) => s.isReadingModeActive);
   const toggleReadingMode = useAppStore((s) => s.toggleReadingMode);
+  const pass2Threshold = useAppStore((s) => s.settings.pass2_threshold ?? 75);
+  const enrichArticlePass2 = useAppStore((s) => s.enrichArticlePass2);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeKeywordIndex, setActiveKeywordIndex] = useState(-1);
+  const [isEnriching, setIsEnriching] = useState(false);
+
+  const handleSummarizeStory = async () => {
+    if (!article?.id || isEnriching) return;
+    setIsEnriching(true);
+    try {
+      await enrichArticlePass2(article.id);
+    } finally {
+      setIsEnriching(false);
+    }
+  };
 
   // Split summary into discrete sentences
   const sentences = useMemo(() => {
@@ -179,84 +203,135 @@ export const SummaryPanel: React.FC = () => {
           </div>
         </div>
 
-        {/* 2. Structured Sentence-Level Intelligence Cards */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-headline text-lg font-bold text-ink">
-              Key Intelligence Takeaways
-            </h3>
-            <span className="font-mono text-[0.625rem] text-ink-muted">
-              {sentences.length} {sentences.length === 1 ? 'bullet' : 'points'}
-            </span>
-          </div>
+        {/* 2. Structured Sentence-Level Intelligence Cards or Pass 1 Triage Card */}
+        {sentences.length === 0 ? (
+          isPlainMode ? (
+            <div className="p-5 border-2 border-dashed border-paper-border bg-paper rounded-xs text-center space-y-2">
+              <span className="font-mono text-xs font-bold text-ink-muted uppercase">
+                Plain Mode Active
+              </span>
+              <p className="font-ui text-xs text-ink-secondary">
+                AI executive briefing is offline. Read raw dispatches in the left reader panel.
+              </p>
+            </div>
+          ) : (
+            <div
+              id="summary-pass1-card"
+              className="p-6 border-2 border-dashed border-ink/40 bg-paper rounded-xs text-center space-y-4 shadow-xs"
+            >
+              <div className="inline-flex p-3 border-2 border-ink bg-paper-alt rounded-xs shadow-xs">
+                <Sparkles size={24} className="text-accent" />
+              </div>
+              <div className="space-y-1.5">
+                <span className="font-mono text-[0.6875rem] font-bold text-accent uppercase tracking-wider px-2 py-0.5 rounded-xs border border-accent bg-accent/15">
+                  ✦ Quick-Scored Dispatch (Pass 1)
+                </span>
+                <h4 className="font-headline text-base font-bold text-ink pt-1">
+                  Pass 2 Synthesis Deferred
+                </h4>
+                <p className="font-ui text-xs text-ink-secondary max-w-sm mx-auto leading-relaxed">
+                  Urgency score is <strong className="text-ink">{article.breaking_score}%</strong> (Threshold: {pass2Threshold}%). Executive briefing and verbatim anchor quotes were deferred to preserve AI quota.
+                </p>
+              </div>
+              <button
+                id="btn-summary-enrich-pass2"
+                onClick={handleSummarizeStory}
+                disabled={isEnriching}
+                className="inline-flex items-center gap-2 px-5 py-2.5 border-2 border-ink bg-ink text-paper hover:bg-paper hover:text-ink rounded-xs font-ui text-xs font-bold uppercase tracking-wider transition-all shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {isEnriching ? (
+                  <>
+                    <span className="animate-spin text-sm">✦</span>
+                    <span>Synthesizing Story…</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={13} />
+                    <span>Summarize Story (Pass 2)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-headline text-lg font-bold text-ink">
+                Key Intelligence Takeaways
+              </h3>
+              <span className="font-mono text-[0.625rem] text-ink-muted">
+                {sentences.length} {sentences.length === 1 ? 'bullet' : 'points'}
+              </span>
+            </div>
 
-          <div className="space-y-2.5">
-            {sentences.map((sentence, idx) => {
-              const isActive = activeSentenceIndex === idx;
-              const hasEvidence = (article.anchor_phrases || []).some(
-                (a) => a.sentence_index === idx
-              );
+            <div className="space-y-2.5">
+              {sentences.map((sentence, idx) => {
+                const isActive = activeSentenceIndex === idx;
+                const hasEvidence = (article.anchor_phrases || []).some(
+                  (a) => a.sentence_index === idx
+                );
 
-              return (
-                <div
-                  key={idx}
-                  data-sentence-index={idx}
-                  onMouseEnter={() => {
-                    if (!isReadingModeActive) setActiveSentenceIndex(idx);
-                  }}
-                  onMouseLeave={() => {
-                    if (!isReadingModeActive) setActiveSentenceIndex(null);
-                  }}
-                  onClick={() => {
-                    setActiveSentenceIndex(idx);
-                    const anchor = document.getElementById(`anchor-sentence-${idx}`);
-                    if (anchor) {
-                      const prefersReducedMotion =
-                        typeof window !== 'undefined' &&
-                        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                      anchor.scrollIntoView({
-                        behavior: prefersReducedMotion ? 'auto' : 'smooth',
-                        block: 'center',
-                      });
-                    }
-                  }}
-                  className={`p-3.5 rounded-xs border transition-all cursor-pointer relative overflow-hidden ${
-                    isActive
-                      ? 'border-ink bg-paper shadow-xs border-l-4 border-l-accent -translate-x-0.5'
-                      : 'border-paper-border/80 bg-paper/70 hover:bg-paper hover:border-ink'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2.5">
-                    <div className="flex items-start gap-2.5">
-                      <span className="font-mono text-[0.6875rem] font-bold text-ink-muted pt-0.5 select-none shrink-0">
-                        § {idx + 1}
-                      </span>
-                      <p className="font-body text-sm sm:text-[0.9375rem] leading-relaxed text-ink select-text">
-                        {sentence}
-                      </p>
+                return (
+                  <div
+                    key={idx}
+                    data-sentence-index={idx}
+                    onMouseEnter={() => {
+                      if (!isReadingModeActive) setActiveSentenceIndex(idx);
+                    }}
+                    onMouseLeave={() => {
+                      if (!isReadingModeActive) setActiveSentenceIndex(null);
+                    }}
+                    onClick={() => {
+                      setActiveSentenceIndex(idx);
+                      const anchor = document.getElementById(`anchor-sentence-${idx}`);
+                      if (anchor) {
+                        const prefersReducedMotion =
+                          typeof window !== 'undefined' &&
+                          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                        anchor.scrollIntoView({
+                          behavior: prefersReducedMotion ? 'auto' : 'smooth',
+                          block: 'center',
+                        });
+                      }
+                    }}
+                    className={`p-3.5 rounded-xs border transition-all cursor-pointer relative overflow-hidden ${
+                      isActive
+                        ? 'border-ink bg-paper shadow-xs border-l-4 border-l-accent -translate-x-0.5'
+                        : 'border-paper-border/80 bg-paper/70 hover:bg-paper hover:border-ink'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-start gap-2.5">
+                        <span className="font-mono text-[0.6875rem] font-bold text-ink-muted pt-0.5 select-none shrink-0">
+                          § {idx + 1}
+                        </span>
+                        <p className="font-body text-sm sm:text-[0.9375rem] leading-relaxed text-ink select-text">
+                          {sentence}
+                        </p>
+                      </div>
+
+                      {hasEvidence && (
+                        <span
+                          className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 font-bold shrink-0 select-none"
+                          title="Verbatim evidence anchor linked in article"
+                        >
+                          Evidence
+                        </span>
+                      )}
                     </div>
 
-                    {hasEvidence && (
-                      <span
-                        className="font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 font-bold shrink-0 select-none"
-                        title="Verbatim evidence anchor linked in article"
-                      >
-                        Evidence
-                      </span>
+                    {/* Synchronized Reading Mode Sweep Progress Bar */}
+                    {isReadingModeActive && isActive && (
+                      <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent/20 overflow-hidden">
+                        <div className="h-full bg-accent animate-[reading-progress_3.6s_linear_infinite]" />
+                      </div>
                     )}
                   </div>
-
-                  {/* Synchronized Reading Mode Sweep Progress Bar */}
-                  {isReadingModeActive && isActive && (
-                    <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent/20 overflow-hidden">
-                      <div className="h-full bg-accent animate-[reading-progress_3.6s_linear_infinite]" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 3. Keywords & Entities Wire Stamp */}
         {article.keywords && article.keywords.length > 0 && (

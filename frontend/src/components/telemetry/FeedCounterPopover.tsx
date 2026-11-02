@@ -8,7 +8,8 @@
 import React, { useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { HatchedSparkline, type SparklinePoint } from '../common/HatchedSparkline';
-import { Radio, Clock, ShieldCheck, X, Activity, Layers, Database } from 'lucide-react';
+import { Radio, Clock, ShieldCheck, X } from 'lucide-react';
+import type { FeedCounterMetrics, HourlySparklinePoint } from '../../types/feedCounter';
 
 function formatDuration(seconds: number): string {
   if (!seconds || seconds <= 0) return '0m';
@@ -88,7 +89,7 @@ export const FeedCounterPopover: React.FC<FeedCounterPopoverProps> = ({
   if (!isFeedCounterOpen) return null;
 
   // Map 24-hour hourly telemetry to HatchedSparkline points
-  const sparklinePoints: SparklinePoint[] = (feedCounter?.rolling24h.hourly || []).map((h) => ({
+  const sparklinePoints: SparklinePoint[] = (feedCounter?.rolling24h.hourly || []).map((h: HourlySparklinePoint) => ({
     label: `${h.label} UTC`,
     value: h.count,
     isDowntime: h.is_app_off,

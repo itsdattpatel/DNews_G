@@ -7,7 +7,7 @@ import { slugify } from './catalog';
 
 export interface YouTubePreviewResult {
   success: boolean;
-  type: 'video' | 'channel' | 'handle';
+  type: 'video' | 'channel' | 'handle' | 'unknown';
   original_url: string;
   title: string;
   author_name: string;

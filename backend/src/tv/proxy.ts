@@ -3,8 +3,6 @@
  * HLS Stream Proxy with strict SSRF protection & M3U8 playlist chunk rewriting (PRD A Category 6).
  */
 import dns from 'dns';
-import http from 'http';
-import https from 'https';
 import { URL } from 'url';
 
 export interface SsrfValidationResult {
@@ -21,7 +19,7 @@ export function isPrivateIpv4(ip: string): boolean {
     return true; // Malformed IPv4 is blocked
   }
 
-  const [a, b, c, d] = parts as [number, number, number, number];
+  const [a, b] = parts as [number, number, number, number];
 
   // 0.0.0.0/8 (Current network)
   if (a === 0) return true;

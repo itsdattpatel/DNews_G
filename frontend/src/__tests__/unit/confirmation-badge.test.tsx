@@ -3,7 +3,6 @@
  * Unit tests for ConfirmationBadge & Story Corroboration (PRD A Category 9).
  */
 import { describe, it, expect } from 'vitest';
-import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ConfirmationBadge } from '../../components/common/ConfirmationBadge';
 import { computeConfirmationStatus, getArticleConfirmation } from '../../utils/confirmation';
@@ -118,3 +117,4 @@ describe('Story Corroboration & Confirmation Labels (PRD A Category 9)', () => {
     });
   });
 });
+

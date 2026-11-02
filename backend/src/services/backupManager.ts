@@ -179,7 +179,6 @@ export function pruneBackups(): { kept: number; deleted: number } {
   const olderBackups = allFiles.filter((f) => f.time < sevenDaysAgo);
   const weekBuckets = new Map<string, typeof allFiles[0]>();
   for (const f of olderBackups) {
-    const weekKey = new Date(f.time).toISOString().slice(0, 10);
     // Group into 7-day windows
     const weekIndex = Math.floor((now - f.time) / (7 * oneDayMs));
     if (weekIndex <= 4 && !weekBuckets.has(String(weekIndex))) {

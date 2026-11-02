@@ -8,6 +8,42 @@ For EACH article you must return a corresponding JSON object with exactly the fi
 Do NOT produce any prose, markdown code fences, or executable code of any kind.
 Return ONLY a valid JSON array — nothing before or after it.`;
 
+// ── Pass 1: Lightweight Batched Scoring (PRD A Category 10) ───────────────────
+export const SYSTEM_PASS1 = `You are a news triage editor. You receive a JSON array of raw news dispatches.
+For EACH article you must return a corresponding lightweight JSON object with urgency scoring and broadsheet categories.
+Do NOT produce any prose, markdown code fences, or executable code of any kind.
+Return ONLY a valid JSON array — nothing before or after it.`;
+
+export function buildPass1Prompt(articles: Pass1Input[]): string {
+  const count = articles.length;
+  return `Triage the following ${count} news articles and return a JSON array of exactly ${count} objects in the same order.
+Each object must have these exact keys (no extras, no omissions):
+
+{
+  "article_index": <integer — same as input index>,
+  "title_english": <string — translated headline in English>,
+  "breaking_score": <integer 0-100 — urgency and novelty; 100 = unprecedented breaking news>,
+  "categories": <string[] — one or more from exactly: ["World","Politics","Business","Tech","Science","Health","Sports","Entertainment","Environment","Crime","Animals"]>
+}
+
+Input articles:
+${JSON.stringify(articles, null, 2)}`;
+}
+
+export interface Pass1Input {
+  article_index: number;
+  title_original: string;
+  body_original: string;
+  language: string;
+  source_country: string;
+  source_name: string;
+}
+
+// ── Pass 2: In-Depth Enrichment (PRD A Category 10) ───────────────────────────
+export const SYSTEM_PASS2 = SYSTEM_ENRICHMENT;
+export type Pass2Input = EnrichmentInput;
+export const buildPass2Prompt = buildEnrichmentPrompt;
+
 export function buildEnrichmentPrompt(articles: EnrichmentInput[]): string {
   const count = articles.length;
   return `Analyse the following ${count} news articles and return a JSON array of exactly ${count} objects in the same order.
