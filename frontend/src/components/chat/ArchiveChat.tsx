@@ -23,7 +23,8 @@ import {
 import { DualTimestamp } from '../common/DualTimestamp';
 
 export const ArchiveChat: React.FC = () => {
-  const { isArchiveChatOpen, setArchiveChatOpen, selectArticleById } = useAppStore();
+  const { isArchiveChatOpen, setArchiveChatOpen, selectArticleById, settings } = useAppStore();
+  const isPlainMode = settings.plain_mode_enabled ?? false;
   const [query, setQuery] = useState('');
   const [useAi, setUseAi] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +65,7 @@ export const ArchiveChat: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: targetQuery,
-          use_ai: useAi,
+          use_ai: isPlainMode ? false : useAi,
           limit: 15,
         }),
       });
@@ -128,20 +129,30 @@ export const ArchiveChat: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* AI Synthesis Checkbox Toggle */}
-            <label className="flex items-center gap-2 text-xs font-ui font-semibold text-ink-secondary cursor-pointer hover:text-ink">
-              <input
-                id="checkbox-archive-ai-synthesis"
-                type="checkbox"
-                checked={useAi}
-                onChange={(e) => setUseAi(e.target.checked)}
-                className="w-3.5 h-3.5 accent-ink cursor-pointer"
-              />
-              <span className="flex items-center gap-1">
-                <Sparkles size={12} className="text-accent" />
-                <span>AI Synthesis</span>
-              </span>
-            </label>
+            {/* AI Synthesis Checkbox Toggle / Plain Mode Indicator */}
+            {isPlainMode ? (
+              <div
+                id="badge-archive-plainmode"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xs border border-paper-border bg-paper-alt font-mono text-xs text-ink-muted"
+                title="Plain Mode active: AI synthesis is offline. Historical queries run via SQLite FTS5 index only."
+              >
+                <span>FTS keyword search only (AI synthesis offline)</span>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 text-xs font-ui font-semibold text-ink-secondary cursor-pointer hover:text-ink">
+                <input
+                  id="checkbox-archive-ai-synthesis"
+                  type="checkbox"
+                  checked={useAi}
+                  onChange={(e) => setUseAi(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-ink cursor-pointer"
+                />
+                <span className="flex items-center gap-1">
+                  <Sparkles size={12} className="text-accent" />
+                  <span>AI Synthesis</span>
+                </span>
+              </label>
+            )}
 
             {/* Close Button */}
             <button

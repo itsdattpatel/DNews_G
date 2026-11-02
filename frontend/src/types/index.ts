@@ -222,6 +222,8 @@ export interface AppSettings {
   auto_advance_enabled?: boolean;
   auto_advance_interval_sec?: number;
   auto_advance_pause_on_hover?: boolean;
+  // Plain Mode (PRD A Category 3)
+  plain_mode_enabled?: boolean;
 }
 
 // ─── Startup & Backfill ───────────────────────────────────────────────────────

@@ -37,6 +37,7 @@ export const Shell: React.FC = () => {
   const nextArticle = useAppStore((s) => s.nextArticle);
   const prevArticle = useAppStore((s) => s.prevArticle);
   const theme = useAppStore((s) => s.theme);
+  const isPlainMode = useAppStore((s) => s.settings.plain_mode_enabled ?? false);
 
   // Sync theme attribute on mount
   useEffect(() => {
@@ -176,7 +177,7 @@ export const Shell: React.FC = () => {
             onLayout={handleVerticalLayout}
             className="w-full h-full min-h-0 min-w-0 flex flex-col"
           >
-            {/* Top Reader Desk: Article + Summary */}
+            {/* Top Reader Desk: Article + Summary (or Full-Width Reader in Plain Mode) */}
             <Panel
               id="reader-top-panel"
               defaultSize={panelSizesV[0]}
@@ -184,49 +185,57 @@ export const Shell: React.FC = () => {
               maxSize={90}
               className="min-h-0 min-w-0"
             >
-              <PanelGroup
-                ref={horizontalGroupRef}
-                direction="horizontal"
-                id="reader-horizontal-group"
-                onLayout={handleHorizontalLayout}
-                className="w-full h-full min-h-0 min-w-0 flex"
-              >
-                {/* Left Panel: Article Column */}
-                <Panel
-                  id="reader-article-panel"
-                  defaultSize={panelSizesH[0]}
-                  minSize={30}
-                  maxSize={75}
-                  className="min-h-0 min-w-0 h-full"
-                >
-                  <ErrorBoundary panelName="Article Reader Desk">
+              {isPlainMode ? (
+                <div id="reader-plain-mode-container" className="w-full h-full min-h-0 min-w-0">
+                  <ErrorBoundary panelName="Article Reader Desk (Plain Mode)">
                     <ArticlePanel />
                   </ErrorBoundary>
-                </Panel>
-
-                {/* Vertical Drag Handle between Article & Summary */}
-                <PanelResizeHandle
-                  id="handle-article-summary"
-                  onDoubleClick={handleResetH}
-                  aria-label="Resize article and summary columns (Double-click to reset)"
-                  className="resize-handle-vertical"
+                </div>
+              ) : (
+                <PanelGroup
+                  ref={horizontalGroupRef}
+                  direction="horizontal"
+                  id="reader-horizontal-group"
+                  onLayout={handleHorizontalLayout}
+                  className="w-full h-full min-h-0 min-w-0 flex"
                 >
-                  <div className="resize-handle-grip-v" />
-                </PanelResizeHandle>
+                  {/* Left Panel: Article Column */}
+                  <Panel
+                    id="reader-article-panel"
+                    defaultSize={panelSizesH[0]}
+                    minSize={30}
+                    maxSize={75}
+                    className="min-h-0 min-w-0 h-full"
+                  >
+                    <ErrorBoundary panelName="Article Reader Desk">
+                      <ArticlePanel />
+                    </ErrorBoundary>
+                  </Panel>
 
-                {/* Right Panel: Summary Column */}
-                <Panel
-                  id="reader-summary-panel"
-                  defaultSize={panelSizesH[1]}
-                  minSize={25}
-                  maxSize={70}
-                  className="min-h-0 min-w-0 h-full"
-                >
-                  <ErrorBoundary panelName="Summary Wire Desk">
-                    <SummaryPanel />
-                  </ErrorBoundary>
-                </Panel>
-              </PanelGroup>
+                  {/* Vertical Drag Handle between Article & Summary */}
+                  <PanelResizeHandle
+                    id="handle-article-summary"
+                    onDoubleClick={handleResetH}
+                    aria-label="Resize article and summary columns (Double-click to reset)"
+                    className="resize-handle-vertical"
+                  >
+                    <div className="resize-handle-grip-v" />
+                  </PanelResizeHandle>
+
+                  {/* Right Panel: Summary Column */}
+                  <Panel
+                    id="reader-summary-panel"
+                    defaultSize={panelSizesH[1]}
+                    minSize={25}
+                    maxSize={70}
+                    className="min-h-0 min-w-0 h-full"
+                  >
+                    <ErrorBoundary panelName="Summary Wire Desk">
+                      <SummaryPanel />
+                    </ErrorBoundary>
+                  </Panel>
+                </PanelGroup>
+              )}
             </Panel>
 
             {/* Horizontal Drag Handle between Reading Desk & Bottom Card Strip */}

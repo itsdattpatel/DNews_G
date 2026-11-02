@@ -11,7 +11,7 @@
 | **1** | **Dates on Every News Item** | 🟢 `DONE` | Migration 006, Vitest (82 backend + 104 frontend tests pass), Playwright screenshots (paper, night, category-rail) | 2026-11-01 22:56 |
 | **1B** | **Real-Time Foundation** | 🟢 `DONE` | Migration 007 (`app_sessions`), 30s heartbeat, crash/unclean exit detector, `/api/time` clock sync, `<WelcomeBackCard>`, `<HatchedSparkline>`, Vitest (87 backend + 112 frontend pass), screenshots | 2026-11-01 23:18 |
 | **2** | **Auto-Advance (7 Seconds)** | 🟢 `DONE` | 7s countdown hairline, left panel hover pause, settings drawer slider (3-60s), Spacebar toggle, Arrow resets, Vitest (90 backend + 118 frontend tests pass), Playwright screenshots | 2026-11-02 09:50 |
-| **3** | **Plain Mode (Zero AI)** | ⚪ `PENDING` | Plain mode switch, zero AI call test, rule-based category tagging, layout screenshot | - |
+| **3** | **Plain Mode (Zero AI)** | 🟢 `DONE` | Plain mode switch, zero AI call engine, rule-based category tagging & breaking heuristics, full-width reader (100%), offline badges across surfaces, catch-up summarization endpoint, Vitest (99 backend + 122 frontend tests pass), Playwright screenshots | 2026-11-02 10:12 |
 | **4** | **Safety Net: Backups & Guards** | ⚪ `PENDING` | Automated DB backup test, test-data guard blocking test runs on real DB, export/import test | - |
 | **5** | **TV Channel Catalog & Top 5** | ⚪ `PENDING` | IPTV catalog caching, `config/channels-top5.json` verified links, deduplication tests | - |
 | **6** | **Playback & YouTube Adder** | ⚪ `PENDING` | HLS stream proxy with SSRF check, YouTube embed API, link adder with oEmbed preview | - |
@@ -83,6 +83,25 @@
 - TopBar: Quick access button `[▷ Auto (7s)]` / `[⏸ Auto (7s)]`.
 - All 90 backend tests (27 suites) and 118 frontend tests (24 suites) pass cleanly.
 - Visual validation completed in Paper mode, Night Edition mode, and Settings Drawer (`ui-step2-autoadvance-active-paper.png`, `ui-step2-autoadvance-hover-paused.png`, `ui-step2-settings-autoadvance.png`, `ui-step2-autoadvance-night.png`).
+
+### Step 3: Plain Mode (Zero AI, Full-Width Reader) (Completed)
+- Backend `settings.ts`: added `plain_mode_enabled: { type: 'bool' }` (default `false`), endpoints `GET /api/settings/unenriched-count` and `POST /api/settings/summarize-unenriched`.
+- Pipeline `enricher.ts`:
+  - When `plain_mode_enabled === '1'`, completely bypasses `routeAIRequest` with zero external network or provider calls.
+  - Ingests articles directly with `status = 'done'`, `summary = NULL`, `anchor_phrases = NULL`, and `ai_processed_at = NULL`.
+  - Built `applyRuleBasedCategorization`: deterministic lexical classifier covering 11 broadsheet categories (Politics, Business, Tech, Science, Health, Sports, Entertainment, Environment, Animals, Crime, World).
+  - Built `calculateDeterministicBreakingScore`: assigns scores based on cross-outlet/cross-country clusters (>= 3 outlets across >= 2 countries -> 90) and emergency headline keywords.
+  - Built `summarizeUnenrichedBatch(limit)` and `getUnenrichedCount()` for manual catch-up summarization when Plain Mode is turned off.
+- Frontend Layout in `Shell.tsx`:
+  - When `plain_mode_enabled` is true, collapses/hides `SummaryPanel` and vertical resize handle, expanding `ArticlePanel` to 100% width.
+  - When toggled back off, preserves and restores user's resizable split proportions.
+- Offline Disclaimers & Badges per PRD A 3.2.5:
+  - TopBar: displays `[Plain: ON]` and `[• PLAIN MODE (ZERO AI)]` ink badge on `ProviderBadge`.
+  - Article Desk: displays `[Translation offline (Plain Mode)]` and `[Highlights offline (Plain Mode)]`.
+  - Archival News Morgue (`ArchiveChat`): disables AI synthesis, displays `[FTS keyword search only (AI synthesis offline)]`, and runs pure SQLite FTS5 search.
+  - Settings Drawer: Section 7 with Plain Mode toggle and "Summarize un-enriched dispatches" batch trigger showing remaining count.
+- All 99 backend tests (28 suites) and 122 frontend tests (25 suites) pass cleanly (total 221 tests passing).
+- Visual validation completed in Paper mode, Night Edition mode, Settings drawer, and Archival Morgue (`ui-step3-plainmode-fullwidth-paper.png`, `ui-step3-plainmode-fullwidth-night.png`, `ui-step3-settings-plainmode.png`, `ui-step3-archive-plainmode.png`).
 
 
 

@@ -214,6 +214,20 @@ export const TopBar: React.FC = () => {
           </button>
         )}
 
+        {/* Quick Plain Mode Switch */}
+        <button
+          id="btn-topbar-plain-mode"
+          onClick={() => updateSettings({ plain_mode_enabled: !settings.plain_mode_enabled })}
+          className={`hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-xs border text-[0.6875rem] font-mono font-bold transition-all shadow-xs ${
+            settings.plain_mode_enabled
+              ? 'border-ink bg-ink text-paper'
+              : 'border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-ink'
+          }`}
+          title={settings.plain_mode_enabled ? "Plain Mode is ON (Zero AI, Full-Width Reader). Click to switch to Standard Mode." : "Switch to Plain Mode (Zero AI, Zero Quota, Full-Width Reader)."}
+        >
+          <span>Plain: {settings.plain_mode_enabled ? 'ON' : 'OFF'}</span>
+        </button>
+
         {/* Provider Badge */}
         <ProviderBadge />
 

@@ -6,6 +6,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getSetting, setSetting } from '../db/db';
 import { refreshInterval } from '../fetch/scheduler';
+import { getUnenrichedCount, summarizeUnenrichedBatch } from '../pipeline/enricher';
 
 export const settingsRouter = Router();
 
@@ -22,6 +23,8 @@ const SETTINGS_SCHEMA: Record<string, { type: 'int' | 'bool' | 'str' | 'float'; 
   auto_advance_enabled: { type: 'bool' },
   auto_advance_interval_sec: { type: 'int', min: 3, max: 60 },
   auto_advance_pause_on_hover: { type: 'bool' },
+  // Plain Mode (PRD A Category 3)
+  plain_mode_enabled: { type: 'bool' },
 };
 
 settingsRouter.get('/', (_req: Request, res: Response) => {
@@ -73,6 +76,29 @@ settingsRouter.patch('/', (req: Request, res: Response) => {
   res.json(getAllSettings());
 });
 
+/**
+ * GET /api/settings/unenriched-count
+ * Returns how many articles were ingested in Plain Mode without AI summaries.
+ */
+settingsRouter.get('/unenriched-count', (_req: Request, res: Response) => {
+  res.json({ count: getUnenrichedCount() });
+});
+
+/**
+ * POST /api/settings/summarize-unenriched
+ * Catch-up enriches a batch of unsummarized articles (PRD A Category 3.2.6).
+ */
+settingsRouter.post('/summarize-unenriched', async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(String(req.body?.limit || 20), 10), 50);
+    const result = await summarizeUnenrichedBatch(limit);
+    res.json(result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: msg, code: 'ENRICHMENT_ERROR' });
+  }
+});
+
 function getAllSettings(): Record<string, unknown> {
   const keys = Object.keys(SETTINGS_SCHEMA);
   const result: Record<string, unknown> = {};
@@ -86,7 +112,7 @@ function getAllSettings(): Record<string, unknown> {
       defaultVal = '1';
     } else if (key === 'auto_advance_interval_sec') {
       defaultVal = '7';
-    } else if (key === 'auto_advance_enabled') {
+    } else if (key === 'auto_advance_enabled' || key === 'plain_mode_enabled') {
       defaultVal = '0';
     }
 

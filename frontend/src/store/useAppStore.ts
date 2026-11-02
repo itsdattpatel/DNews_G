@@ -366,6 +366,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     auto_advance_enabled: false,
     auto_advance_interval_sec: 7,
     auto_advance_pause_on_hover: true,
+    plain_mode_enabled: false,
   },
 
   setSettingsOpen: (open) => {

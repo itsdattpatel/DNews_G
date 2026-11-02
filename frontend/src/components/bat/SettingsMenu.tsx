@@ -23,6 +23,8 @@ import {
   BookOpen,
   Timer,
   MousePointer,
+  ZapOff,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -37,13 +39,41 @@ export const SettingsMenu: React.FC = () => {
   // Local draft state for form edits
   const [formData, setFormData] = useState<AppSettings>(storeSettings);
   const [isSaving, setIsSaving] = useState(false);
+  const [unenrichedCount, setUnenrichedCount] = useState<number>(0);
+  const [isSummarizing, setIsSummarizing] = useState(false);
 
   // Sync draft state whenever settings drawer opens
   useEffect(() => {
     if (isSettingsOpen) {
       setFormData(storeSettings);
+      fetch('/api/settings/unenriched-count')
+        .then((res) => res.json())
+        .then((data) => setUnenrichedCount(data.count ?? 0))
+        .catch(() => {});
     }
   }, [isSettingsOpen, storeSettings]);
+
+  const handleSummarizeUnenriched = async () => {
+    setIsSummarizing(true);
+    try {
+      const res = await fetch('/api/settings/summarize-unenriched', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 20 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUnenrichedCount(data.remaining ?? 0);
+        toast.success(`Summarized ${data.processed} dispatch(es). Remaining: ${data.remaining}`);
+      } else {
+        toast.error('Failed to run summarization batch.');
+      }
+    } catch {
+      toast.error('Network error running summarization.');
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
 
   // Keyboard navigation: Close on Escape
   useEffect(() => {
@@ -460,6 +490,70 @@ export const SettingsMenu: React.FC = () => {
                   {(formData.auto_advance_pause_on_hover ?? true) ? 'ON' : 'OFF'}
                 </button>
               </div>
+            </div>
+
+            {/* Section 7: Plain Mode (Zero AI Desk) (PRD A Category 3) */}
+            <div className="border-t border-paper-border pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="font-serif font-bold text-ink flex items-center gap-1.5">
+                    <ZapOff className="w-4 h-4 text-accent" />
+                    <span>Plain Mode (Zero AI Desk)</span>
+                  </label>
+                  <p className="font-ui text-[11px] text-ink-secondary mt-0.5">
+                    Full-width reader with zero AI calls and zero quota consumption
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  id="btn-toggle-plain-mode"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      plain_mode_enabled: !formData.plain_mode_enabled,
+                    })
+                  }
+                  className={`px-3 py-0.5 border font-mono text-xs font-bold uppercase transition-colors ${
+                    formData.plain_mode_enabled
+                      ? 'border-ink bg-ink text-paper'
+                      : 'border-paper-border bg-paper text-ink-muted'
+                  }`}
+                >
+                  {formData.plain_mode_enabled ? 'ON' : 'OFF'}
+                </button>
+              </div>
+
+              <div className="p-2.5 border border-paper-border bg-paper-alt/60 rounded-xs space-y-1.5 font-ui text-xs text-ink-secondary">
+                <p>
+                  <strong>When Plain Mode is ON:</strong> The right summary pane is hidden, the main article panel expands to 100% width, and new dispatches are categorized via deterministic rule heuristics without invoking external AI providers.
+                </p>
+              </div>
+
+              {/* Catch-Up Summarization Button (PRD A Category 3.2.6) */}
+              {!formData.plain_mode_enabled && (
+                <div className="flex items-center justify-between pt-1 border-t border-paper-border/60">
+                  <div>
+                    <span className="font-serif text-xs font-semibold text-ink flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-accent" />
+                      <span>Un-enriched Dispatches</span>
+                    </span>
+                    <span className="font-mono text-[11px] text-ink-muted">
+                      {unenrichedCount > 0
+                        ? `${unenrichedCount} item(s) pending AI summarization`
+                        : 'All ingested dispatches are fully enriched'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    id="btn-summarize-unenriched"
+                    disabled={unenrichedCount === 0 || isSummarizing}
+                    onClick={handleSummarizeUnenriched}
+                    className="px-3 py-1 border border-paper-border hover:border-ink bg-paper font-mono text-[11px] font-bold text-ink hover:bg-paper-alt disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isSummarizing ? 'Enriching…' : 'Summarize Dispatches'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </form>

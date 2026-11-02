@@ -34,6 +34,7 @@ export const ArticlePanel: React.FC = () => {
   const isEvidenceHighlightEnabled = useAppStore(
     (s) => s.settings.evidence_highlight_enabled ?? true
   );
+  const isPlainMode = useAppStore((s) => s.settings.plain_mode_enabled ?? false);
   const setIsArticlePanelHovered = useAppStore((s) => s.setIsArticlePanelHovered);
 
   const [showOriginal, setShowOriginal] = useState(false);
@@ -196,24 +197,48 @@ export const ArticlePanel: React.FC = () => {
           <span className="font-ui text-xs text-ink-muted">
             {readTimeMin} min read
           </span>
+
+          {isPlainMode && (
+            <>
+              <span className="text-ink-muted text-xs">·</span>
+              <span
+                id="badge-plainmode-highlights"
+                className="font-mono text-[0.6875rem] font-semibold text-ink-muted px-2 py-0.5 rounded-xs border border-paper-border bg-paper-alt"
+                title="Plain Mode active: AI evidence highlights are offline"
+              >
+                Highlights offline (Plain Mode)
+              </span>
+            </>
+          )}
         </div>
 
         {/* Translation Switch & Direct Source Link */}
         <div className="flex items-center gap-2">
-          {hasOriginal && (
-            <button
-              id="language-toggle-btn"
-              onClick={() => setShowOriginal(!showOriginal)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xs border text-xs font-semibold transition-all shadow-xs ${
-                showOriginal
-                  ? 'border-ink bg-ink text-paper'
-                  : 'border-paper-border bg-paper-alt text-ink hover:border-ink hover:bg-paper'
-              }`}
-              title="Toggle Original vs English Translation"
+          {isPlainMode ? (
+            <div
+              id="badge-plainmode-translation"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xs border border-paper-border bg-paper-alt text-xs font-mono text-ink-muted"
+              title="Plain Mode active: AI translation is offline"
             >
-              <Languages size={13} />
-              <span>{showOriginal ? `Original (${article.language_detected?.toUpperCase()})` : 'English Edition'}</span>
-            </button>
+              <Languages size={12} className="text-ink-muted" />
+              <span>Translation offline (Plain Mode)</span>
+            </div>
+          ) : (
+            hasOriginal && (
+              <button
+                id="language-toggle-btn"
+                onClick={() => setShowOriginal(!showOriginal)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xs border text-xs font-semibold transition-all shadow-xs ${
+                  showOriginal
+                    ? 'border-ink bg-ink text-paper'
+                    : 'border-paper-border bg-paper-alt text-ink hover:border-ink hover:bg-paper'
+                }`}
+                title="Toggle Original vs English Translation"
+              >
+                <Languages size={13} />
+                <span>{showOriginal ? `Original (${article.language_detected?.toUpperCase()})` : 'English Edition'}</span>
+              </button>
+            )
           )}
 
           {article.url && (

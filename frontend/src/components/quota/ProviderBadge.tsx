@@ -8,7 +8,22 @@ import { useAppStore } from '../../store/useAppStore';
 export const ProviderBadge: React.FC = () => {
   const currentProvider = useAppStore((s) => s.currentProvider);
   const quota = useAppStore((s) => s.quota);
+  const isPlainMode = useAppStore((s) => s.settings.plain_mode_enabled ?? false);
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
+
+  if (isPlainMode) {
+    return (
+      <div
+        onClick={() => setSettingsOpen(true)}
+        title="Plain Mode Active (Zero AI): All external AI calls bypassed. Dispatches ingested raw with zero quota usage. Click to manage settings."
+        id="provider-badge"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xs border border-paper-border bg-paper-alt hover:border-ink font-mono text-[0.6875rem] font-bold text-ink-secondary hover:text-ink cursor-pointer transition-colors shadow-xs"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-ink-muted inline-block" />
+        <span className="tracking-wider uppercase">PLAIN MODE (ZERO AI)</span>
+      </div>
+    );
+  }
 
   const getStatusColor = (provider: string) => {
     switch (provider) {

@@ -5,7 +5,7 @@
  * Provides an honest editorial fallback when external AI providers are unavailable
  * so real global news flows without blocking on third-party API keys.
  */
-import { getDb } from '../db/db';
+import { getDb, getSetting } from '../db/db';
 import { FEATURES } from '../../../config/features';
 import { PROVIDER_CHAIN } from '../../../config/ai-providers';
 import { routeAIRequest } from '../ai/router';
@@ -18,6 +18,88 @@ import { detectAlerts } from '../alerts/detector';
 import { checkWatchlistMatches } from '../alerts/watchlist-checker';
 
 export type ArticleRow = DbArticle & { source_country: string; source_name: string };
+
+/**
+ * Deterministic rule-based categorization engine for Plain Mode (PRD A Category 3).
+ * Classifies articles using lexical patterns, outlet context, and broadsheet categories.
+ */
+export function applyRuleBasedCategorization(
+  title: string,
+  body: string,
+  _sourceCountry?: string,
+  _sourceName?: string
+): Array<'World' | 'Politics' | 'Business' | 'Tech' | 'Science' | 'Health' | 'Sports' | 'Entertainment' | 'Environment' | 'Crime' | 'Animals'> {
+  const text = `${title} ${body}`.toLowerCase();
+  const categories: Array<'World' | 'Politics' | 'Business' | 'Tech' | 'Science' | 'Health' | 'Sports' | 'Entertainment' | 'Environment' | 'Crime' | 'Animals'> = [];
+
+  if (text.match(/\b(politic|minister|president|election|parliament|government|party|vote|law|court|senate|diplomat|treaty|embassy|legislation)\b/i)) {
+    categories.push('Politics');
+  }
+  if (text.match(/\b(finance|economy|market|bank|stock|trade|business|dollar|euro|inflation|rate|gdp|yield|invest|shares|nasdaq|dow)\b/i)) {
+    categories.push('Business');
+  }
+  if (text.match(/\b(ai|tech|technology|software|cyber|chip|device|apple|google|meta|digital|telecom|algorithm|semiconductor|hardware|robot)\b/i)) {
+    categories.push('Tech');
+  }
+  if (text.match(/\b(space|nasa|science|biology|physics|research|study|discovery|telescope|astronomy|quantum|galaxy|fossil)\b/i)) {
+    categories.push('Science');
+  }
+  if (text.match(/\b(health|medical|virus|disease|hospital|doctor|vaccine|cancer|drug|surgery|patient|outbreak|who)\b/i)) {
+    categories.push('Health');
+  }
+  if (text.match(/\b(football|soccer|cricket|tennis|basketball|olympic|fifa|tournament|champion|league|stadium|match|race)\b/i)) {
+    categories.push('Sports');
+  }
+  if (text.match(/\b(film|movie|cinema|actor|actress|music|album|song|hollywood|theatre|concert|festival|award)\b/i)) {
+    categories.push('Entertainment');
+  }
+  if (text.match(/\b(climate|warming|flood|storm|quake|rain|wildfire|forest|pollution|environment|carbon|cyclone|monsoon|emission)\b/i)) {
+    categories.push('Environment');
+  }
+  if (text.match(/\b(animal|species|wildlife|bird|fish|tiger|elephant|dog|cat|bear|endangered|leopard|habitat|fauna|flora)\b/i)) {
+    categories.push('Animals');
+  }
+  if (text.match(/\b(crime|police|arrest|murder|theft|court|trial|prison|gang|fraud|investigation|robbery|scam)\b/i)) {
+    categories.push('Crime');
+  }
+
+  // Fallback to World if no specific category matches
+  if (categories.length === 0) {
+    categories.push('World');
+  }
+
+  return categories;
+}
+
+/**
+ * Deterministic breaking score calculation for Plain Mode (PRD A Category 3.2.4).
+ * Combines cross-outlet cluster rules and urgent headline lexicons.
+ */
+export function calculateDeterministicBreakingScore(
+  title: string,
+  body: string,
+  clusterOutletsCount?: number,
+  clusterCountriesCount?: number
+): number {
+  if (clusterOutletsCount !== undefined && clusterCountriesCount !== undefined) {
+    if (clusterOutletsCount >= 3 && clusterCountriesCount >= 2) {
+      return 90;
+    }
+    if (clusterOutletsCount >= 2) {
+      return 70;
+    }
+  }
+
+  const text = `${title} ${body}`.toLowerCase();
+  if (text.match(/\b(breaking|bulletin|urgent|emergency|explosion|earthquake|tsunami|assassination|declaration of war|state of emergency)\b/i)) {
+    return 85;
+  }
+  if (text.match(/\b(crisis|disaster|casualt|attack|fatal|alert|evacuat|clash)\b/i)) {
+    return 65;
+  }
+
+  return 15;
+}
 
 /**
  * Creates an honest editorial fallback for an article when AI providers are unavailable.
@@ -177,6 +259,14 @@ export async function runEnrichmentPass(): Promise<void> {
     `UPDATE articles SET status = 'processing' WHERE id IN (${ids.map(() => '?').join(',')})`,
   ).run(...ids);
 
+  // Check Plain Mode setting (PRD A Category 3: Zero AI, Zero Quotas)
+  const isPlainMode = getSetting('plain_mode_enabled', '0') === '1';
+  if (isPlainMode) {
+    console.log(`[Enricher] Plain Mode active (Zero AI) — processing ${pending.length} articles via deterministic rules`);
+    processPlainModeBatch(pending);
+    return;
+  }
+
   // Determine batch size from primary provider config
   const primaryConfig = PROVIDER_CHAIN[0];
   const batchSize = primaryConfig?.batchSize ?? 20;
@@ -333,4 +423,151 @@ async function processBatch(batch: ArticleRow[]): Promise<void> {
   } catch (err) {
     console.warn('[Enricher] Alert detection warning:', err);
   }
+}
+
+/**
+ * Processes articles without any external AI API calls (PRD A Category 3).
+ * Sets summary = NULL, applies deterministic categorization and breaking heuristics,
+ * and marks articles as 'done'.
+ */
+export function processPlainModeBatch(batch: ArticleRow[]): void {
+  const db = getDb();
+
+  const updateArticle = db.prepare(`
+    UPDATE articles SET
+      title_english = coalesce(title_english, title_original),
+      body_english  = coalesce(body_english, body_original),
+      summary       = NULL,
+      breaking_score = @breaking_score,
+      anchor_phrases = NULL,
+      ai_processed_at = NULL,
+      status        = 'done'
+    WHERE id = @id
+  `);
+
+  const insertKeyword = db.prepare(`
+    INSERT OR IGNORE INTO keywords (article_id, keyword) VALUES (?, ?)
+  `);
+
+  const insertCategory = db.prepare(`
+    INSERT OR IGNORE INTO article_categories (article_id, category) VALUES (?, ?)
+  `);
+
+  const stopWords = new Set([
+    'the', 'and', 'for', 'that', 'with', 'this', 'from', 'have', 'has', 'had', 'not', 'are', 'was', 'were',
+    'been', 'will', 'would', 'could', 'should', 'about', 'after', 'into', 'more', 'their', 'they', 'what',
+    'which', 'when', 'where', 'who', 'whom', 'whose', 'why', 'how', 'being', 'does', 'done', 'doing',
+    'than', 'then', 'also', 'just', 'some', 'any', 'over', 'such', 'take', 'them', 'very', 'news',
+    'said', 'says', 'reuters', 'hindu', 'times', 'post', 'press', 'associated', 'report', 'reports',
+    'today', 'yesterday', 'first', 'second', 'years', 'month', 'week', 'amid', 'both', 'between',
+  ]);
+
+  const writeAll = db.transaction((rows: ArticleRow[]) => {
+    for (const article of rows) {
+      const title = (article.title_original || 'World News Dispatch').trim();
+      const rawBody = (article.body_original || article.title_original || '').trim();
+      const cleanBody = rawBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+      // Rule-based categorization
+      const categories = applyRuleBasedCategorization(title, cleanBody, article.source_country, article.source_name);
+
+      // Deterministic keyword extraction
+      const words = `${title} ${cleanBody}`.toLowerCase().match(/[a-z]{4,}/g) || [];
+      const keywordFreq = new Map<string, number>();
+      for (const w of words) {
+        if (!stopWords.has(w)) {
+          keywordFreq.set(w, (keywordFreq.get(w) || 0) + 1);
+        }
+      }
+      const keywords = Array.from(keywordFreq.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 7)
+        .map(([w]) => w);
+      if (keywords.length === 0) {
+        keywords.push('world', 'news');
+      }
+
+      // Deterministic breaking score
+      const breakingScore = calculateDeterministicBreakingScore(title, cleanBody);
+
+      updateArticle.run({
+        id: article.id,
+        breaking_score: breakingScore,
+      });
+
+      for (const kw of keywords) {
+        insertKeyword.run(article.id, kw);
+      }
+
+      for (const cat of categories) {
+        insertCategory.run(article.id, cat);
+      }
+
+      // Emit SSE new_article event
+      emitSseEvent('new_article', { article_id: article.id });
+    }
+  });
+
+  writeAll(batch);
+  console.log(`[Enricher] Plain Mode batch completed — ${batch.length} articles processed with zero AI calls`);
+
+  // Group newly enriched articles into story clusters
+  try {
+    runClusteringPass();
+  } catch (err) {
+    console.warn('[Enricher] Clustering pass warning:', err);
+  }
+
+  // Detect breaking news and cluster alerts
+  try {
+    const batchIds = batch.map((a) => a.id);
+    const triggered = detectAlerts(batchIds);
+    if (triggered.length > 0) {
+      console.log(`[Enricher] Detected ${triggered.length} breaking alert(s) in Plain Mode`);
+    }
+
+    const watchlistAlerts = checkWatchlistMatches(batchIds);
+    if (watchlistAlerts.length > 0) {
+      console.log(`[Enricher] Triggered ${watchlistAlerts.length} watchlist alert(s) in Plain Mode`);
+    }
+  } catch (err) {
+    console.warn('[Enricher] Alert detection warning:', err);
+  }
+}
+
+/**
+ * Returns the count of articles ingested in Plain Mode that have no AI summary.
+ */
+export function getUnenrichedCount(): number {
+  const db = getDb();
+  const row = db.prepare(`SELECT COUNT(*) as cnt FROM articles WHERE status = 'done' AND summary IS NULL`).get() as { cnt: number } | undefined;
+  return row?.cnt ?? 0;
+}
+
+/**
+ * Manually catch-up enriches a batch of unsummarized dispatches via AI (PRD A Category 3.2.6).
+ * Triggered on user demand from Settings or Control Room.
+ */
+export async function summarizeUnenrichedBatch(limit = 20): Promise<{ processed: number; remaining: number }> {
+  const db = getDb();
+  const unenriched = db.prepare(`
+    SELECT a.*, s.country AS source_country, s.name AS source_name
+    FROM articles a
+    JOIN sources s ON a.source_id = s.id
+    WHERE a.status = 'done' AND a.summary IS NULL
+    ORDER BY a.fetched_at ASC
+    LIMIT ?
+  `).all(limit) as ArticleRow[];
+
+  if (unenriched.length === 0) {
+    return { processed: 0, remaining: 0 };
+  }
+
+  const ids = unenriched.map((a) => a.id);
+  db.prepare(`UPDATE articles SET status = 'processing' WHERE id IN (${ids.map(() => '?').join(',')})`).run(...ids);
+
+  await processBatch(unenriched);
+
+  const remaining = getUnenrichedCount();
+  return { processed: unenriched.length, remaining };
 }
