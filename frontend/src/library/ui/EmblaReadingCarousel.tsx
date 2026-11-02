@@ -136,3 +136,4 @@ export const EmblaReadingCarousel: React.FC<EmblaReadingCarouselProps> = ({
     </div>
   );
 };
+

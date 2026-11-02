@@ -46,3 +46,4 @@ export const InkStampBadge: React.FC<InkStampBadgeProps> = ({
     </span>
   );
 };
+

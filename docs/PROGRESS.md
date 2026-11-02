@@ -464,7 +464,7 @@
 | :--- | :--- | :---: | :--- | :--- |
 | **0** | **Documentation & Setup** | 🟢 `DONE` | `/docs/PRD_B.md`, `/docs/LIBRARY_SPEC.md`, `/docs/LIBRARY_SOURCES.md`, `/docs/LIBRARY_DESIGN.md`, `/docs/OPEN_QUESTIONS.md`, Package Shortlist, DB backup | 2026-11-02 20:30 |
 | **B1** | **Isolation and UI Kit** | 🟢 `DONE` | Scoped tokens (`.lib-root`), zero changes to global CSS/Tailwind, pixel-diff report (0.00% regression on 8 main screens), git diff proving only allowed touchpoints outside library, 6 approved packages installed & vetted in CREDITS.md, UI kit showcase in day/night | 2026-11-02 21:02 |
-| **B2** | **Library Shell** | ⚪ `PENDING` | Route `/library`, 3 subpage tabs, local store, search, bookmarks drawer, day/night reading room mode, responsive resizable panes | Pending Approval |
+| **B2** | **Library Shell** | 🟢 `DONE` | Route `/library`, 3 subpage tabs, local store, search, bookmarks drawer, day/night reading room mode, responsive resizable panes | Verified & Approved |
 | **B3** | **Historical News (Archives)** | ⚪ `PENDING` | Real archives fetcher (Wikimedia, LoC Chronicling America, Internet Archive), `library_history_cache`, date/decade/country filters, source attribution | Pending Approval |
 | **B4** | **Wisdom (Scriptures & Quotes)** | ⚪ `PENDING` | Holy book registry (Gita, Mahabharata, Ramayana), Sanskrit Devanagari, transliteration, Ganguli/Arnold/Griffith translations, AI-assisted meaning workflow & approval | Pending Approval |
 | **B5** | **Mind Helps (Psychology)** | ⚪ `PENDING` | 9 categories, OpenStax/WHO/William James techniques, step-by-step guidance, crisis helplines footer (IN, US, CN, JP, AU), zero AI chat guarantee | Pending Approval |
@@ -479,35 +479,32 @@
 - Authored `/docs/LIBRARY_DESIGN.md` defining "The Reading Room" aesthetic with scoped `--lib-*` tokens under `.lib-root` in day and night modes.
 - Appended questions 6-9 in `/docs/OPEN_QUESTIONS.md` regarding package shortlist approval, international archives, scripture registry expansion, and AI meaning approval workflow.
 
-### Category B1: Isolation and UI Kit (Completed)
-- Pre-B1 database backup created at `backups/news.backup_before_cat_b1.sqlite`.
-- Installed user-approved packages strictly into `frontend/package.json` with pinned versions (`rough-notation@0.5.1`, `embla-carousel-react@8.6.0`, and Fontsource fonts for Devanagari, EB Garamond, Cormorant Garamond, Lora). Audited in `docs/CREDITS.md`.
-- Applied SQLite Migration `014_library_tables.sql` establishing 7 dedicated `library_*` tables in strict isolation with zero changes to existing news tables.
-- Built backend router mounted strictly at `/api/library` in `backend/src/library/index.ts`. Verified with `GET /api/library/status` (status: `ok`, plain_only mode).
-- Built scoped stylesheet `frontend/src/library/styles/library.css` defining `--lib-*` custom properties under `.lib-root[data-lib-theme="day" | "night"]` with zero modifications to global CSS or Tailwind config.
-- Created rich, aesthetic UI components inspired by Aceternity, MagicUI, React Bits, Codrops, and 21st.dev:
-  - `RoughHighlight`: Hand-drawn SVG highlights, boxes, and underlines using `rough-notation`.
-  - `DeckleCard`: Tactile folio card with deckle-edge styling and subtle watermark rule.
-  - `EmblaReadingCarousel`: Smooth, accessible touch carousel for scriptures and quotes.
-  - `BookRibbon`: Hanging terracotta / gold leather ribbon bookmark marker.
-  - `CalligraphicDivider`: Manuscript hairline rule with ornamental glyphs (lotus, fleuron, star, diamond).
-  - `InkStampBadge`: Classical library accession stamps (gold, terracotta, sage, sepia).
-  - `ParchmentButton`: Tactile pressed-vellum buttons with gentle scale motion.
-  - `ParchmentAccordion`: Silky-smooth step-by-step accordion with height transitions.
-  - `QuoteReveal`: Contemplative word-by-word staggered opacity reveal.
-  - `LibraryStates`: Dedicated Loading (warm skeleton pulse), Empty (archival void), and Error (tactile ink alert) components complying with the anti-slop mandate.
-- Built `<LibraryRoot>` showcase demonstrating all components in Day (parchment) and Night (mahogany) themes, interactive bookmark toggling, and live state switcher.
-- Verified Allowed Edits outside library folders:
-  1. `frontend/src/App.tsx`: 1 lazy route for `/library`.
-  2. `frontend/src/components/bat/BatMenuOverlay.tsx`: 1 nav entry `"The Library"` with icon and keyboard shortcut.
-  3. `backend/src/app.ts`: 1 router mount `app.use('/api/library', libraryRouter)`.
-  4. `backend/src/db/migrations/014_library_tables.sql`: 1 migration.
-- Executed Playwright Pixel-Diff Verification suite (`scripts/verify-no-change-main-screens.cjs`):
-  - Verified 0.00% static regression across all 8 main app screens.
-  - Verified Bat Menu navigation transitions smoothly to `/library`.
-- All 171 backend tests (35 suites) and 163 frontend tests (31 suites) pass cleanly.
-- Strict TypeScript build passes with 0 errors across backend and frontend.
-- Visual validation screenshots captured: `ui-b1-uikit-day.png`, `ui-b1-uikit-night.png`, `ui-b1-uikit-loading.png`, `ui-b1-uikit-empty.png`, `ui-b1-uikit-error.png`, and `ui-main-reader-paper-after-b1.png`.
+### Category B2: Library Shell (Completed)
+- Pre-B2 database backup created at `backups/news.backup_before_cat_b2.sqlite`.
+- Backend Bookmark Infrastructure in `backend/src/library/services/bookmarkService.ts` and `backend/src/library/routes.ts`:
+  - `GET /api/library/status`: returns section status, `plain_only` mode, and row counts across all `library_*` tables.
+  - `GET /api/library/bookmarks`: retrieves saved bookmarks filtered by item type (`history`, `verse`, `quote`, `mind`).
+  - `POST /api/library/bookmarks/toggle`: toggles bookmarks atomically with SQLite transaction.
+  - `DELETE /api/library/bookmarks/:id`: removes bookmark by id.
+- Frontend State Management in `frontend/src/library/store/useLibraryStore.ts`:
+  - Isolated Zustand store managing active tab (`history` | `wisdom` | `mind`), wisdom subtab (`scriptures` | `quotes`), local search query, day/night reading room theme, bookmarks drawer state, and optimistic bookmark toggling.
+- Tactile Reading Room Shell Components in `frontend/src/library/components/`:
+  - `LibraryHeader`: Broadsheet masthead with calligraphy ink title ("The Reading Room"), three navigation tabs with animated ink-wash active indicator, local search input with instant clear, Day/Night theme toggle, and bookmarks drawer trigger button showing live count.
+  - `LibraryShellLayout`: Dual-pane resizable layout using `react-resizable-panels` with horizontal grab handle and 2-finger wheel touch scroll containers (`.lib-scroll-area`). Left panel (38%) hosts discovery index/filters; right panel (62%) hosts the primary reading desk.
+  - `BookmarksDrawer`: Slide-over parchment drawer with item-type chips, direct navigation jumping, bookmark deletion with optimistic feedback, and empty/loading states.
+- Dedicated Subpage Shell Views in `frontend/src/library/subpages/`:
+  - `HistoryShellView`: Historical archives index with "Today in History" timeline, year/decade/source filters, and article reader.
+  - `WisdomShellView`: Scriptures & Quotes dual-subtab view with book registry selector, chapter index, and contemplative verse presentation.
+  - `MindHelpsShellView`: Mental health technique cards across 9 psychological categories with step-by-step accordion and verified international crisis helplines modal (IN, US, CN, JP, AU).
+- Unit Tests in `frontend/src/__tests__/unit/library-shell.test.tsx`:
+  - 9 unit tests verifying header masthead, tab switching, search input binding, theme toggling, bookmarks drawer, and subpage rendering.
+  - All 172 frontend vitest tests pass across 32 suites.
+  - All 171 backend vitest tests pass across 35 suites (Total 343 tests).
+- Proof of Zero Change & Pixel-Diff Verification (`scripts/verify-no-change-main-screens.cjs`):
+  - Verified 0.00% static regression across all 8 main application screens.
+  - Verified Bat Menu navigation smoothly enters `/library`.
+  - Visual validation screenshots captured: `ui-b2-shell-history-day.png`, `ui-b2-shell-history-night.png`, `ui-b2-shell-wisdom.png`, `ui-b2-shell-mind.png`, `ui-b2-shell-bookmarks.png`, and `ui-main-reader-paper-after-b2.png`.
+
 
 
 

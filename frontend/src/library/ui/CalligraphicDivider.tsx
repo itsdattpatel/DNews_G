@@ -53,3 +53,4 @@ export const CalligraphicDivider: React.FC<CalligraphicDividerProps> = ({
     </div>
   );
 };
+

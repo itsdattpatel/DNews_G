@@ -53,3 +53,4 @@ export const DeckleCard: React.FC<DeckleCardProps> = ({
     </motion.div>
   );
 };
+

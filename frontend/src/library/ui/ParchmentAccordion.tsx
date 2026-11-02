@@ -91,3 +91,4 @@ export const ParchmentAccordion: React.FC<ParchmentAccordionProps> = ({
     </div>
   );
 };
+

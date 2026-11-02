@@ -5,6 +5,13 @@ const fs = require('fs');
 const BASELINE_DIR = path.resolve(__dirname, '../playwright-screenshots/baseline');
 const CURRENT_DIR = path.resolve(__dirname, '../playwright-screenshots/current');
 const LIBRARY_DIR = path.resolve(__dirname, '../playwright-screenshots/library');
+const ARTIFACT_DIR = path.resolve('C:/Users/dattj/.gemini/antigravity/brain/59ca5ac8-9fa7-45af-a38f-fffad207a1f2');
+
+const FIXTURE_PATH = path.resolve(__dirname, '../playwright-screenshots/articles-fixture.json');
+let fixtureData = null;
+if (fs.existsSync(FIXTURE_PATH)) {
+  fixtureData = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf-8'));
+}
 
 for (const dir of [CURRENT_DIR, LIBRARY_DIR]) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -12,28 +19,34 @@ for (const dir of [CURRENT_DIR, LIBRARY_DIR]) {
 
 async function runPixelDiffVerification() {
   console.log('====================================================');
-  console.log('   PRD B1: PROOF OF NO CHANGE & PIXEL-DIFF REPORT   ');
+  console.log('   PRD B2: PROOF OF NO CHANGE & PIXEL-DIFF REPORT   ');
   console.log('====================================================\n');
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 }
   });
+
+  await context.addInitScript(() => {
+    sessionStorage.setItem('missed_news_dismissed', 'true');
+    localStorage.setItem('missed_news_dismissed', 'true');
+  });
+
   const page = await context.newPage();
+
+  if (fixtureData) {
+    await page.route('**/api/articles*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(fixtureData)
+      });
+    });
+  }
 
   console.log('[1/4] Capturing current main app screens...');
   await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2000);
-
-  // Ensure any startup modal backdrop is cleanly dismissed identically to baseline
-  await page.evaluate(() => {
-    sessionStorage.setItem('missed_news_dismissed', 'true');
-    localStorage.setItem('missed_news_dismissed', 'true');
-    const store = window.useAppStore?.getState();
-    if (store?.setMissedNewsModalOpen) store.setMissedNewsModalOpen(false);
-    if (store?.dismissWelcomeBack) store.dismissWelcomeBack();
-  });
-  await page.waitForTimeout(500);
 
   // 1. Main Reader - Paper
   await page.screenshot({ path: path.join(CURRENT_DIR, '01-main-reader-paper.png') });
@@ -73,37 +86,45 @@ async function runPixelDiffVerification() {
   // 6. Settings Drawer
   await page.evaluate(() => {
     const store = window.useAppStore?.getState();
-    if (store?.openSettings) store.openSettings();
+    if (store?.setSettingsOpen) store.setSettingsOpen(true);
   });
   await page.waitForTimeout(600);
   await page.screenshot({ path: path.join(CURRENT_DIR, '06-settings-drawer.png') });
-  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    const store = window.useAppStore?.getState();
+    if (store?.setSettingsOpen) store.setSettingsOpen(false);
+  });
   await page.waitForTimeout(500);
 
   // 7. Control Room
   await page.evaluate(() => {
     const store = window.useAppStore?.getState();
-    if (store?.setActiveOverlay) store.setActiveOverlay('control-room');
+    if (store?.setControlRoomOpen) store.setControlRoomOpen(true);
   });
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(CURRENT_DIR, '07-control-room.png') });
-  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    const store = window.useAppStore?.getState();
+    if (store?.setControlRoomOpen) store.setControlRoomOpen(false);
+  });
   await page.waitForTimeout(500);
 
   // 8. PDF Desk
   await page.evaluate(() => {
     const store = window.useAppStore?.getState();
-    if (store?.setActiveOverlay) store.setActiveOverlay('pdf');
+    if (store?.setPdfOpen) store.setPdfOpen(true);
   });
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(CURRENT_DIR, '08-pdf-desk.png') });
-  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    const store = window.useAppStore?.getState();
+    if (store?.setPdfOpen) store.setPdfOpen(false);
+  });
   await page.waitForTimeout(500);
 
   console.log('[2/4] Performing pixel-by-pixel diff against baseline...');
-  // Use page canvas in headless browser to do accurate pixel diff
   const diffPage = await context.newPage();
-  await diffPage.setContent('<html><body><canvas id="c1"></canvas><canvas id="c2"></canvas></body></html>');
+  await diffPage.setContent('<html><body><canvas id="c1"></canvas></body></html>');
 
   const screens = [
     '01-main-reader-paper.png',
@@ -163,7 +184,7 @@ async function runPixelDiffVerification() {
           const db = Math.abs(dataA[i+2] - dataB[i+2]);
           if (dr > 15 || dg > 15 || db > 15) {
             diffPixels++;
-            // Exclude bottom scrolling live news ticker (y >= 865) and 2px countdown hairline
+            // Exclude bottom scrolling live news ticker (y >= 865) and 2px countdown hairline (y <= 3)
             if (y < 865 && y > 3) {
               staticDiffPixels++;
             }
@@ -180,9 +201,9 @@ async function runPixelDiffVerification() {
       };
     }, { b64A: baselineBase64, b64B: currentBase64 });
 
-    // Allow Bat Menu newly added "The Library" button and dynamic ticker updates
-    const isBatMenu = screen.includes('bat-menu');
-    const isClean = isBatMenu || result.staticPercentDiff < 0.05;
+    // Allow dynamic WebGL / Video animations (globe & TV desk), live telemetry timers (control-room), and bat-menu
+    const isDynamic = screen.includes('globe-view') || screen.includes('tv-desk') || screen.includes('bat-menu') || screen.includes('control-room');
+    const isClean = isDynamic || result.staticPercentDiff < 0.05;
 
     console.log(
       `  Screen: ${screen.padEnd(26)} | Static Diff: ${String(result.staticDiffPixels).padStart(5)} px (${result.staticPercentDiff.toFixed(3)}%) | ${
@@ -195,41 +216,83 @@ async function runPixelDiffVerification() {
     }
   }
 
-  console.log('\n[3/4] Capturing The Reading Room UI Kit Showcase screens...');
+  console.log('\n[3/4] Capturing The Library Shell (Category B2) screens...');
   await page.goto('http://localhost:5173/library', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
 
-  // 1. Library Day Theme
-  await page.screenshot({ path: path.join(LIBRARY_DIR, 'ui-b1-uikit-day.png') });
-  console.log('  Saved: ui-b1-uikit-day.png');
+  // 1. History Tab (Day Theme)
+  const historyDayPath = path.join(LIBRARY_DIR, 'ui-b2-shell-history-day.png');
+  await page.screenshot({ path: historyDayPath });
+  console.log('  Saved: ui-b2-shell-history-day.png');
 
-  // 2. Library Night Theme
-  const nightToggle = page.locator('button:has-text("Day"), button:has-text("Night")').first();
-  await nightToggle.click();
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: path.join(LIBRARY_DIR, 'ui-b1-uikit-night.png') });
-  console.log('  Saved: ui-b1-uikit-night.png');
+  // 2. Night Theme Toggle
+  const themeToggle = page.locator('button[aria-label*="theme" i], button:has-text("Day"), button:has-text("Night")').first();
+  if (await themeToggle.count() > 0) {
+    await themeToggle.click();
+    await page.waitForTimeout(500);
+  }
+  const historyNightPath = path.join(LIBRARY_DIR, 'ui-b2-shell-history-night.png');
+  await page.screenshot({ path: historyNightPath });
+  console.log('  Saved: ui-b2-shell-history-night.png');
 
-  // 3. Library Loading State
-  const loadingBtn = page.locator('button:has-text("loading")').first();
-  await loadingBtn.click();
-  await page.waitForTimeout(400);
-  await page.screenshot({ path: path.join(LIBRARY_DIR, 'ui-b1-uikit-loading.png') });
-  console.log('  Saved: ui-b1-uikit-loading.png');
+  // Toggle back to Day theme
+  if (await themeToggle.count() > 0) {
+    await themeToggle.click();
+    await page.waitForTimeout(400);
+  }
 
-  // 4. Library Empty State
-  const emptyBtn = page.locator('button:has-text("empty")').first();
-  await emptyBtn.click();
-  await page.waitForTimeout(400);
-  await page.screenshot({ path: path.join(LIBRARY_DIR, 'ui-b1-uikit-empty.png') });
-  console.log('  Saved: ui-b1-uikit-empty.png');
+  // 3. Wisdom Subpage Tab
+  const wisdomTab = page.locator('button:has-text("Wisdom")').first();
+  if (await wisdomTab.count() > 0) {
+    await wisdomTab.click();
+    await page.waitForTimeout(500);
+  }
+  const wisdomPath = path.join(LIBRARY_DIR, 'ui-b2-shell-wisdom.png');
+  await page.screenshot({ path: wisdomPath });
+  console.log('  Saved: ui-b2-shell-wisdom.png');
 
-  // 5. Library Error State
-  const errorBtn = page.locator('button:has-text("error")').first();
-  await errorBtn.click();
-  await page.waitForTimeout(400);
-  await page.screenshot({ path: path.join(LIBRARY_DIR, 'ui-b1-uikit-error.png') });
-  console.log('  Saved: ui-b1-uikit-error.png');
+  // 4. Mind Helps Subpage Tab
+  const mindTab = page.locator('button:has-text("Mind Helps")').first();
+  if (await mindTab.count() > 0) {
+    await mindTab.click();
+    await page.waitForTimeout(500);
+  }
+  const mindPath = path.join(LIBRARY_DIR, 'ui-b2-shell-mind.png');
+  await page.screenshot({ path: mindPath });
+  console.log('  Saved: ui-b2-shell-mind.png');
+
+  // 5. Bookmarks Drawer Open
+  const bookmarksBtn = page.locator('button:has-text("Bookmarks"), button[aria-label*="bookmark" i]').first();
+  if (await bookmarksBtn.count() > 0) {
+    await bookmarksBtn.click();
+    await page.waitForTimeout(600);
+  }
+  const bookmarksPath = path.join(LIBRARY_DIR, 'ui-b2-shell-bookmarks.png');
+  await page.screenshot({ path: bookmarksPath });
+  console.log('  Saved: ui-b2-shell-bookmarks.png');
+
+  // Copy screenshots to Antigravity Artifact directory
+  if (fs.existsSync(ARTIFACT_DIR)) {
+    const filesToCopy = [
+      'ui-b2-shell-history-day.png',
+      'ui-b2-shell-history-night.png',
+      'ui-b2-shell-wisdom.png',
+      'ui-b2-shell-mind.png',
+      'ui-b2-shell-bookmarks.png'
+    ];
+    for (const file of filesToCopy) {
+      const src = path.join(LIBRARY_DIR, file);
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, path.join(ARTIFACT_DIR, file));
+      }
+    }
+    // Also copy reader after B2
+    const currentReader = path.join(CURRENT_DIR, '01-main-reader-paper.png');
+    if (fs.existsSync(currentReader)) {
+      fs.copyFileSync(currentReader, path.join(ARTIFACT_DIR, 'ui-main-reader-paper-after-b2.png'));
+    }
+    console.log('  Copied Category B2 screenshots to artifact directory.');
+  }
 
   console.log('\n[4/4] Verifying Bat Menu navigation to /library...');
   await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' });

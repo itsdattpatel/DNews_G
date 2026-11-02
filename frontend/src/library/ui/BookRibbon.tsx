@@ -62,3 +62,4 @@ export const BookRibbon: React.FC<BookRibbonProps> = ({
     </motion.button>
   );
 };
+

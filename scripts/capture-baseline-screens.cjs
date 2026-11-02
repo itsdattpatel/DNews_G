@@ -7,34 +7,45 @@ if (!fs.existsSync(BASELINE_DIR)) {
   fs.mkdirSync(BASELINE_DIR, { recursive: true });
 }
 
+const FIXTURE_PATH = path.resolve(__dirname, '../playwright-screenshots/articles-fixture.json');
+let fixtureData = null;
+if (fs.existsSync(FIXTURE_PATH)) {
+  fixtureData = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf-8'));
+}
+
 async function captureBaselines() {
   console.log('[Baseline Capture] Launching browser...');
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 }
   });
+
+  await context.addInitScript(() => {
+    sessionStorage.setItem('missed_news_dismissed', 'true');
+    localStorage.setItem('missed_news_dismissed', 'true');
+  });
+
   const page = await context.newPage();
+
+  if (fixtureData) {
+    await page.route('**/api/articles*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(fixtureData)
+      });
+    });
+  }
 
   console.log('[Baseline Capture] Navigating to http://localhost:5173...');
   await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2000);
-
-  // Ensure any startup/welcome modal backdrop is cleanly dismissed for consistent baseline
-  await page.evaluate(() => {
-    sessionStorage.setItem('missed_news_dismissed', 'true');
-    localStorage.setItem('missed_news_dismissed', 'true');
-    const store = window.useAppStore?.getState();
-    if (store?.setMissedNewsModalOpen) store.setMissedNewsModalOpen(false);
-    if (store?.dismissWelcomeBack) store.dismissWelcomeBack();
-  });
-  await page.waitForTimeout(500);
 
   // 1. Main Reader - Paper
   await page.screenshot({ path: path.join(BASELINE_DIR, '01-main-reader-paper.png') });
   console.log('  Saved: 01-main-reader-paper.png');
 
   // 2. Bat Menu open
-  const batBtn = page.locator('button[aria-label*="navigation" i], button:has(svg)').first();
   await page.keyboard.press('KeyB');
   await page.waitForTimeout(600);
   await page.screenshot({ path: path.join(BASELINE_DIR, '02-bat-menu.png') });
@@ -74,41 +85,50 @@ async function captureBaselines() {
   // 6. Settings Drawer
   await page.evaluate(() => {
     const store = window.useAppStore?.getState();
-    if (store?.openSettings) store.openSettings();
+    if (store?.setSettingsOpen) store.setSettingsOpen(true);
   });
   await page.waitForTimeout(600);
   await page.screenshot({ path: path.join(BASELINE_DIR, '06-settings-drawer.png') });
   console.log('  Saved: 06-settings-drawer.png');
-  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    const store = window.useAppStore?.getState();
+    if (store?.setSettingsOpen) store.setSettingsOpen(false);
+  });
   await page.waitForTimeout(500);
 
   // 7. Control Room
   await page.evaluate(() => {
     const store = window.useAppStore?.getState();
-    if (store?.setActiveOverlay) store.setActiveOverlay('control-room');
+    if (store?.setControlRoomOpen) store.setControlRoomOpen(true);
   });
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(BASELINE_DIR, '07-control-room.png') });
   console.log('  Saved: 07-control-room.png');
-  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    const store = window.useAppStore?.getState();
+    if (store?.setControlRoomOpen) store.setControlRoomOpen(false);
+  });
   await page.waitForTimeout(500);
 
   // 8. PDF Desk
   await page.evaluate(() => {
     const store = window.useAppStore?.getState();
-    if (store?.setActiveOverlay) store.setActiveOverlay('pdf');
+    if (store?.setPdfOpen) store.setPdfOpen(true);
   });
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(BASELINE_DIR, '08-pdf-desk.png') });
   console.log('  Saved: 08-pdf-desk.png');
-  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    const store = window.useAppStore?.getState();
+    if (store?.setPdfOpen) store.setPdfOpen(false);
+  });
   await page.waitForTimeout(500);
 
   await browser.close();
-  console.log('[Baseline Capture] Completed all 8 baseline screenshots successfully.');
+  console.log('[Baseline Capture] Completed successfully. 8 baseline screens stored in playwright-screenshots/baseline.\n');
 }
 
-captureBaselines().catch(err => {
+captureBaselines().catch((err) => {
   console.error('[Baseline Capture Failed]', err);
   process.exit(1);
 });
