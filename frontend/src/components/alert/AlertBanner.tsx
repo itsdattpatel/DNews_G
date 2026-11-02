@@ -6,6 +6,7 @@
 import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatExactLocal } from '../../utils/dateFormatter';
+import { ConfirmationBadge } from '../common/ConfirmationBadge';
 import './AlertBanner.css';
 
 export const AlertBanner: React.FC = () => {
@@ -67,12 +68,19 @@ export const AlertBanner: React.FC = () => {
 
                 <div className="alert-banner-text-wrap">
                   <p className="alert-banner-message">{alert.message}</p>
-                  <div className="alert-banner-meta">
+                  <div className="alert-banner-meta flex items-center gap-2 flex-wrap">
                     <span title={formatExactLocal(alert.timestamp)} className="cursor-help">
                       {alert.timestamp}
                     </span>
                     {alert.breaking_score !== undefined && (
                       <span>• Score: {alert.breaking_score}%</span>
+                    )}
+                    {(isBreaking || alert.confirmation) && (
+                      <ConfirmationBadge
+                        confirmation={alert.confirmation}
+                        breakingScore={alert.breaking_score}
+                        variant="compact"
+                      />
                     )}
                   </div>
                 </div>

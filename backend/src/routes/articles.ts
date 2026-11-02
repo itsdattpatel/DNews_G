@@ -6,6 +6,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 import { getDb } from '../db/db';
+import { computeConfirmationStatus } from '../utils/confirmation';
 
 export const articlesRouter = Router();
 
@@ -29,11 +30,13 @@ articlesRouter.get('/', (req: Request, res: Response) => {
       SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.anchor_phrases, a.breaking_score,
              a.cluster_id, a.bookmarked, a.published_at, a.ingested_at, a.is_catchup, a.fetched_at,
              s.id AS source_id, s.name AS source_name, s.country AS source_country,
+             c.outlet_count AS cluster_outlet_count, c.country_count AS cluster_country_count, c.is_breaking AS cluster_is_breaking,
              GROUP_CONCAT(DISTINCT ac.category) AS categories,
              GROUP_CONCAT(DISTINCT k.keyword) AS keywords
       FROM articles_fts
       JOIN articles a ON articles_fts.rowid = a.id
       JOIN sources s ON a.source_id = s.id
+      LEFT JOIN clusters c ON a.cluster_id = c.id
       LEFT JOIN article_categories ac ON a.id = ac.article_id
       LEFT JOIN keywords k ON a.id = k.article_id
       WHERE articles_fts MATCH ?
@@ -56,10 +59,12 @@ articlesRouter.get('/', (req: Request, res: Response) => {
       SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.anchor_phrases, a.breaking_score,
              a.cluster_id, a.bookmarked, a.published_at, a.ingested_at, a.is_catchup, a.fetched_at,
              s.id AS source_id, s.name AS source_name, s.country AS source_country,
+             c.outlet_count AS cluster_outlet_count, c.country_count AS cluster_country_count, c.is_breaking AS cluster_is_breaking,
              GROUP_CONCAT(DISTINCT ac.category) AS categories,
              GROUP_CONCAT(DISTINCT k.keyword) AS keywords
       FROM articles a
       JOIN sources s ON a.source_id = s.id
+      LEFT JOIN clusters c ON a.cluster_id = c.id
       LEFT JOIN article_categories ac ON a.id = ac.article_id
       LEFT JOIN keywords k ON a.id = k.article_id
       WHERE a.status = ?
@@ -114,10 +119,12 @@ articlesRouter.get('/:id', (req: Request, res: Response) => {
 
   const row = db.prepare(`
     SELECT a.*, s.name AS source_name, s.country AS source_country, s.url AS source_url,
+           c.outlet_count AS cluster_outlet_count, c.country_count AS cluster_country_count, c.is_breaking AS cluster_is_breaking,
            GROUP_CONCAT(DISTINCT ac.category) AS categories,
            GROUP_CONCAT(DISTINCT k.keyword) AS keywords
     FROM articles a
     JOIN sources s ON a.source_id = s.id
+    LEFT JOIN clusters c ON a.cluster_id = c.id
     LEFT JOIN article_categories ac ON a.id = ac.article_id
     LEFT JOIN keywords k ON a.id = k.article_id
     WHERE a.id = ?
@@ -171,6 +178,9 @@ interface RawRow {
   id: number; url: string; title_english: string | null; summary: string | null;
   body_english?: string | null; anchor_phrases?: string | null;
   breaking_score: number; cluster_id: number | null;
+  cluster_outlet_count?: number | null;
+  cluster_country_count?: number | null;
+  cluster_is_breaking?: number | null;
   bookmarked: number; published_at: string | null; fetched_at: string;
   ingested_at?: string | null; is_catchup?: number | null;
   source_id: number; source_name: string; source_country: string;
@@ -187,6 +197,13 @@ function formatRow(row: RawRow) {
     }
   }
 
+  const confirmation = computeConfirmationStatus({
+    outletCount: row.cluster_outlet_count,
+    countryCount: row.cluster_country_count,
+    breakingScore: row.breaking_score,
+    isBreakingCluster: row.cluster_is_breaking === 1,
+  });
+
   return {
     id: row.id,
     url: row.url,
@@ -196,6 +213,10 @@ function formatRow(row: RawRow) {
     anchor_phrases: anchorPhrases,
     breaking_score: row.breaking_score,
     cluster_id: row.cluster_id,
+    cluster_outlet_count: row.cluster_outlet_count ?? 1,
+    cluster_country_count: row.cluster_country_count ?? 1,
+    cluster_is_breaking: row.cluster_is_breaking === 1,
+    confirmation,
     bookmarked: row.bookmarked === 1,
     published_at: row.published_at,
     ingested_at: row.ingested_at || row.fetched_at,

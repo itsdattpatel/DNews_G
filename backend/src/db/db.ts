@@ -13,12 +13,17 @@ function getDataDir(): string {
   if (process.env['DATA_DIR']) {
     return path.resolve(process.env['DATA_DIR']);
   }
-  // If running from root and backend/data exists, use backend/data
-  const backendData = path.resolve('backend/data');
-  if (fs.existsSync(backendData)) {
-    return backendData;
+  const cwd = process.cwd();
+  // If cwd is already the backend directory, use its data dir
+  if (path.basename(cwd) === 'backend') {
+    return path.resolve(cwd, 'data');
   }
-  return path.resolve('./data');
+  // If running from repository root, prioritize backend/data
+  const rootBackendData = path.resolve(cwd, 'backend', 'data');
+  if (fs.existsSync(rootBackendData)) {
+    return rootBackendData;
+  }
+  return path.resolve(cwd, 'data');
 }
 
 export function getDbPath(): string {

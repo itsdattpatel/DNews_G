@@ -6,6 +6,7 @@
  */
 import { getDb } from '../db/db';
 import { emitSseEvent } from '../routes/sse';
+import { computeConfirmationStatus } from '../utils/confirmation';
 
 export interface AlertRecord {
   id: number;
@@ -87,6 +88,16 @@ export function checkBreakingAlerts(articleIds?: number[]): AlertRecord[] {
       acknowledged: 0,
     };
 
+    const clusterRow = article.cluster_id
+      ? (db.prepare('SELECT outlet_count, country_count FROM clusters WHERE id = ?').get(article.cluster_id) as { outlet_count?: number; country_count?: number } | undefined)
+      : undefined;
+
+    const confirmation = computeConfirmationStatus({
+      outletCount: clusterRow?.outlet_count ?? 1,
+      countryCount: clusterRow?.country_count ?? 1,
+      breakingScore: article.breaking_score,
+    });
+
     createdAlerts.push(record);
 
     // Push real-time SSE event
@@ -98,6 +109,7 @@ export function checkBreakingAlerts(articleIds?: number[]): AlertRecord[] {
       cluster_id: article.cluster_id ?? null,
       breaking_score: article.breaking_score,
       fired_at: record.fired_at,
+      confirmation,
     });
   }
 
@@ -203,6 +215,12 @@ export function checkClusterAlerts(clusterIds?: number[]): AlertRecord[] {
       acknowledged: 0,
     };
 
+    const confirmation = computeConfirmationStatus({
+      outletCount: uniqueOutlets.size,
+      countryCount: uniqueCountries.size,
+      isBreakingCluster: true,
+    });
+
     createdAlerts.push(record);
 
     // Push real-time SSE event
@@ -214,6 +232,7 @@ export function checkClusterAlerts(clusterIds?: number[]): AlertRecord[] {
       outlet_count: uniqueOutlets.size,
       country_count: uniqueCountries.size,
       fired_at: record.fired_at,
+      confirmation,
     });
   }
 

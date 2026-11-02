@@ -9,6 +9,7 @@ import { useAppStore } from '../../store/useAppStore';
 import type { Article } from '../../types';
 import { ChevronLeft, ChevronRight, Flame, Star } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
+import { ConfirmationBadge } from '../common/ConfirmationBadge';
 
 interface ArticleCardItemProps {
   article: Article;
@@ -96,9 +97,9 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
         {article.title_english || article.title_original}
       </h4>
 
-      {/* Card Footer: Category Stamps & Dual Timestamp */}
-      <div className="flex items-center justify-between pt-2 border-t border-paper-border/60">
-        <div className="flex gap-1 overflow-hidden shrink-0">
+      {/* Card Footer: Category Stamps, Confirmation Stamp & Dual Timestamp */}
+      <div className="flex items-center justify-between pt-2 border-t border-paper-border/60 gap-1.5 overflow-hidden">
+        <div className="flex items-center gap-1 overflow-hidden shrink-0">
           {(article.categories || []).slice(0, 1).map((cat: string, i: number) => (
             <span
               key={i}
@@ -107,13 +108,14 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
               {cat}
             </span>
           ))}
+          <ConfirmationBadge article={article} variant="compact" />
         </div>
         <DualTimestamp
           layout="compact"
           publishedAt={article.published_at}
           ingestedAt={article.ingested_at || article.fetched_at}
           isCatchup={Boolean(article.is_catchup)}
-          className="ml-auto truncate max-w-[170px]"
+          className="ml-auto truncate max-w-[130px] shrink-0"
         />
       </div>
     </div>

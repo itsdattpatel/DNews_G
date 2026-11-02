@@ -18,6 +18,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
+import { ConfirmationBadge } from '../common/ConfirmationBadge';
 
 export interface Point2D {
   x: number;
@@ -238,12 +239,13 @@ export const CompareCoverage: React.FC = () => {
               <span className="font-mono text-xs font-bold text-ink">
                 Story Cluster #{compareClusterId}
               </span>
-              {isBreaking && (
-                <span className="inline-flex items-center gap-1 font-mono text-[0.625rem] font-bold px-2 py-0.5 rounded-xs border border-accent bg-accent/15 text-accent">
-                  <Flame size={11} fill="currentColor" />
-                  <span>Breaking Story</span>
-                </span>
-              )}
+              <ConfirmationBadge
+                cluster={clusterData ?? undefined}
+                outletCount={clusterData?.outlet_count}
+                countryCount={clusterData?.country_count}
+                isBreakingCluster={isBreaking}
+                variant="compact"
+              />
             </div>
 
             <h2

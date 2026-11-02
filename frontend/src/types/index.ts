@@ -52,6 +52,19 @@ export interface AnchorPhrase {
   sentence_index: number;  // 0-based index into summary sentences
 }
 
+// ─── Confirmation & Corroboration (PRD A Category 9) ──────────────────────────
+export type ConfirmationTier = 'single_source' | 'two_outlets' | 'multi_outlet_single_nation' | 'confirmed';
+
+export interface ConfirmationStatus {
+  tier: ConfirmationTier;
+  label: string;
+  outletCount: number;
+  countryCount: number;
+  isConfirmed: boolean;
+  isBreaking: boolean;
+  breakingLabel?: 'Unconfirmed Breaking' | 'Confirmed Breaking';
+}
+
 // ─── Article Models ───────────────────────────────────────────────────────────
 export interface ArticleListItem {
   id: number;
@@ -62,6 +75,10 @@ export interface ArticleListItem {
   categories: Category[];
   breaking_score: number;
   cluster_id: number | null;
+  cluster_outlet_count?: number;
+  cluster_country_count?: number;
+  cluster_is_breaking?: boolean;
+  confirmation?: ConfirmationStatus;
   source: Pick<Source, 'id' | 'name' | 'country'>;
   published_at: string | null;
   ingested_at?: string;
@@ -92,6 +109,10 @@ export interface Article {
   language_detected?: string | null;
   breaking_score: number;
   cluster_id: number | null;
+  cluster_outlet_count?: number;
+  cluster_country_count?: number;
+  cluster_is_breaking?: boolean;
+  confirmation?: ConfirmationStatus;
   bookmarked: boolean;
   published_at: string | null;
   ingested_at?: string;
@@ -112,6 +133,7 @@ export interface Cluster {
   outlet_count: number;
   country_count: number;
   is_breaking: boolean;
+  confirmation?: ConfirmationStatus;
   articles?: ArticleListItem[] | Array<{
     id: number;
     url?: string;
@@ -131,6 +153,7 @@ export interface Alert {
   cluster_id: number | null;
   fired_at: string;
   acknowledged: boolean;
+  confirmation?: ConfirmationStatus;
 }
 
 export interface AlertItem {
@@ -143,6 +166,8 @@ export interface AlertItem {
   breaking_score?: number;
   fromProvider?: string;
   toProvider?: string;
+  confirmation?: ConfirmationStatus;
+}
 }
 
 // ─── Watchlist ────────────────────────────────────────────────────────────────

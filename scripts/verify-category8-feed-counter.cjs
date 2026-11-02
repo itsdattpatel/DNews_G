@@ -69,3 +69,4 @@ verifyCategory8().catch((err) => {
   console.error('[Verify Cat 8] Error during validation:', err);
   process.exit(1);
 });
+

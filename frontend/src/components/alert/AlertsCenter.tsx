@@ -16,6 +16,7 @@ import {
   type AlertFilterTab,
 } from '../../utils/alerts';
 import { formatExactLocal } from '../../utils/dateFormatter';
+import { ConfirmationBadge } from '../common/ConfirmationBadge';
 import {
   Bell,
   Check,
@@ -314,6 +315,15 @@ export const AlertsCenter: React.FC = () => {
                       >
                         {formatAlertTime(alert.fired_at)}
                       </span>
+
+                      {/* Corroboration & Breaking Confirmation Stamp */}
+                      {(alert.type === 'breaking' || alert.confirmation) && (
+                        <ConfirmationBadge
+                          confirmation={alert.confirmation}
+                          variant="compact"
+                          className="shrink-0"
+                        />
+                      )}
 
                       {/* Alert Message */}
                       <span

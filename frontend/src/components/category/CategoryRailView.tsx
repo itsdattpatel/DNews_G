@@ -10,6 +10,7 @@ import { useArticles } from '../../hooks/useArticles';
 import { Badge } from '@/components/ui/badge';
 import { getBreakingScoreDots, formatArticleByline } from '../../utils/category';
 import { DualTimestamp } from '../common/DualTimestamp';
+import { ConfirmationBadge } from '../common/ConfirmationBadge';
 import {
   Search,
   Flame,
@@ -340,9 +341,12 @@ export const CategoryRailView: React.FC = () => {
                     }`}
                   />
 
-                  {/* Top Line: Category Stamp + Breaking Dots + Bookmark */}
+                  {/* Top Line: Category Stamp + Confirmation Badge + Breaking Dots + Bookmark */}
                   <div className="flex items-center justify-between gap-2 mb-2.5">
-                    <Badge category={primaryCategory} className="text-[0.625rem] px-2 py-0.5" />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge category={primaryCategory} className="text-[0.625rem] px-2 py-0.5" />
+                      <ConfirmationBadge article={article} variant="compact" />
+                    </div>
 
                     <div className="flex items-center gap-2">
                       {/* 5-Dot Breaking Score Scale (UI_SPEC Screen b) */}

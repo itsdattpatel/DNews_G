@@ -15,9 +15,9 @@
 | **4** | **Safety Net: Backups & Guards** | 🟢 `DONE` | Automated WAL flush backups, retention pruning (7 daily + 4 weekly), double-confirmation restore with safety pre-restore snapshot, Test-Data Guard blocking test execution on production SQLite, sanitized settings JSON export/import (schema v1), CLI script `db:restore`, Vitest (107 backend + 124 frontend pass), Playwright screenshots | 2026-11-02 10:51 |
 | **5** | **TV Channel Catalog & Top 5** | 🟢 `DONE` | Migration 009, `config/channels-top5.json` (25 outlets across IN, US, CN, JP, AU), IPTV local cache with Unlicense attribution, deduplication with Top-5 precedence, 12 new unit tests (all 243 suite tests pass), Playwright screenshots | 2026-11-02 11:28 |
 | **6** | **Playback & YouTube Adder** | 🟢 `DONE` | Migration 010 (`tv_channel_health`), HLS proxy with strict SSRF protection, M3U8 chunk rewriter, YouTube oEmbed preview & channel ID guide, multi-method player (HLS/YouTube/VLC), Playwright screenshots | 2026-11-02 11:48 |
-| **7** | **TV Screen UI & Subpages** | ⚪ `PENDING` | Live/Faulty/Stopped tabs, 16:9 player, health indicators (Live/Slow/Offline), screenshots | - |
-| **8** | **Live Feed Counter** | ⚪ `PENDING` | Rolling 24h count, hourly sparkline, independent telemetry tables, retention test | - |
-| **9** | **Confirmation Labels** | ⚪ `PENDING` | Single source / 2 outlets / Confirmed N in M stamps, breaking alert calm/urgent styles | - |
+| **7** | **TV Screen UI & Subpages** | 🟢 `DONE` | Live/Faulty/Stopped tabs, 16:9 player, health indicators (Live/Slow/Offline), PiP & volume, Vitest (135 backend + 125 frontend pass), Playwright screenshots | 2026-11-02 12:10 |
+| **8** | **Live Feed Counter** | 🟢 `DONE` | Migration 011, rolling 24h count, sparkline with downtime hatches, independent telemetry tables, retention immunity, Vitest (141 backend + 129 frontend pass), Playwright screenshots | 2026-11-02 13:02 |
+| **9** | **Confirmation Labels** | 🟢 `DONE` | Single source / 2 outlets / Confirmed N in M stamps, breaking alert calm/urgent styles, 5 surfaces, Vitest (151 backend + 141 frontend pass), Playwright screenshots | 2026-11-02 14:00 |
 | **10** | **Two-Pass AI** | ⚪ `PENDING` | Pass 1 cheap scoring, Pass 2 selective enrichment, quota savings telemetry | - |
 | **11** | **Control Room Page** | ⚪ `PENDING` | Freshness telemetry, error log, scheduler metrics, live SSE updates, screenshot | - |
 | **12** | **QA & Final Audits** | ⚪ `PENDING` | End-to-end Playwright tests, zero console errors, security-auditor pass, all screenshots | - |
@@ -268,5 +268,41 @@
   - `ui-step8-feed-counter-button.png` (TopBar live feed counter button active with 1,343 dispatches in Paper mode)
   - `ui-step8-feed-counter-popover-paper.png` (Feed Counter Popover with rolling 24h count, sparkline with downtime hatches, 7d/30d/lifetime stats, and uptime/downtime totals, Paper mode)
   - `ui-step8-feed-counter-popover-night.png` (Feed Counter Popover in Night Edition mode)
+
+### Step 9: Confirmation Labels & Multi-Source Story Corroboration (Completed)
+- Pre-work SQLite snapshot created at `backups/news.backup_before_cat9_2026-11-02T08-07-53-226Z.sqlite` (12.7 MB).
+- Multi-Source Corroboration Engine (`backend/src/utils/confirmation.ts` & `frontend/src/utils/confirmation.ts`):
+  - Deterministic rules operating strictly without AI dependency (100% operational in Plain Mode):
+    - **1 outlet**: `"Single source"` (neutral ink badge: `border-paper-border bg-paper-alt text-ink-secondary`).
+    - **2 outlets**: `"2 outlets"` (slate badge: `border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300`).
+    - **3+ outlets in 1 nation**: `"N outlets"` (slate badge).
+    - **3+ outlets across 2+ nations**: `"Confirmed: N outlets in M countries"` (forest green broadsheet stamp: `border-emerald-700/50 bg-emerald-600/10 text-emerald-800 dark:text-emerald-300`).
+  - Breaking Alert Upgrades:
+    - Single-outlet / uncorroborated breaking news labeled `"Unconfirmed Breaking"` in muted ochre (`border-amber-600/50 bg-amber-500/10 text-amber-800 dark:text-amber-300`).
+    - Automatically upgrades to bold crimson `"Confirmed Breaking"` (`border-accent bg-accent/10 text-accent font-extrabold`) once corroborated by 3+ outlets across 2+ nations.
+- Backend API Integration:
+  - `backend/src/routes/articles.ts`: joined `clusters c ON a.cluster_id = c.id` in standard `SELECT`, FTS `SELECT`, and `GET /:id` to select `c.outlet_count`, `c.country_count`, `c.is_breaking`, attaching `confirmation: computeConfirmationStatus(...)` to all article payloads.
+  - `backend/src/routes/clusters.ts`: added `confirmation` status object to both `GET /api/clusters` list and `GET /api/clusters/:id`.
+  - `backend/src/routes/alerts.ts` & `backend/src/alerts/detector.ts`: attached `confirmation` status to `GET /api/alerts` items and real-time SSE `alert` payloads.
+- Frontend Broadsheet Component (`frontend/src/components/common/ConfirmationBadge.tsx`):
+  - Reusable `<ConfirmationBadge>` adhering strictly to broadsheet physical stamp aesthetics (`rounded-xs`, `font-mono` / `font-ui`, uppercase tracking, zero generic colored dots).
+  - Wired into all 5 required surfaces:
+    1. **Article Cards** (`CardStrip.tsx`): bottom strip cards show corroboration badge alongside category stamps.
+    2. **Reader Header** (`ArticlePanel.tsx`): kicker byline metadata row shows corroboration stamp and Breaking tag.
+    3. **Category Rail** (`CategoryRailView.tsx`): grid cards show corroboration badge in top line next to category badge.
+    4. **Alert Banners & Telegraph Alerts Center** (`AlertBanner.tsx`, `AlertsCenter.tsx`): breaking alerts show `"Unconfirmed Breaking"` (amber) vs `"Confirmed Breaking"` (crimson) alongside corroboration stamps.
+    5. **Compare Coverage Desk** (`CompareCoverage.tsx`): modal header displays cluster corroboration badge.
+- Test Suite:
+  - Added 10 new unit tests in `backend/src/__tests__/unit/confirmation-labels.test.ts`.
+  - Added 12 new unit tests in `frontend/src/__tests__/unit/confirmation-badge.test.tsx`.
+  - Full test suite passing cleanly: **151 backend tests across 33 suites** + **141 frontend tests across 28 suites** (total **292 tests passing**, 0 failed).
+  - Strict TypeScript build passes with 0 errors.
+- Visual Validation completed with Playwright:
+  - `ui-step9-confirmation-cards-paper.png` (Paper edition with confirmed breaking story, emerald stamp, and card strip badges)
+  - `ui-step9-confirmation-reader-night.png` (Night edition with bold crimson Confirmed Breaking tag and emerald stamp)
+  - `ui-step9-confirmation-category-rail.png` (Category Rail grid displaying Single Source, 2 Outlets, and Unconfirmed Breaking badges)
+  - `ui-step9-confirmation-alerts.png` (Telegraph Alerts Center showing Unconfirmed Breaking ochre badges vs Confirmed Breaking crimson badges)
+  - `ui-step9-confirmation-compare-desk.png` (Compare Coverage desk with Confirmed Breaking & Confirmed: 4 outlets in 2 countries)
+
 
 

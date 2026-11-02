@@ -9,6 +9,10 @@ import { useArticles } from './hooks/useArticles';
 import { useSSE } from './hooks/useSSE';
 import { useAppStore } from './store/useAppStore';
 
+if (typeof window !== 'undefined') {
+  (window as any).useAppStore = useAppStore;
+}
+
 export const App: React.FC = () => {
   const isShowcase = typeof window !== 'undefined' && window.location.search.includes('showcase');
 

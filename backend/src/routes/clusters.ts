@@ -5,6 +5,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 import { getDb } from '../db/db';
+import { computeConfirmationStatus } from '../utils/confirmation';
 
 export const clustersRouter = Router();
 
@@ -99,6 +100,11 @@ clustersRouter.get('/', (req: Request, res: Response) => {
     outlet_count: c.outlet_count,
     country_count: c.country_count,
     is_breaking: c.is_breaking === 1,
+    confirmation: computeConfirmationStatus({
+      outletCount: c.outlet_count,
+      countryCount: c.country_count,
+      isBreakingCluster: c.is_breaking === 1,
+    }),
     articles: (articlesByCluster[c.id] ?? []).map((a) => ({
       id: a.id,
       title_english: a.title_english,
@@ -174,6 +180,11 @@ clustersRouter.get('/:id', (req: Request, res: Response) => {
     outlet_count: cluster.outlet_count,
     country_count: cluster.country_count,
     is_breaking: cluster.is_breaking === 1,
+    confirmation: computeConfirmationStatus({
+      outletCount: cluster.outlet_count,
+      countryCount: cluster.country_count,
+      isBreakingCluster: cluster.is_breaking === 1,
+    }),
     articles: articles.map((a) => ({
       id: a.id,
       url: a.url,

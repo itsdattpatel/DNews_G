@@ -10,6 +10,7 @@ import { ExternalLink, Globe2, Languages, BookOpen } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
 import { WelcomeBackCard } from './WelcomeBackCard';
 import { AutoAdvanceProgressBar } from './AutoAdvanceProgressBar';
+import { ConfirmationBadge } from '../common/ConfirmationBadge';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
@@ -197,6 +198,11 @@ export const ArticlePanel: React.FC = () => {
           <span className="font-ui text-xs text-ink-muted">
             {readTimeMin} min read
           </span>
+
+          <span className="text-ink-muted text-xs">·</span>
+
+          {/* Multi-Source Story Corroboration Stamp (PRD A Category 9) */}
+          <ConfirmationBadge article={article} />
 
           {isPlainMode && (
             <>
