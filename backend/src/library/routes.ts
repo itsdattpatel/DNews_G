@@ -10,6 +10,7 @@ import {
   deleteLibraryBookmark,
   type LibraryItemType,
 } from './services/bookmarkService';
+import { HistoryService } from './services/historyService';
 
 export const libraryRouter = Router();
 
@@ -94,3 +95,50 @@ libraryRouter.delete('/bookmarks/:id', (req, res) => {
     res.status(500).json({ error: 'Failed to delete bookmark', details: err.message });
   }
 });
+
+// ─── Historical News Endpoints (Category B3) ──────────────────────────────────
+
+// GET /api/library/history/today
+libraryRouter.get('/history/today', async (req, res) => {
+  try {
+    const now = new Date();
+    const month = req.query.month ? parseInt(req.query.month as string, 10) : now.getMonth() + 1;
+    const day = req.query.day ? parseInt(req.query.day as string, 10) : now.getDate();
+
+    if (isNaN(month) || month < 1 || month > 12 || isNaN(day) || day < 1 || day > 31) {
+      res.status(400).json({ error: 'Invalid month (1-12) or day (1-31)' });
+      return;
+    }
+
+    const historyService = new HistoryService(getDb());
+    const items = await historyService.getTodayInHistory(month, day);
+    res.json({
+      date: `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+      total: items.length,
+      items,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch historical events', details: err.message });
+  }
+});
+
+// GET /api/library/history/search
+libraryRouter.get('/history/search', (req, res) => {
+  try {
+    const { q, decade, country, source, year, limit, offset } = req.query;
+    const historyService = new HistoryService(getDb());
+    const result = historyService.searchHistory({
+      query: q as string | undefined,
+      decade: decade ? parseInt(decade as string, 10) : undefined,
+      country: country as string | undefined,
+      source: source as string | undefined,
+      year: year ? parseInt(year as string, 10) : undefined,
+      limit: limit ? parseInt(limit as string, 10) : undefined,
+      offset: offset ? parseInt(offset as string, 10) : undefined,
+    });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to search historical archives', details: err.message });
+  }
+});
+

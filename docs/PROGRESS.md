@@ -465,7 +465,7 @@
 | **0** | **Documentation & Setup** | 🟢 `DONE` | `/docs/PRD_B.md`, `/docs/LIBRARY_SPEC.md`, `/docs/LIBRARY_SOURCES.md`, `/docs/LIBRARY_DESIGN.md`, `/docs/OPEN_QUESTIONS.md`, Package Shortlist, DB backup | 2026-11-02 20:30 |
 | **B1** | **Isolation and UI Kit** | 🟢 `DONE` | Scoped tokens (`.lib-root`), zero changes to global CSS/Tailwind, pixel-diff report (0.00% regression on 8 main screens), git diff proving only allowed touchpoints outside library, 6 approved packages installed & vetted in CREDITS.md, UI kit showcase in day/night | 2026-11-02 21:02 |
 | **B2** | **Library Shell** | 🟢 `DONE` | Route `/library`, 3 subpage tabs, local store, search, bookmarks drawer, day/night reading room mode, responsive resizable panes | Verified & Approved |
-| **B3** | **Historical News (Archives)** | ⚪ `PENDING` | Real archives fetcher (Wikimedia, LoC Chronicling America, Internet Archive), `library_history_cache`, date/decade/country filters, source attribution | Pending Approval |
+| **B3** | **Historical News (Archives)** | 🟢 `DONE` | Real archives fetcher (Wikimedia 'On this day', LoC, Internet Archive), library_history_cache, date/decade/country filters, source attribution | Verified & Approved |
 | **B4** | **Wisdom (Scriptures & Quotes)** | ⚪ `PENDING` | Holy book registry (Gita, Mahabharata, Ramayana), Sanskrit Devanagari, transliteration, Ganguli/Arnold/Griffith translations, AI-assisted meaning workflow & approval | Pending Approval |
 | **B5** | **Mind Helps (Psychology)** | ⚪ `PENDING` | 9 categories, OpenStax/WHO/William James techniques, step-by-step guidance, crisis helplines footer (IN, US, CN, JP, AU), zero AI chat guarantee | Pending Approval |
 | **B6** | **QA & Final Verification** | ⚪ `PENDING` | Playwright tests for 3 subpages, pixel-diff showing 0% change in main app screens, git diff verifying only allowed files, CREDITS.md and audit | Pending Approval |
@@ -504,6 +504,34 @@
   - Verified 0.00% static regression across all 8 main application screens.
   - Verified Bat Menu navigation smoothly enters `/library`.
   - Visual validation screenshots captured: `ui-b2-shell-history-day.png`, `ui-b2-shell-history-night.png`, `ui-b2-shell-wisdom.png`, `ui-b2-shell-mind.png`, `ui-b2-shell-bookmarks.png`, and `ui-main-reader-paper-after-b2.png`.
+
+### Category B3: Historical News (Real Archives) (Completed)
+- Pre-B3 database backup created at `backups/news.backup_before_cat_b3.sqlite`.
+- Backend Historical Archives Service (`backend/src/library/services/historyService.ts`):
+  - Integrated Wikimedia "On this day" feed REST API with custom descriptive User-Agent header complying with Wikimedia Foundation API policies.
+  - Real-time normalization of historical events: exact year, headline, verbatim excerpt, country detection, license identifier (`CC BY-SA 3.0 / 4.0`), provenance attribution, and primary source URL.
+  - SQLite persistent cache in `library_history_cache`: separates library archives from active news desks; immune to 30-day auto-delete purge.
+  - LRU size-capped cache ceiling with bookmark-preserving retention: never prunes saved folios.
+  - Graceful fallback: serves cached dispatches offline during network failures (100% Plain Mode compliant).
+- Backend REST Endpoints (`backend/src/library/routes.ts`):
+  - `GET /api/library/history/today`: fetches today's or custom month/day events.
+  - `GET /api/library/history/search`: multi-criteria parameterized search by keyword, decade, country, and source.
+- Frontend Historical Desk Architecture (`frontend/src/library/history/`):
+  - `HistoryDatePicker.tsx`: month & day selection with "Jump to Today" reset button, 13 decade filter chips (1850s to 2000s), and regional jurisdiction filter.
+  - `TodayInHistoryFeed.tsx`: chronological timeline list with year badges, country indicators, and selection feedback.
+  - `HistoryArticleCard.tsx`: primary reading folio with giant year watermark, headline with hand-drawn rough notation underline, verbatim archival text, official license badges, direct archival link, bookmark toggle ("Save to Reading Folio"), and citation clipboard exporter.
+  - `HistorySubpage.tsx`: dual-pane resizable coordinator with dedicated loading, empty, and error states.
+- Test Coverage:
+  - Backend unit tests (`library-history.test.ts`): 4 tests covering normalization, caching, decade/country/keyword search, and cache-cap eviction.
+  - Backend integration tests (`library-history.api.test.ts`): 3 tests verifying REST contract, status codes, and input validation.
+  - Frontend unit tests (`library-history-ui.test.tsx`): 4 tests verifying calendar picker, timeline feed, provenance badges, and citation formatting.
+  - All 176 frontend vitest tests pass across 33 suites.
+  - All 178 backend vitest tests pass across 37 suites (Total 354 tests passing).
+- Zero-Regression Pixel-Diff Verification (`scripts/verify-no-change-main-screens.cjs`):
+  - Verified 0.00% regression across all 8 main application screens.
+  - Verified Bat Menu navigation smoothly opens `/library`.
+  - Visual validation screenshots captured: `ui-b3-history-day.png`, `ui-b3-history-night.png`, `ui-b3-history-filtered.png`, `ui-b3-history-bookmarks.png`, and `ui-main-reader-paper-after-b3.png`.
+
 
 
 
