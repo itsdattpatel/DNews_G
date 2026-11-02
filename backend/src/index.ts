@@ -11,6 +11,7 @@ import { runEnrichmentPass } from './pipeline/enricher';
 import { initCleanupScheduler } from './pipeline/cleanup';
 import { initAppSession, closeAppSession } from './services/sessionManager';
 import { initBackupScheduler, stopBackupScheduler } from './services/backupManager';
+import { loadTop5Channels } from './tv/catalog';
 
 const startTime = Date.now();
 const PORT = parseInt(process.env['PORT'] ?? '3001', 10);
@@ -20,6 +21,7 @@ const HOST = '127.0.0.1'; // Localhost only — never expose to network
 console.log('[Init] Initializing database...');
 getDb();
 syncSources();
+loadTop5Channels();
 
 // Initialize real-time session tracking & downtime gap detection (Category 1B)
 const sessionInfo = initAppSession();

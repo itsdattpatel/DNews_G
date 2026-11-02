@@ -7,7 +7,7 @@ import React from 'react';
 import { BatIcon } from '../bat/BatIcon';
 import { ProviderBadge } from '../quota/ProviderBadge';
 import { useAppStore } from '../../store/useAppStore';
-import { Search, Flame, X, Clock, RadioTower, Layers, Bell, Play, Pause } from 'lucide-react';
+import { Search, Flame, X, Clock, RadioTower, Layers, Bell, Play, Pause, Tv } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const CATEGORIES = [
@@ -244,6 +244,18 @@ export const TopBar: React.FC = () => {
             Live
           </span>
         </div>
+
+        {/* Live TV Broadcast Wire Quick Button */}
+        <button
+          id="btn-topbar-tv"
+          onClick={() => useAppStore.getState().setTvViewOpen(true)}
+          className="p-1 rounded-xs border border-paper-border hover:bg-paper-alt text-ink-secondary hover:text-ink transition-colors flex items-center gap-1 font-mono text-[11px]"
+          title="Live TV Broadcasts & Curated Top 5 (Press 't')"
+          aria-label="Open Live TV Broadcast Wire"
+        >
+          <Tv size={15} />
+          <span className="hidden xl:inline font-bold">TV</span>
+        </button>
 
         {/* Alerts Center Quick Button */}
         <button

@@ -448,6 +448,44 @@ export const TVView: React.FC = () => {
               </div>
             )}
 
+            {/* Top-5 Curated Outlet Banner (PRD A Category 5) */}
+            {selectedChannel?.is_top5 && (
+              <div
+                id="top5-channel-banner"
+                className="mt-3 p-3 border-2 border-accent/40 bg-paper-alt rounded-xs space-y-1.5"
+              >
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] font-bold uppercase bg-accent text-paper px-2 py-0.5 tracking-wider">
+                      TOP 5 CURATED OUTLET · #{selectedChannel.rank}
+                    </span>
+                    <span className="font-mono text-[10px] uppercase border border-amber-600 text-amber-700 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 font-bold">
+                      {selectedChannel.status}
+                    </span>
+                    <span className="font-serif text-xs font-semibold text-ink">
+                      {selectedChannel.country}
+                    </span>
+                  </div>
+                  {selectedChannel.website && (
+                    <a
+                      href={selectedChannel.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-[11px] font-bold text-accent hover:underline inline-flex items-center gap-1"
+                    >
+                      <span>Official Website</span>
+                      <ExternalLink size={10} />
+                    </a>
+                  )}
+                </div>
+                {selectedChannel.evidence && (
+                  <p className="font-serif text-xs text-ink-secondary italic">
+                    Ranking Evidence: {selectedChannel.evidence}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Quick Channel Scroll Strip (PRD §Screen h) */}
             <div className="mt-4 pt-3 border-t border-paper-border">
               <div className="font-ui text-[0.625rem] uppercase font-bold text-ink-muted mb-2 flex items-center gap-1.5">
@@ -498,41 +536,33 @@ export const TVView: React.FC = () => {
                 />
               </div>
 
-              {/* Tabs */}
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveShelf('all')}
-                  className={`flex-1 py-1 text-center font-ui text-xs font-bold uppercase tracking-wider rounded-xs border transition-colors ${
-                    activeShelf === 'all'
-                      ? 'border-ink bg-paper text-ink shadow-2xs'
-                      : 'border-transparent text-ink-muted hover:text-ink'
-                  }`}
-                >
-                  All Feeds
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveShelf('animals')}
-                  className={`flex-1 py-1 text-center font-ui text-xs font-bold uppercase tracking-wider rounded-xs border transition-colors ${
-                    activeShelf === 'animals'
-                      ? 'border-ink bg-paper text-ink shadow-2xs'
-                      : 'border-transparent text-ink-muted hover:text-ink'
-                  }`}
-                >
-                  Nature &amp; Safari
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveShelf('favorites')}
-                  className={`flex-1 py-1 text-center font-ui text-xs font-bold uppercase tracking-wider rounded-xs border transition-colors ${
-                    activeShelf === 'favorites'
-                      ? 'border-ink bg-paper text-ink shadow-2xs'
-                      : 'border-transparent text-ink-muted hover:text-ink'
-                  }`}
-                >
-                  Favorites
-                </button>
+              {/* Shelf Tabs (PRD A Category 5) */}
+              <div className="flex flex-wrap items-center gap-1">
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'top5', label: '★ Top 5' },
+                  { id: 'india', label: 'India' },
+                  { id: 'usa', label: 'USA' },
+                  { id: 'china', label: 'China' },
+                  { id: 'japan', label: 'Japan' },
+                  { id: 'australia', label: 'Australia' },
+                  { id: 'animals', label: 'Wildlife' },
+                  { id: 'favorites', label: 'Favorites' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    id={`btn-tv-shelf-${tab.id}`}
+                    onClick={() => setActiveShelf(tab.id as TvShelf)}
+                    className={`px-2 py-1 text-center font-ui text-[11px] font-bold uppercase tracking-wider rounded-xs border transition-colors ${
+                      activeShelf === tab.id
+                        ? 'border-ink bg-paper text-ink shadow-2xs'
+                        : 'border-transparent text-ink-muted hover:text-ink hover:border-paper-border'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
               {/* Include Dead Streams */}
@@ -570,11 +600,12 @@ export const TVView: React.FC = () => {
                   return (
                     <div
                       key={ch.id}
+                      data-channel-slug={ch.slug || `channel-${ch.id}`}
                       onClick={() => {
                         setSelectedChannel(ch);
                         setSelectedTvChannelId(ch.id);
                       }}
-                      className={`p-3 border rounded-xs transition-all flex items-center justify-between gap-2.5 cursor-pointer shadow-2xs ${
+                      className={`tv-channel-item p-3 border rounded-xs transition-all flex items-center justify-between gap-2.5 cursor-pointer shadow-2xs ${
                         isSelected
                           ? 'border-ink bg-paper font-semibold shadow-xs'
                           : ch.is_alive
@@ -591,9 +622,21 @@ export const TVView: React.FC = () => {
                         />
 
                         <div className="min-w-0 space-y-0.5">
-                          <h4 className="font-headline text-xs font-bold text-ink truncate leading-tight">
-                            {ch.name}
-                          </h4>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="font-headline text-xs font-bold text-ink truncate leading-tight">
+                              {ch.name}
+                            </h4>
+                            {ch.is_top5 && (
+                              <span className="font-mono text-[9px] font-bold uppercase bg-accent text-paper px-1 py-0.2 shrink-0">
+                                TOP 5 · #{ch.rank}
+                              </span>
+                            )}
+                            {ch.status === 'needs my review' && (
+                              <span className="font-mono text-[8px] uppercase border border-amber-600 text-amber-700 bg-amber-50 dark:bg-amber-950/40 px-1 py-0.2 shrink-0">
+                                NEEDS REVIEW
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 font-mono text-[0.625rem] text-ink-muted">
                             <span>{ch.country || 'Global'}</span>
                             <span>·</span>

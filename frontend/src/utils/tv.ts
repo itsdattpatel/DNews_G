@@ -35,7 +35,16 @@ export function getVlcUrl(streamUrl: string): string {
   return `vlc://${streamUrl}`;
 }
 
-export type TvShelf = 'all' | 'animals' | 'favorites';
+export type TvShelf =
+  | 'all'
+  | 'top5'
+  | 'india'
+  | 'usa'
+  | 'china'
+  | 'japan'
+  | 'australia'
+  | 'animals'
+  | 'favorites';
 
 /**
  * Filters a list of IPTV channels by shelf, search query, and dead/offline visibility
@@ -54,12 +63,46 @@ export function filterChannels(
   }
 
   // Shelf filtering
-  if (shelf === 'animals') {
+  if (shelf === 'top5') {
+    list = list.filter((c) => c.is_top5);
+  } else if (shelf === 'india') {
+    list = list.filter(
+      (c) =>
+        (c.country || '').toLowerCase() === 'india' ||
+        (c.country_code || '').toUpperCase() === 'IN'
+    );
+  } else if (shelf === 'usa') {
+    list = list.filter(
+      (c) =>
+        (c.country || '').toLowerCase() === 'usa' ||
+        (c.country || '').toLowerCase() === 'united states' ||
+        (c.country_code || '').toUpperCase() === 'US'
+    );
+  } else if (shelf === 'china') {
+    list = list.filter(
+      (c) =>
+        (c.country || '').toLowerCase() === 'china' ||
+        (c.country_code || '').toUpperCase() === 'CN'
+    );
+  } else if (shelf === 'japan') {
+    list = list.filter(
+      (c) =>
+        (c.country || '').toLowerCase() === 'japan' ||
+        (c.country_code || '').toUpperCase() === 'JP'
+    );
+  } else if (shelf === 'australia') {
+    list = list.filter(
+      (c) =>
+        (c.country || '').toLowerCase() === 'australia' ||
+        (c.country_code || '').toUpperCase() === 'AU'
+    );
+  } else if (shelf === 'animals') {
     list = list.filter(
       (c) =>
         (c.category || '').toLowerCase().includes('animal') ||
         (c.category || '').toLowerCase().includes('nature') ||
         (c.category || '').toLowerCase().includes('wild') ||
+        (c.category || '').toLowerCase().includes('doc') ||
         (c.name || '').toLowerCase().includes('animal') ||
         (c.name || '').toLowerCase().includes('earth') ||
         (c.name || '').toLowerCase().includes('wild'),
@@ -75,7 +118,8 @@ export function filterChannels(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         (c.country || '').toLowerCase().includes(q) ||
-        (c.category || '').toLowerCase().includes(q),
+        (c.category || '').toLowerCase().includes(q) ||
+        (c.evidence || '').toLowerCase().includes(q),
     );
   }
 

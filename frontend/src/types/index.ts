@@ -181,12 +181,21 @@ export interface SearchResponse {
 export interface TvChannel {
   id: number;
   name: string;
+  slug?: string | null;
   country: string | null;
+  country_code?: string | null;
   category: string | null;
   stream_url: string;
+  youtube_live_url?: string | null;
+  youtube_channel_id?: string | null;
+  website?: string | null;
   logo_url: string | null;
   is_alive: boolean;
   is_favorite: boolean;
+  is_top5?: boolean;
+  rank?: number | null;
+  status?: string | null;
+  evidence?: string | null;
   last_checked_at: string | null;
 }
 

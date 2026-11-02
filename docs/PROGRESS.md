@@ -13,7 +13,7 @@
 | **2** | **Auto-Advance (7 Seconds)** | 🟢 `DONE` | 7s countdown hairline, left panel hover pause, settings drawer slider (3-60s), Spacebar toggle, Arrow resets, Vitest (90 backend + 118 frontend tests pass), Playwright screenshots | 2026-11-02 09:50 |
 | **3** | **Plain Mode (Zero AI)** | 🟢 `DONE` | Plain mode switch, zero AI call engine, rule-based category tagging & breaking heuristics, full-width reader (100%), offline badges across surfaces, catch-up summarization endpoint, Vitest (99 backend + 122 frontend tests pass), Playwright screenshots | 2026-11-02 10:12 |
 | **4** | **Safety Net: Backups & Guards** | 🟢 `DONE` | Automated WAL flush backups, retention pruning (7 daily + 4 weekly), double-confirmation restore with safety pre-restore snapshot, Test-Data Guard blocking test execution on production SQLite, sanitized settings JSON export/import (schema v1), CLI script `db:restore`, Vitest (107 backend + 124 frontend pass), Playwright screenshots | 2026-11-02 10:51 |
-| **5** | **TV Channel Catalog & Top 5** | ⚪ `PENDING` | IPTV catalog caching, `config/channels-top5.json` verified links, deduplication tests | - |
+| **5** | **TV Channel Catalog & Top 5** | 🟢 `DONE` | Migration 009, `config/channels-top5.json` (25 outlets across IN, US, CN, JP, AU), IPTV local cache with Unlicense attribution, deduplication with Top-5 precedence, 12 new unit tests (all 243 suite tests pass), Playwright screenshots | 2026-11-02 11:28 |
 | **6** | **Playback & YouTube Adder** | ⚪ `PENDING` | HLS stream proxy with SSRF check, YouTube embed API, link adder with oEmbed preview | - |
 | **7** | **TV Screen UI & Subpages** | ⚪ `PENDING` | Live/Faulty/Stopped tabs, 16:9 player, health indicators (Live/Slow/Offline), screenshots | - |
 | **8** | **Live Feed Counter** | ⚪ `PENDING` | Rolling 24h count, hourly sparkline, independent telemetry tables, retention test | - |
@@ -134,3 +134,37 @@
   - `ui-step4-restore-modal-locked.png`
   - `ui-step4-restore-modal-unlocked.png`
   - `ui-step4-settings-backups-night.png`
+
+### Step 5: TV Channel Catalog & Curated Top 5 Outlets Per Nation (Completed)
+- Applied Migration 009 (`009_tv_channels_expansion.sql`):
+  - Added `slug`, `country_code`, `youtube_live_url`, `youtube_channel_id`, `website`, `is_top5`, `rank`, `status`, `evidence`, and optimized indexes (`idx_tv_channels_slug`, `idx_tv_channels_top5`).
+- Curated Configuration (`config/channels-top5.json`):
+  - Defined 25 top news outlets for 5 key nations:
+    - **India**: NDTV 24x7 (#1), India Today (#2), Aaj Tak (#3), WION (#4), ABP News (#5).
+    - **USA**: ABC News Live (#1), NBC News NOW (#2), CBS News 24/7 (#3), PBS NewsHour (#4), Bloomberg Television (#5).
+    - **China**: CGTN (#1), CCTV-4 / CCTV News (#2), Xinhua Live (#3), Phoenix InfoNews (#4), Dragon TV (#5).
+    - **Japan**: NHK World-Japan (#1), ANN News (TV Asahi) (#2), Nippon TV News24 (#3), TBS News DIG (#4), FNN Live (#5).
+    - **Australia**: ABC News Australia (#1), SBS World News (#2), Sky News Australia (#3), 9 News (#4), 7NEWS (#5).
+  - Every outlet configured with official YouTube Live embed URL, canonical channel ID, official website, audit date, and journalistic ranking evidence.
+  - Every outlet starts with status `"needs my review"` per user directive.
+- IPTV-org Catalog Sync & Offline Caching (`backend/src/tv/catalog.ts`):
+  - Local cache directory at `backend/data/iptv-cache/` with Public Domain Unlicense attribution (`ATTRIBUTION.md`).
+  - Offline fallback to cached playlists when remote upstream is unreachable.
+  - Slug normalization (`slugify()`) and deduplication ensuring Top-5 metadata always takes precedence over upstream IPTV duplicates.
+- TV Channels API (`backend/src/routes/tv.ts`):
+  - `GET /api/tv/channels`: returns channels with favorites -> top5 -> rank -> alive -> alphabetical ordering, supporting filters (`top5_only`, `country`, `status`).
+  - `GET /api/tv/top5`: returns curated channels grouped by nation.
+  - `POST /api/tv/sync`: administrative trigger for IPTV playlist catalog sync.
+- Frontend Broadcaster UI (`frontend/src/components/tv/TVView.tsx` & `TopBar.tsx`):
+  - Added dedicated Live TV button `[📺 TV]` in master TopBar header.
+  - Added shelf filter tabs: `All`, `★ Top 5`, `India`, `USA`, `China`, `Japan`, `Australia`, `Wildlife`, `Favorites`.
+  - Channel list items styled with `TOP 5 · #1` rank badge, `NEEDS REVIEW` audit indicator, and `[●●●●○]` broadsheet health dots.
+  - Curated outlet detail banner displaying rank, country, official website link, and full journalistic ranking evidence.
+  - Two-finger trackpad and wheel scrolling enabled with `data-lenis-prevent="true"` and `overscroll-contain`.
+- Test Suite:
+  - Added 12 new comprehensive unit tests in `src/__tests__/unit/tv-catalog.test.ts`.
+  - Full test suite passing cleanly: **119 backend tests across 30 suites** + **124 frontend tests across 26 suites** (total **243 tests passing**).
+- Visual Validation completed with Playwright:
+  - `ui-step5-tv-top5-paper.png` (Top 5 shelf active, ABC News Australia selected, Paper theme)
+  - `ui-step5-tv-top5-night.png` (Top 5 shelf active, Night Edition theme)
+  - `ui-step5-tv-shelf-india.png` (India shelf active, NDTV 24x7 selected with Curated Outlet banner, Paper theme)
