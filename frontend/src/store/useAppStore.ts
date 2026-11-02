@@ -110,6 +110,10 @@ interface AppState {
   isSourcesOpen: boolean;
   setSourcesOpen: (open: boolean) => void;
 
+  // Control Room Desk (PRD A Category 11)
+  isControlRoomOpen: boolean;
+  setControlRoomOpen: (open: boolean) => void;
+
   // Resizable Panels State (Persistent layout)
   panelSizesH: [number, number];
   panelSizesV: [number, number];
@@ -606,6 +610,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSourcesOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
     set({ isSourcesOpen: open });
+  },
+
+  // Control Room Desk (PRD A Category 11)
+  isControlRoomOpen: false,
+  setControlRoomOpen: (open) => {
+    playButtonSound(get().settings.sound_enabled);
+    set({ isControlRoomOpen: open });
   },
 
   // Live Feed Counter & Telemetry (PRD A Category 8)

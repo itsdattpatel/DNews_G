@@ -21,6 +21,11 @@ import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import './styles/global.css';
 import App from './App';
+import { useAppStore } from './store/useAppStore';
+
+if (typeof window !== 'undefined') {
+  (window as any).useAppStore = useAppStore;
+}
 
 const rootElement = document.getElementById('root');
 if (rootElement) {

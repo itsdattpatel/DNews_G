@@ -43,6 +43,7 @@ export type AppView =
   | 'pdf'
   | 'briefing'
   | 'alerts'
+  | 'control-room'
   | 'sources-settings'
   | 'settings';
 
@@ -338,10 +339,146 @@ export interface SSEHeartbeat {
   type: 'heartbeat';
 }
 
+export interface SSEControlRoomUpdate {
+  type: 'control_room_update';
+  data?: unknown;
+}
+
+export interface SSESystemError {
+  type: 'system_error';
+  data: SystemErrorRecord;
+}
+
 export type SSEEvent =
   | SSENewArticle
   | SSEClusterUpdate
   | SSEAlert
   | SSEProviderSwitch
   | SSEQuotaUpdate
-  | SSEHeartbeat;
+  | SSEHeartbeat
+  | SSEControlRoomUpdate
+  | SSESystemError;
+
+// ─── Control Room Telemetry & Error Ledger (Category 11) ──────────────────────
+export type SubsystemName = 'fetcher' | 'ai' | 'scheduler' | 'db' | 'tv' | 'system';
+export type ErrorLevel = 'error' | 'warn' | 'info';
+export type FreshnessTier = 'fresh' | 'delayed' | 'failing' | 'disabled';
+
+export interface SystemErrorRecord {
+  id: number;
+  timestamp: string;
+  subsystem: SubsystemName;
+  level: ErrorLevel;
+  message: string;
+  details: string | null;
+  created_at: string;
+}
+
+export interface SourceTelemetryItem {
+  id: number;
+  name: string;
+  slug: string;
+  country: string;
+  url: string;
+  fetch_type: string;
+  enabled: boolean;
+  last_fetched_at: string | null;
+  last_latency_ms: number | null;
+  error_count: number;
+  last_error: string | null;
+  last_error_at: string | null;
+  last_status: string;
+  freshness_tier: FreshnessTier;
+  minutes_since_fetch: number | null;
+}
+
+export interface ControlRoomTelemetry {
+  server_time: string;
+  sources: SourceTelemetryItem[];
+  source_summary: {
+    total: number;
+    enabled: number;
+    fresh: number;
+    delayed: number;
+    failing: number;
+    disabled: number;
+    avg_latency_ms: number;
+  };
+  scheduler: {
+    is_running: boolean;
+    last_cycle_started_at: string | null;
+    last_cycle_completed_at: string | null;
+    last_cycle_duration_ms: number | null;
+    last_cycle_articles_fetched: number;
+    last_cycle_new_articles: number;
+    next_cycle_expected_at: string | null;
+    interval_minutes: number;
+    startup_gap: {
+      detected: boolean;
+      missed_minutes: number;
+    };
+  };
+  ai_providers: {
+    chain: Array<{
+      name: string;
+      model: string;
+      enabled: boolean;
+      timeout_ms: number;
+    }>;
+    current_provider: string;
+    throttled: Record<string, { throttled: boolean; remainingSec: number }>;
+    stats_today: Record<string, {
+      callsToday: number;
+      tokensToday: number;
+      errorsToday: number;
+    }>;
+    two_pass: {
+      pass1_count: number;
+      pass2_count: number;
+      pass2_skipped_count: number;
+      estimated_tokens_saved: number;
+    };
+  };
+  queues: {
+    pending: number;
+    processing: number;
+    done: number;
+    ai_failed: number;
+    pass1_triaged: number;
+    pass2_enriched: number;
+    pass2_deferred: number;
+  };
+  storage: {
+    db_path: string;
+    db_size_bytes: number;
+    db_size_mb: number;
+    db_size_formatted: string;
+    warning_threshold_mb: number;
+    limit_threshold_mb: number;
+    storage_health: 'optimal' | 'warning' | 'critical';
+    total_articles: number;
+    total_clusters: number;
+    total_sources: number;
+    backups_count: number;
+    latest_backup: {
+      filename: string;
+      createdAt: string;
+      sizeFormatted: string;
+      trigger: string;
+    } | null;
+  };
+  modes: {
+    plain_mode_enabled: boolean;
+    two_pass_ai_enabled: boolean;
+    pass2_threshold: number;
+    auto_advance_enabled: boolean;
+    auto_advance_interval_sec: number;
+    refresh_interval_minutes: number;
+  };
+  error_summary: {
+    total_24h: number;
+    by_subsystem: Record<SubsystemName, number>;
+    by_level: Record<ErrorLevel, number>;
+    latest_error: SystemErrorRecord | null;
+  };
+}

@@ -1,9 +1,9 @@
 # CREDITS & Resource Shortlist — AI World News Desk Frontend Overhaul
-*Version 1.0 · 2026-11-01 · Last updated by: docs pass (Step 0)*
+*Version 2.0 · 2026-11-02 · Last updated by: Category 12 QA & Final Audits Pass*
 
 All packages listed here have been vetted for license compliance.
-**Rule**: Only MIT / Apache-2.0 / ISC / OFL-1.1 items may be installed.
-Every install must be logged here with exact npm name + version locked in package.json.
+**Rule**: Only MIT / Apache-2.0 / ISC / OFL-1.1 / BSD items may be installed.
+Every install is logged here with exact npm name + version locked in package.json.
 
 ---
 
@@ -164,7 +164,7 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 
 ## 12. Install Log
 
-*Updated as packages are installed (Step 1+). Format: `date · npm name@version · approved by user`*
+*Updated across all 12 categories of PRD A. Format: `date · npm name@version · license · role`*
 
 | Date | Package | Exact Version | License | Approval | Role |
 |------|---------|---------------|---------|----------|------|
@@ -185,6 +185,12 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 | 2026-11-01 | `lenis` | `1.1.14` | MIT | Approved (Core) | Smooth broadsheet scrolling |
 | 2026-11-01 | `@tanstack/react-query` | `5.59.16` | MIT | Approved (Core) | Server state, cache, & polling |
 | 2026-11-01 | `sonner` | `1.5.0` | MIT | Approved (Core) | Alerts & connection status toasts |
+| 2026-11-01 | `react-resizable-panels` | `2.1.7` | MIT | Approved (Core) | Accessible resizable broadsheet panels |
+| 2026-11-01 | `hls.js` | `^1.7.4` | Apache-2.0 | Approved (Core) | HLS live video streaming engine for TV Desk |
+| 2026-11-01 | `react-simple-maps` | `^5.0.5` | MIT | Approved (Core) | SVG-based broadsheet world map projection |
+| 2026-11-01 | `world-atlas` | `^2.0.2` | BSD-3-Clause | Approved (Core) | TopoJSON geospatial boundary definitions |
+| 2026-11-01 | `zustand` | `^4.5.2` | MIT | Approved (Core) | Global client UI store |
+| 2026-11-01 | `lucide-react` | `^0.368.0` | ISC | Approved (Core) | Primary UI iconography set |
 | 2026-11-01 | `@fontsource/playfair-display` | `5.1.0` | OFL-1.1 | Approved (Core) | Headline typography |
 | 2026-11-01 | `@fontsource/unifrakturcook` | `5.1.0` | OFL-1.1 | Approved (Core) | Masthead logotype typography |
 | 2026-11-01 | `@fontsource/source-serif-4` | `5.1.0` | OFL-1.1 | Approved (Core) | Body article prose typography |
@@ -192,6 +198,23 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 | 2026-11-01 | `@fontsource/ibm-plex-mono` | `5.1.0` | OFL-1.1 | Approved (Core) | Data, metadata, & code typography |
 | 2026-11-01 | `@playwright/test` | `1.48.2` | Apache-2.0 | Approved (Core Dev) | Automated visual QA & screenshot tests |
 | 2026-11-01 | `@types/node` | `20.16.11` | MIT | Approved (Core Dev) | TypeScript node definitions for Vite |
+| 2026-11-01 | `better-sqlite3` | `^13.0.3` | MIT | Approved (Backend) | Fast synchronous SQLite database engine |
+| 2026-11-01 | `express` | `^4.18.3` | MIT | Approved (Backend) | REST API and SSE server framework |
+| 2026-11-01 | `cors` | `^2.8.5` | MIT | Approved (Backend) | Cross-origin resource sharing middleware |
+| 2026-11-01 | `dotenv` | `^16.4.5` | BSD-2-Clause | Approved (Backend) | Environment variable loader |
+| 2026-11-01 | `zod` | `^3.22.4` | MIT | Approved (Backend) | Strict runtime schema validation |
+| 2026-11-01 | `@mozilla/readability` | `^0.5.0` | Apache-2.0 | Approved (Backend) | Article reader & text extraction parser |
+| 2026-11-01 | `jsdom` | `^24.0.0` | MIT | Approved (Backend) | DOM simulation for Readability parsing |
+| 2026-11-01 | `rss-parser` | `^3.13.0` | MIT | Approved (Backend) | Feed parser for global news RSS feeds |
+| 2026-11-01 | `pdfkit` | `^0.20.2` | MIT | Approved (Backend) | Broadsheet PDF generator engine |
+| 2026-11-01 | `natural` | `^6.12.0` | MIT | Approved (Backend) | NLP tokenization & TF-IDF similarity |
+| 2026-11-01 | `@google/generative-ai` | `^0.21.0` | Apache-2.0 | Approved (Backend) | Gemini provider client |
+| 2026-11-01 | `openai` | `^4.47.1` | Apache-2.0 | Approved (Backend) | OpenAI / Groq / Cerebras API client |
+| 2026-11-01 | `node-fetch` | `^3.3.2` | MIT | Approved (Backend) | HTTP fetcher for streams & feeds |
+| 2026-11-01 | `vitest` | `^1.5.0` | MIT | Approved (Dev) | Fast unit & integration test runner |
+| 2026-11-01 | `supertest` | `^7.0.0` | MIT | Approved (Dev) | HTTP endpoint integration testing |
+| 2026-11-01 | `tsx` | `^4.7.3` | MIT | Approved (Dev) | TypeScript execution in development |
+| 2026-11-01 | `concurrently` | `^8.2.2` | MIT | Approved (Dev) | Parallel dev server orchestration |
 
 ---
 

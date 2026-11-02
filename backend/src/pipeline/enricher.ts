@@ -29,6 +29,7 @@ import { emitSseEvent } from '../routes/sse';
 import { runClusteringPass } from './cluster';
 import { detectAlerts } from '../alerts/detector';
 import { checkWatchlistMatches } from '../alerts/watchlist-checker';
+import { logSystemError } from '../services/controlRoom';
 
 export type ArticleRow = DbArticle & { source_country: string; source_name: string };
 
@@ -325,6 +326,9 @@ export async function processTwoPassBatch(batch: ArticleRow[]): Promise<void> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`[Enricher] Pass 1 AI providers unavailable (${msg}). Applying deterministic triage.`);
+    logSystemError('ai', `Pass 1 AI providers unavailable: ${msg}. Fallback triage applied.`, 'warn', {
+      batchSize: batch.length,
+    });
     useFallback = true;
   }
 
@@ -474,6 +478,9 @@ export async function processPass2Batch(articles: ArticleRow[]): Promise<void> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`[Enricher] Pass 2 AI providers unavailable (${msg}). Applying editorial fallback.`);
+    logSystemError('ai', `Pass 2 AI providers unavailable: ${msg}. Fallback applied.`, 'warn', {
+      batchSize: inputs.length,
+    });
     useFallback = true;
   }
 

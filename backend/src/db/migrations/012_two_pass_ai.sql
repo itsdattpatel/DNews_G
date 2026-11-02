@@ -46,3 +46,4 @@ SET
   estimated_tokens_saved = ((SELECT COUNT(*) FROM articles WHERE pass1_completed_at IS NOT NULL AND pass2_completed_at IS NULL) * 740),
   last_updated_at = datetime('now')
 WHERE id = 1;
+

@@ -8,7 +8,7 @@ import { BatIcon } from '../bat/BatIcon';
 import { ProviderBadge } from '../quota/ProviderBadge';
 import { FeedCounterPopover } from '../telemetry/FeedCounterPopover';
 import { useAppStore } from '../../store/useAppStore';
-import { Search, Flame, X, Clock, RadioTower, Layers, Bell, Play, Pause, Tv, Radio } from 'lucide-react';
+import { Search, Flame, X, Clock, RadioTower, Layers, Bell, Play, Pause, Tv, Radio, Activity } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const CATEGORIES = [
@@ -282,6 +282,18 @@ export const TopBar: React.FC = () => {
         >
           <Tv size={15} />
           <span className="hidden xl:inline font-bold">TV</span>
+        </button>
+
+        {/* Control Room Telemetry Quick Button (PRD A Category 11) */}
+        <button
+          id="btn-topbar-control-room"
+          onClick={() => useAppStore.getState().setControlRoomOpen(true)}
+          className="p-1 rounded-xs border border-paper-border hover:bg-paper-alt text-ink-secondary hover:text-ink transition-colors flex items-center gap-1 font-mono text-[11px]"
+          title="Desk Control Room & Telemetry Wire (Press 'c')"
+          aria-label="Open Desk Control Room"
+        >
+          <Activity size={15} />
+          <span className="hidden xl:inline font-bold">OPS</span>
         </button>
 
         {/* Alerts Center Quick Button */}

@@ -22,6 +22,7 @@ import {
   Bell,
   Sliders,
   RadioTower,
+  Activity,
   Sun,
   Moon,
   X,
@@ -47,6 +48,7 @@ const MENU_ITEMS: MenuItem[] = [
   { view: 'pdf', label: 'Daily Newspaper PDF', icon: FileText, description: 'Export & print today’s broadsheet edition' },
   { view: 'briefing', label: 'Morning Briefing', icon: Radio, description: 'Two-minute AI audio radio briefing' },
   { view: 'alerts', label: 'Alerts Center', icon: Bell, description: 'Breaking news dispatches & provider switch records' },
+  { view: 'control-room', label: 'Control Room', icon: Activity, shortcut: 'c', description: 'Freshness telemetry, scheduler metrics, AI quotas, & error ledger' },
   { view: 'sources-settings', label: 'API & Sources', icon: RadioTower, description: 'Provider adapters, quotas, masked keys, & rate limits' },
   { view: 'settings', label: 'Desk Preferences', icon: Sliders, description: 'Theme preferences, sound, & database retention' },
 ];
@@ -101,6 +103,9 @@ export const BatMenuOverlay: React.FC = () => {
     }
     if (view === 'alerts') {
       useAppStore.getState().setAlertsOpen(true);
+    }
+    if (view === 'control-room') {
+      useAppStore.getState().setControlRoomOpen(true);
     }
     if (view === 'sources-settings') {
       useAppStore.getState().setSourcesOpen(true);

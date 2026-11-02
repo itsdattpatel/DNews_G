@@ -229,6 +229,26 @@ export function useSSE(options?: UseSSEOptions): {
         }
       });
 
+      es.addEventListener('control_room_update', (e: MessageEvent) => {
+        try {
+          const payload = e.data ? JSON.parse(e.data) : {};
+          setLastEvent({ type: 'control_room_update', data: payload });
+          queryClient.invalidateQueries({ queryKey: ['control-room'] });
+        } catch (err) {
+          console.warn('[SSE] Error handling control_room_update:', err);
+        }
+      });
+
+      es.addEventListener('system_error', (e: MessageEvent) => {
+        try {
+          const payload = JSON.parse(e.data);
+          setLastEvent({ type: 'system_error', data: payload });
+          queryClient.invalidateQueries({ queryKey: ['control-room'] });
+        } catch (err) {
+          console.warn('[SSE] Error handling system_error:', err);
+        }
+      });
+
       es.addEventListener('quota_update', (e: MessageEvent) => {
         try {
           if (e.data) {

@@ -18,6 +18,7 @@ import { tvRouter } from './routes/tv';
 import { sourcesRouter } from './routes/sources';
 import { backupsRouter } from './routes/backups';
 import { feedCounterRouter } from './routes/feedCounter';
+import { controlRoomRouter } from './routes/controlRoom';
 import { getStartupGap } from './fetch/scheduler';
 import { backfillMissedWindow } from './fetch/backfill';
 import { getCurrentSession, getDowntimeGap } from './services/sessionManager';
@@ -43,6 +44,7 @@ export function createApp(): Express {
   app.use('/api/sources', sourcesRouter);
   app.use('/api/backups', backupsRouter);
   app.use('/api/feed/counter', feedCounterRouter);
+  app.use('/api/control-room', controlRoomRouter);
 
   // Clock synchronization endpoint (PRD A Category 1B)
   app.get('/api/time', (_req, res) => {

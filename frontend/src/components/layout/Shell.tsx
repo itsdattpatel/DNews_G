@@ -25,6 +25,7 @@ import { DailyPdfDesk } from '../pdf/DailyPdfDesk';
 import { TVView } from '../tv/TVView';
 import { WatchlistDesk } from '../watchlist/WatchlistDesk';
 import { CategoryRailView } from '../category/CategoryRailView';
+import { ControlRoomDesk } from '../control-room/ControlRoomDesk';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { useAppStore } from '../../store/useAppStore';
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle, type ImperativePanelGroupHandle } from 'react-resizable-panels';
@@ -78,6 +79,11 @@ export const Shell: React.FC = () => {
           e.preventDefault();
           useAppStore.getState().setTvViewOpen(true);
           setCurrentView('tv');
+          break;
+        case 'c':
+          e.preventDefault();
+          useAppStore.getState().setControlRoomOpen(true);
+          setCurrentView('control-room');
           break;
         case '/':
           e.preventDefault();
@@ -324,6 +330,10 @@ export const Shell: React.FC = () => {
 
       <ErrorBoundary panelName="Alerts Center Desk">
         <AlertsCenter />
+      </ErrorBoundary>
+
+      <ErrorBoundary panelName="Desk Control Room">
+        <ControlRoomDesk />
       </ErrorBoundary>
 
       {/* 7. Broadsheet Toast Notifications */}

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * backend/src/ai/router.ts
  * Provider fallback chain. Tries each provider in order.
  * Emits provider_switch SSE events when switching.
@@ -77,7 +77,7 @@ function isRateLimit(msg: string): boolean {
   return m.includes('429') || m.includes('rate limit') || m.includes('too many requests');
 }
 
-function getModelName(name: ProviderName): string {
+export function getModelName(name: ProviderName): string {
   switch (name) {
     case 'gemini':   return process.env['GEMINI_MODEL'] ?? 'gemini-2.5-flash';
     case 'groq':     return process.env['GROQ_MODEL'] ?? 'llama-3.1-8b-instant';
@@ -93,4 +93,23 @@ function estimateTokens(text: string): number {
 
 export function getCurrentProvider(): ProviderName {
   return _currentProvider;
+}
+
+export function getThrottledStatus(): Record<string, { throttled: boolean; remainingSec: number }> {
+  const result: Record<string, { throttled: boolean; remainingSec: number }> = {};
+  const now = Date.now();
+  for (const p of ['gemini', 'groq', 'mistral', 'cerebras'] as ProviderName[]) {
+    const until = _throttledUntil[p] ?? 0;
+    const remainingSec = Math.max(0, Math.ceil((until - now) / 1000));
+    result[p] = { throttled: remainingSec > 0, remainingSec };
+  }
+  return result;
+}
+
+export function resetThrottledStatus(provider?: ProviderName): void {
+  if (provider) {
+    delete _throttledUntil[provider];
+  } else {
+    _throttledUntil = {};
+  }
 }

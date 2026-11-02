@@ -7,6 +7,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Star, Layers, Clock, Sparkles, Play, Pause } from 'lucide-react';
+import type { Article } from '../../types';
 
 export interface SummaryPanelProps {
   article?: Article | null;
@@ -55,7 +56,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
     if (!article?.summary) return [];
     // Match sentence boundaries (period, question mark, exclamation mark followed by space or end)
     const raw = article.summary.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [article.summary];
-    return raw.map((s) => s.trim()).filter((s) => s.length > 0);
+    return raw.map((s: string) => s.trim()).filter((s: string) => s.length > 0);
   }, [article?.summary]);
 
   const isBreaking = (article?.breaking_score ?? 0) >= 75;
@@ -265,10 +266,10 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
             </div>
 
             <div className="space-y-2.5">
-              {sentences.map((sentence, idx) => {
+              {sentences.map((sentence: string, idx: number) => {
                 const isActive = activeSentenceIndex === idx;
                 const hasEvidence = (article.anchor_phrases || []).some(
-                  (a) => a.sentence_index === idx
+                  (a: { sentence_index: number }) => a.sentence_index === idx
                 );
 
                 return (
@@ -340,7 +341,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
               Tracked Subject Entities:
             </span>
             <div className="flex flex-wrap gap-1.5">
-              {article.keywords.map((kw, i) => (
+              {article.keywords.map((kw: string, i: number) => (
                 <button
                   key={i}
                   type="button"

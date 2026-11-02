@@ -11,6 +11,7 @@ import { DualTimestamp } from '../common/DualTimestamp';
 import { WelcomeBackCard } from './WelcomeBackCard';
 import { AutoAdvanceProgressBar } from './AutoAdvanceProgressBar';
 import { ConfirmationBadge } from '../common/ConfirmationBadge';
+import type { Article } from '../../types';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
@@ -70,7 +71,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
   // Paragraphs formatting with anchor phrase highlighting
   const paragraphs = useMemo(() => {
     if (!rawBody) return [];
-    return rawBody.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
+    return rawBody.split(/\n\s*\n/).filter((p: string) => p.trim().length > 0);
   }, [rawBody]);
 
   // Reset showOriginal when article changes
@@ -346,7 +347,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
         id="article-body-surface"
         className="font-body text-[1.125rem] leading-[1.8] text-ink font-normal space-y-5 max-w-prose select-text"
       >
-        {paragraphs.map((para, pIdx) => {
+        {paragraphs.map((para: string, pIdx: number) => {
           const anchors = article.anchor_phrases || [];
           let renderedContent: React.ReactNode = para;
 

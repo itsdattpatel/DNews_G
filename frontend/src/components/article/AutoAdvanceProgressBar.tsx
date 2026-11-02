@@ -26,6 +26,7 @@ export const AutoAdvanceProgressBar = memo(() => {
   const isArchiveChatOpen = useAppStore((s) => s.isArchiveChatOpen);
   const isAlertsOpen = useAppStore((s) => s.isAlertsOpen);
   const isSourcesOpen = useAppStore((s) => s.isSourcesOpen);
+  const isControlRoomOpen = useAppStore((s) => s.isControlRoomOpen);
   const isGlobeOpen = useAppStore((s) => s.isGlobeOpen);
   const isWatchlistOpen = useAppStore((s) => s.isWatchlistOpen);
   const isBriefingOpen = useAppStore((s) => s.isBriefingOpen);
@@ -97,6 +98,8 @@ export const AutoAdvanceProgressBar = memo(() => {
     pauseReason = 'Alerts open';
   } else if (isSourcesOpen) {
     pauseReason = 'Sources open';
+  } else if (isControlRoomOpen) {
+    pauseReason = 'Control Room open';
   } else if (isGlobeOpen) {
     pauseReason = 'Globe open';
   } else if (isWatchlistOpen) {

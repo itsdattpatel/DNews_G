@@ -19,8 +19,8 @@
 | **8** | **Live Feed Counter** | 🟢 `DONE` | Migration 011, rolling 24h count, sparkline with downtime hatches, independent telemetry tables, retention immunity, Vitest (141 backend + 129 frontend pass), Playwright screenshots | 2026-11-02 13:02 |
 | **9** | **Confirmation Labels** | 🟢 `DONE` | Single source / 2 outlets / Confirmed N in M stamps, breaking alert calm/urgent styles, 5 surfaces, Vitest (151 backend + 141 frontend pass), Playwright screenshots | 2026-11-02 14:00 |
 | **10** | **Two-Pass AI** | 🟢 `DONE` | Migration 012 (`two_pass_stats`), Pass 1 triage prompt & batch scoring, Pass 2 threshold & on-demand summarization, quota telemetry (~740 tokens saved/skip), Settings Section 9, Vitest (161 backend + 147 frontend pass), Playwright screenshots | 2026-11-02 18:40 |
-| **11** | **Control Room Page** | ⚪ `PENDING` | Freshness telemetry, error log, scheduler metrics, live SSE updates, screenshot | - |
-| **12** | **QA & Final Audits** | ⚪ `PENDING` | End-to-end Playwright tests, zero console errors, security-auditor pass, all screenshots | - |
+| **11** | **Control Room Page** | 🟢 `DONE` | Migration 013 (`system_errors` & source telemetry), `/api/control-room/telemetry`, `/api/control-room/errors`, 6-tab `<ControlRoomDesk>`, live SSE updates, Vitest (171 backend + 155 frontend pass), Playwright screenshots | 2026-11-02 19:15 |
+| **12** | **QA & Final Audits** | 🟢 `DONE` | 5 Verification Gates passed: Master E2E Suite (24/24 pass), Security Audit (19/19 pass), 0 console errors, 326 unit tests (100% pass), Paper & Night Edition visual validation artifacts | 2026-11-02 19:48 |
 
 ---
 
@@ -337,6 +337,123 @@
   - `ui-step10-pass1-banner-paper.png` (Pass 1 triaged banner in reader and deferred broadsheet card in summary column, Paper mode)
   - `ui-step10-pass2-summarized-night.png` (Instant Pass 2 enrichment with executive takeaways and verbatim quote highlighting, Night Edition mode)
   - `ui-step10-two-pass-settings-telemetry.png` (Settings Drawer Section 9 showing master toggle, 75% threshold slider, and live Quota Telemetry grid with 370,000 tokens saved)
+
+### Step 11: Control Room Page & Desk Telemetry Hub (Completed)
+- Pre-work SQLite snapshot created at `backups/news.backup_before_cat11_2026-11-02T13-21-20-887Z.sqlite` (16.33 MB).
+- Applied Migration 013 (`013_control_room_telemetry.sql`):
+  - Created `system_errors` table (`id`, `timestamp`, `subsystem`, `level`, `message`, `details`, `created_at`) with indexes on `timestamp DESC`, `subsystem`, and `level`.
+  - Added telemetry columns to `sources` table: `last_latency_ms INTEGER`, `error_count INTEGER`, `last_error TEXT`, `last_error_at TEXT`, `last_status TEXT`.
+  - Seeded initial informational record.
+- Backend Services & Ingestion Scheduler Instrumentation (`backend/src/services/controlRoom.ts` & `backend/src/fetch/scheduler.ts`):
+  - Centralized Error Ledger: `logSystemError()`, `getSystemErrors()` with pagination & filtering, `clearSystemErrors()`.
+  - Ingestion Cycle Metrics: tracks `isCycleRunning`, `lastCycleStartedAt`, `lastCycleCompletedAt`, `lastCycleDurationMs`, `lastCycleArticlesFetched`, `lastCycleNewArticles`, `nextCycleExpectedAt`.
+  - Real-time source latency & error updates in `runFetchCycle()` via `updateSourceTelemetry()`.
+  - Manual on-demand cycle trigger `triggerManualFetchCycle()` via `POST /api/control-room/trigger-fetch`.
+  - AI Quota & Throttled status inspector in `backend/src/ai/router.ts`.
+  - Complete telemetry aggregator: `getControlRoomTelemetry()` querying sources, scheduler, queues, storage, modes, and past-24h error breakdown.
+- REST API Endpoints (`backend/src/routes/controlRoom.ts`):
+  - `GET /api/control-room/telemetry`: returns complete live telemetry payload.
+  - `GET /api/control-room/errors`: filterable error ledger with `subsystem`, `level`, `q`, `limit`, `offset`.
+  - `POST /api/control-room/errors/clear`: administrative ledger clearing.
+  - `POST /api/control-room/trigger-fetch`: immediate manual fetch trigger.
+  - `POST /api/control-room/test-error`: diagnostic probe testing.
+- Real-Time SSE Updates:
+  - Broadcasts `control_room_update` on cycle completion, new errors, and error clearing.
+  - Broadcasts `system_error` on any diagnostic exception.
+  - Frontend `useSSE.ts` listener auto-invalidates `['control-room']` queries for live dashboard refresh.
+- Broadsheet Control Room UI (`frontend/src/components/control-room/ControlRoomDesk.tsx`):
+  - 6 dedicated broadsheet tabs:
+    1. **Operational Overview**: 4 live KPI cards (Sources Active, Scheduler Status, Dispatches, SQLite Storage) + quick matrix summaries.
+    2. **Sources Freshness Matrix**: All 32 outlets with country tags, protocols, last arrival relative time, latency meters, error counts, and freshness stamps (Fresh, Delayed, Failing, Disabled).
+    3. **Scheduler & Queues**: Cycle status, interval, run duration, offline hiatus gaps, and complete 6-stage queue breakdown.
+    4. **AI Providers & Quotas**: Real-time provider chain (Gemini -> Groq -> Mistral -> Cerebras), active indicator, daily call/token/error meters, throttle timers, and Two-Pass token economics (~419,580 tokens saved).
+    5. **Error Ledger**: Subsystem & level filter dropdowns, text search, expandable diagnostic context pre-blocks, and Clear Ledger action.
+    6. **Storage & System Modes**: SQLite database size bar with 1.5GB warning / 2.0GB limit threshold, backup archive stats, and interactive toggles for Plain Mode and Two-Pass AI.
+  - Keyboard access: `c` key toggles Control Room desk; `Esc` closes.
+  - TopBar: Quick access button `[⎈ OPS]` with live indicator.
+  - Bat Navigation Menu: Added "Control Room" with `c` shortcut.
+- Test Suite:
+  - Added 10 new backend unit tests in `backend/src/__tests__/unit/control-room.test.ts`.
+  - Added 8 new frontend unit tests in `frontend/src/__tests__/unit/control-room.test.tsx`.
+  - Full test suite passing cleanly: **171 backend tests across 35 suites** + **155 frontend tests across 30 suites** (total **326 tests passing**, 0 failed).
+  - Strict TypeScript build passes with 0 errors across backend and frontend workspaces (`tsc` & `vite build`).
+- Visual Validation completed with Playwright:
+  - `ui-step11-control-room-overview-paper.png` (Paper edition with 4 KPI cards, feed overview, AI chain, live SSE sync)
+  - `ui-step11-control-room-sources.png` (Sources Freshness Matrix with latency meters and operational stamps)
+  - `ui-step11-control-room-scheduler-queues.png` (Scheduler dispatch engine and 6-stage queue breakdown)
+  - `ui-step11-control-room-ai-quotas.png` (AI provider chain, quotas today, and two-pass savings)
+  - `ui-step11-control-room-errors.png` (Filterable system error ledger)
+  - `ui-step11-control-room-night.png` (Control room dashboard in Night Edition mode)
+  - `ui-step11-bat-menu-control-room.png` (Bat Menu navigation entry for Control Room)
+
+### Step 12: Rigorous QA & Final Audits (Completed)
+- Pre-audit SQLite snapshot created at `backups/news.backup_before_cat12_2026-11-02T14-08-31-419Z.sqlite` (16.33 MB).
+- **Gate 1: Master Automated E2E Playwright Test Suite (`scripts/e2e-all-categories.cjs`)**:
+  - Implemented 24 rigorous browser-level assertion tests validating live interactive behaviors across all 12 categories:
+    1. Category 1: Dual-timestamp broadsheet render (`[data-testid="dual-timestamp"]`)
+    2. Category 1: Article panel dual-timestamp present
+    3. Category 1B: Welcome-back card or live telemetry active
+    4. Category 1B: Server time synchronization endpoint (`/api/time`) reachable and healthy
+    5. Category 2: Auto-advance progress bar visible (`[data-testid="auto-advance-progress-bar"]`)
+    6. Category 2: Auto-advance countdown timer active
+    7. Category 2: Spacebar toggles auto-advance play/pause state
+    8. Category 3: Plain mode switch toggleable in settings drawer
+    9. Category 3: Zero AI call verification in Plain Mode
+    10. Category 4: Backup retention verification (daily & weekly snapshots)
+    11. Category 4: Settings sanitized export/import structure validated
+    12. Category 5: TV channel catalog loads with Top-5 outlets (`#tv-view-modal`)
+    13. Category 6: TV playback surface and HLS proxy operational
+    14. Category 7: TV Screen subpages and filter tabs
+    15. Category 8: Live Feed Counter button present in TopBar (`#btn-topbar-feed-counter`)
+    16. Category 8: Feed Counter popover renders rolling 24h count and hatched sparkline
+    17. Category 9: Corroboration depth stamps rendered (`[data-testid="corroboration-depth-stamp"]`)
+    18. Category 9: Breaking alert labels (Unconfirmed vs Confirmed Breaking)
+    19. Category 10: Two-Pass AI triage indicator or summary panel card rendered
+    20. Category 10: Two-Pass token economics telemetry surface
+    21. Category 11: Control Room desk opens via TopBar `[OPS]` button (`#control-room-desk`)
+    22. Category 11: Sources Freshness Matrix renders 32 operational feeds
+    23. Category 11: Error Ledger filterable by subsystem and level
+    24. Category 11: Storage & SQLite 2GB limit guardrails active
+  - Test run result: **24 passed, 0 failed** across light and dark editions with **0 fatal browser console errors**.
+- **Gate 2: Security & Isolation Audit (`scripts/security-audit.cjs`)**:
+  - Verified 19 security checks covering DevSecOps, secret management, SSRF protection, and data isolation:
+    1. Client bundle hygiene: Scanned all production distribution files in `frontend/dist/` for API key leaks (Gemini, Groq, Cerebras, Mistral, OpenAI) — **PASSED: 0 secrets found**.
+    2. Client source tree hygiene: Scanned all frontend `.ts`, `.tsx`, and `.env` files for embedded provider keys — **PASSED: 0 secrets found**.
+    3. Settings Export Sanitization: Validated that `GET /api/settings/export` strictly redacts and strips all secrets, API tokens, and private credentials before serialization — **PASSED**.
+    4. Database Isolation: Verified that all production operations execute strictly on `backend/data/news.sqlite` with absolute Test-Data Guard protection preventing tests from executing on production storage — **PASSED**.
+    5. TV Stream Proxy SSRF Protection: Verified that `/api/tv/proxy` aggressively rejects private, loopback, and local network targets with HTTP 403 Forbidden:
+       - `http://127.0.0.1:8080/stream.m3u8` -> 403 Blocked
+       - `http://localhost:3000/stream.m3u8` -> 403 Blocked
+       - `http://10.0.0.1/stream.m3u8` -> 403 Blocked
+       - `http://172.16.0.1/stream.m3u8` -> 403 Blocked
+       - `http://192.168.1.1/stream.m3u8` -> 403 Blocked
+       - `http://169.254.169.254/latest/meta-data` -> 403 Blocked
+       - `http://0.0.0.0/stream.m3u8` -> 403 Blocked
+       - `http://router.local/stream.m3u8` -> 403 Blocked
+    6. SQLite File Size Guardrail: Real production database size is 16.33 MB, well within safe operational margins (1.5 GB warn / 2.0 GB hard limit).
+  - Test run result: **19 passed, 0 failed**.
+- **Gate 3: Browser Runtime & Strict Build Verification**:
+  - Full TypeScript build check for backend (`tsc`): **0 errors**.
+  - Full TypeScript build & Vite production bundle compilation for frontend (`tsc && vite build`): **0 errors**.
+  - Automated browser console error listeners recorded 0 uncaught exceptions or React boundary crashes.
+- **Gate 4: Full Unit & Integration Test Suite Passing**:
+  - Backend: **171 tests passed across 35 test suites** (0 failed).
+  - Frontend: **155 tests passed across 30 test suites** (0 failed).
+  - Total: **326 unit/integration tests passing cleanly**.
+- **Gate 5: Documentation & License Integrity**:
+  - `docs/CREDITS.md`: Audited all installed production and development dependencies across frontend, backend, and root workspaces. Every library is locked with its exact version, approved license (MIT, Apache-2.0, ISC, OFL-1.1, BSD-2-Clause, BSD-3-Clause), and architecture role.
+  - `docs/PROGRESS.md`: Complete audit trail and verification records across all 12 categories from Step 0 through Step 12.
+- **Visual Validation Evidence Artifacts**:
+  - `ui-step12-master-e2e-pass.png` (Terminal output capturing 24/24 passed master E2E suite)
+  - `ui-step11-control-room-overview-paper.png` (Paper edition Control Room overview)
+  - `ui-step11-control-room-sources.png` (Sources Freshness Matrix)
+  - `ui-step11-control-room-scheduler-queues.png` (Scheduler & Queues telemetry)
+  - `ui-step11-control-room-ai-quotas.png` (AI provider fallback chain & quota usage)
+  - `ui-step11-control-room-errors.png` (Filterable diagnostic error ledger)
+  - `ui-step11-control-room-night.png` (Night Edition Control Room dashboard)
+  - `ui-step11-bat-menu-control-room.png` (Bat Menu navigation with Control Room)
+
+
 
 
 
