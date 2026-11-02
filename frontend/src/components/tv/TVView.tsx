@@ -362,8 +362,9 @@ export const TVView: React.FC = () => {
     }
   };
 
-  // Filter channels list
-  const filteredChannels = filterChannels(channels, activeShelf, searchQuery, includeDead);
+  // Filter channels list (on faulty / stopped subpages, impaired streams must always be displayed)
+  const effectiveIncludeDead = includeDead || subpage === 'faulty' || subpage === 'stopped';
+  const filteredChannels = filterChannels(channels, activeShelf, searchQuery, effectiveIncludeDead);
   const healthScore = selectedChannel
     ? calculateHealthRating(selectedChannel.is_alive, probeResult?.latencyMs)
     : 0;
@@ -770,7 +771,7 @@ export const TVView: React.FC = () => {
             )}
 
             {/* Top-5 Curated Outlet Banner (PRD A Category 5) */}
-            {selectedChannel?.is_top5 && (
+            {Boolean(selectedChannel?.is_top5) && (
               <div
                 id="top5-channel-banner"
                 className="mt-3 p-3 border-2 border-accent/40 bg-paper-alt rounded-xs space-y-1.5"
@@ -902,16 +903,18 @@ export const TVView: React.FC = () => {
                 ))}
               </div>
 
-              {/* Include Dead Streams */}
-              <label className="flex items-center gap-1.5 text-[0.6875rem] font-ui text-ink-secondary cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeDead}
-                  onChange={(e) => setIncludeDead(e.target.checked)}
-                  className="w-3 h-3 accent-ink cursor-pointer"
-                />
-                <span>Show unavailable streams</span>
-              </label>
+              {/* Include Dead Streams (only relevant on LIVE tab) */}
+              {subpage === 'live' && (
+                <label className="flex items-center gap-1.5 text-[0.6875rem] font-ui text-ink-secondary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeDead}
+                    onChange={(e) => setIncludeDead(e.target.checked)}
+                    className="w-3 h-3 accent-ink cursor-pointer"
+                  />
+                  <span>Show unavailable streams</span>
+                </label>
+              )}
             </div>
 
             {/* Channels Scroll List */}
@@ -980,7 +983,7 @@ export const TVView: React.FC = () => {
                             <h4 className="font-headline text-xs font-bold text-ink truncate leading-tight">
                               {ch.name}
                             </h4>
-                            {ch.is_top5 && (
+                            {Boolean(ch.is_top5) && (
                               <span className="font-mono text-[9px] font-bold uppercase bg-accent text-paper px-1 py-0.2 shrink-0">
                                 TOP 5 · #{ch.rank}
                               </span>

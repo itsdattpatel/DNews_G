@@ -12,6 +12,85 @@ async function verifyCategory7() {
   });
   const page = await context.newPage();
 
+  // Route subpages mock data for Faulty and Stopped validation without mutating live DB
+  await page.route('**/api/tv/subpages/counts', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ live: 32, faulty: 2, stopped: 1 }),
+    });
+  });
+
+  await page.route('**/api/tv/channels?*subpage=faulty*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: 9901,
+            name: 'EuroNews Signal A',
+            slug: 'euronews-signal-a',
+            category: 'News',
+            country: 'France',
+            country_code: 'FR',
+            is_alive: 0,
+            stream_url: 'https://impaired.broadcast.invalid/live.m3u8',
+            youtube_live_url: null,
+            website: 'https://www.euronews.com',
+            is_top5: 0,
+            rank: null,
+            status: 'approved',
+            is_favorite: 0,
+          },
+          {
+            id: 9902,
+            name: 'NHK World Backup',
+            slug: 'nhk-world-backup',
+            category: 'News',
+            country: 'Japan',
+            country_code: 'JP',
+            is_alive: 0,
+            stream_url: 'https://backup.nhk.invalid/live.m3u8',
+            youtube_live_url: null,
+            website: 'https://www3.nhk.or.jp/nhkworld/',
+            is_top5: 0,
+            rank: null,
+            status: 'approved',
+            is_favorite: 0,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route('**/api/tv/channels?*subpage=stopped*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: 9903,
+            name: 'Decommissioned Global Wire Feed',
+            slug: 'decommissioned-wire-feed',
+            category: 'General',
+            country: 'Global',
+            country_code: 'GL',
+            is_alive: 0,
+            stream_url: 'https://expired-source.invalid/playlist.m3u8',
+            youtube_live_url: null,
+            website: 'https://globalwire.invalid',
+            is_top5: 0,
+            rank: null,
+            status: 'approved',
+            is_favorite: 0,
+          },
+        ],
+      }),
+    });
+  });
+
   console.log('[Verify Cat 7] Navigating to http://localhost:5173...');
   await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2000);
@@ -100,12 +179,17 @@ async function verifyCategory7() {
     await page.waitForTimeout(1000);
   }
 
-  // Click edit button on the first stopped channel if present
-  const editButtons = await page.$$('button[id^="btn-edit-channel-"]');
-  if (editButtons.length > 0) {
-    console.log('[Verify Cat 7] Clicking Edit URL button on stopped channel...');
-    await editButtons[0].click();
-    await page.waitForTimeout(500);
+  // Wait for and click edit button on the stopped channel
+  try {
+    await page.waitForSelector('#btn-edit-channel-9903', { timeout: 4000 });
+    const editBtn = await page.$('#btn-edit-channel-9903');
+    if (editBtn) {
+      console.log('[Verify Cat 7] Clicking Edit URL button on stopped channel #9903...');
+      await editBtn.click();
+      await page.waitForTimeout(800);
+    }
+  } catch (err) {
+    console.warn('[Verify Cat 7] Could not find #btn-edit-channel-9903:', err.message);
   }
 
   // Capture Screenshot 4: Edit Channel URL Modal
