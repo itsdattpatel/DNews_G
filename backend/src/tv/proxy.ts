@@ -192,3 +192,4 @@ export function rewriteM3u8Playlist(m3u8Content: string, parentUrl: string): str
 
   return rewrittenLines.join('\n');
 }
+

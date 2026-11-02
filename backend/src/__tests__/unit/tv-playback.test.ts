@@ -250,5 +250,83 @@ chunk1.m4s`;
       expect(getRes.body.methods[0].latency_ms).toBe(120);
       expect(getRes.body.methods[0].consecutive_failures).toBe(0);
     });
+
+    it('returns counts for LIVE, FAULTY, and STOPPED subpages (PRD A Category 7.1)', async () => {
+      // 1. Create a live channel
+      createCustomChannel({ name: 'Live Channel 1', stream_url: 'https://example.com/live1.m3u8' });
+
+      // 2. Insert a faulty channel (< 7 days offline)
+      const db = getDb();
+      db.prepare(`
+        INSERT INTO tv_channels (name, slug, stream_url, is_alive, last_checked_at)
+        VALUES ('Faulty Channel 1', 'faulty_1', 'https://example.com/bad1.m3u8', 0, datetime('now', '-2 days'))
+      `).run();
+
+      // 3. Insert a stopped channel (>= 7 days offline)
+      db.prepare(`
+        INSERT INTO tv_channels (name, slug, stream_url, is_alive, last_checked_at)
+        VALUES ('Stopped Channel 1', 'stopped_1', 'https://example.com/dead1.m3u8', 0, datetime('now', '-10 days'))
+      `).run();
+
+      const res = await request(app).get('/api/tv/subpages/counts');
+      expect(res.status).toBe(200);
+      expect(res.body.live).toBeGreaterThanOrEqual(1);
+      expect(res.body.faulty).toBeGreaterThanOrEqual(1);
+      expect(res.body.stopped).toBeGreaterThanOrEqual(1);
+
+      // Verify subpage filtering
+      const liveRes = await request(app).get('/api/tv/channels?subpage=live');
+      expect(liveRes.status).toBe(200);
+      expect(liveRes.body.items.some((c: any) => c.name === 'Live Channel 1')).toBe(true);
+      expect(liveRes.body.items.some((c: any) => c.name === 'Faulty Channel 1')).toBe(false);
+
+      const faultyRes = await request(app).get('/api/tv/channels?subpage=faulty');
+      expect(faultyRes.status).toBe(200);
+      expect(faultyRes.body.items.some((c: any) => c.name === 'Faulty Channel 1')).toBe(true);
+      expect(faultyRes.body.items.some((c: any) => c.name === 'Stopped Channel 1')).toBe(false);
+
+      const stoppedRes = await request(app).get('/api/tv/channels?subpage=stopped');
+      expect(stoppedRes.status).toBe(200);
+      expect(stoppedRes.body.items.some((c: any) => c.name === 'Stopped Channel 1')).toBe(true);
+      expect(stoppedRes.body.items.some((c: any) => c.name === 'Faulty Channel 1')).toBe(false);
+    });
+
+    it('updates channel stream link and restores it to live (PRD A §7.1 Edit URL)', async () => {
+      const db = getDb();
+      const insert = db.prepare(`
+        INSERT INTO tv_channels (name, slug, stream_url, is_alive)
+        VALUES ('Broken News', 'broken_news', 'https://example.com/broken.m3u8', 0)
+      `).run();
+      const id = insert.lastInsertRowid;
+
+      const updateRes = await request(app)
+        .put(`/api/tv/channels/${id}`)
+        .send({
+          name: 'Restored News Net',
+          stream_url: 'https://example.com/repaired.m3u8',
+        });
+
+      expect(updateRes.status).toBe(200);
+      expect(updateRes.body.name).toBe('Restored News Net');
+      expect(updateRes.body.stream_url).toBe('https://example.com/repaired.m3u8');
+      expect(updateRes.body.is_alive).toBe(true);
+    });
+
+    it('permanently deletes stopped channel (PRD A §7.1 Stopped Links)', async () => {
+      const db = getDb();
+      const insert = db.prepare(`
+        INSERT INTO tv_channels (name, slug, stream_url, is_alive)
+        VALUES ('Dead News Net', 'dead_news', 'https://example.com/dead.m3u8', 0)
+      `).run();
+      const id = insert.lastInsertRowid;
+
+      const delRes = await request(app).delete(`/api/tv/channels/${id}`);
+      expect(delRes.status).toBe(200);
+      expect(delRes.body.success).toBe(true);
+
+      const check = db.prepare('SELECT * FROM tv_channels WHERE id = ?').get(id);
+      expect(check).toBeFalsy();
+    });
   });
 });
+

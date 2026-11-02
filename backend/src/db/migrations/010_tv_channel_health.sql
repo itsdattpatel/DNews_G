@@ -15,3 +15,4 @@ CREATE TABLE IF NOT EXISTS tv_channel_health (
 
 CREATE INDEX IF NOT EXISTS idx_tv_channel_health_channel ON tv_channel_health(channel_id);
 CREATE INDEX IF NOT EXISTS idx_tv_channel_health_method ON tv_channel_health(method);
+

@@ -31,6 +31,10 @@ import {
   Copy,
   Check,
   Youtube,
+  PictureInPicture2,
+  Edit3,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddYouTubeChannelModal } from './AddYouTubeChannelModal';
@@ -43,6 +47,8 @@ export const TVView: React.FC = () => {
 
   const [channels, setChannels] = useState<TvChannel[]>([]);
   const [activeShelf, setActiveShelf] = useState<TvShelf>('all');
+  const [subpage, setSubpage] = useState<'live' | 'faulty' | 'stopped'>('live');
+  const [subpageCounts, setSubpageCounts] = useState({ live: 0, faulty: 0, stopped: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [includeDead, setIncludeDead] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<TvChannel | null>(null);
@@ -50,24 +56,39 @@ export const TVView: React.FC = () => {
   const [probeResult, setProbeResult] = useState<{ isAlive: boolean; latencyMs: number } | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
   const [playbackMethod, setPlaybackMethod] = useState<'hls' | 'youtube' | 'vlc'>('hls');
   const [isAddYoutubeOpen, setIsAddYoutubeOpen] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [editingChannel, setEditingChannel] = useState<TvChannel | null>(null);
+  const [editUrlInput, setEditUrlInput] = useState('');
+  const [editNameInput, setEditNameInput] = useState('');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
 
-  // Fetch channels list
+  // Fetch subpages counts
+  const fetchSubpageCounts = async () => {
+    try {
+      const res = await fetch('/api/tv/subpages/counts');
+      if (res.ok) {
+        const data = await res.json();
+        setSubpageCounts(data);
+      }
+    } catch (_) {}
+  };
+
+  // Fetch channels list with subpage filtering
   const fetchChannels = async () => {
     try {
-      const res = await fetch('/api/tv/channels?include_dead=true');
+      const res = await fetch(`/api/tv/channels?subpage=${subpage}&include_dead=true`);
       if (res.ok) {
         const data = await res.json();
         const items: TvChannel[] = data.items || [];
         setChannels(items);
 
-        // Auto select first channel if none selected
-        if (!selectedChannel && items.length > 0) {
+        // Auto select first channel if current is missing from view
+        if (items.length > 0 && (!selectedChannel || !items.some((c) => c.id === selectedChannel.id))) {
           const defaultChannel = items.find((c) => c.is_alive) || items[0]!;
           setSelectedChannel(defaultChannel);
           setSelectedTvChannelId(defaultChannel.id);
@@ -81,8 +102,9 @@ export const TVView: React.FC = () => {
   useEffect(() => {
     if (isTvViewOpen) {
       fetchChannels();
+      fetchSubpageCounts();
     }
-  }, [isTvViewOpen]);
+  }, [isTvViewOpen, subpage]);
 
   // Sync selectedChannel with store
   useEffect(() => {
@@ -271,12 +293,117 @@ export const TVView: React.FC = () => {
     }
   };
 
-  if (!isTvViewOpen) return null;
+  // Volume slider handler
+  const handleVolumeChange = (newVol: number) => {
+    setVolume(newVol);
+    if (videoRef.current) {
+      videoRef.current.volume = newVol;
+      videoRef.current.muted = newVol === 0;
+      setIsMuted(newVol === 0);
+    }
+  };
 
+  // Picture-in-Picture handler (PRD A §7.2)
+  const handleTogglePip = async () => {
+    if (videoRef.current) {
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        } else if (document.pictureInPictureEnabled) {
+          await videoRef.current.requestPictureInPicture();
+        }
+      } catch (err: any) {
+        toast.error('Picture-in-Picture error: ' + err.message);
+      }
+    }
+  };
+
+  // Delete channel permanently (PRD A §7.1 Stopped Links)
+  const handleDeleteChannel = async (id: number) => {
+    if (!window.confirm('Are you sure you want to permanently remove this stopped channel?')) return;
+    try {
+      const res = await fetch(`/api/tv/channels/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Channel removed permanently');
+        setChannels((prev) => prev.filter((c) => c.id !== id));
+        fetchSubpageCounts();
+      }
+    } catch (err: any) {
+      toast.error('Failed to delete channel');
+    }
+  };
+
+  // Save updated URL for stopped / faulty channel (PRD A §7.1 Edit URL)
+  const handleSaveEditChannel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingChannel) return;
+    try {
+      const isYt = editUrlInput.includes('youtube.com') || editUrlInput.includes('youtu.be');
+      const payload: any = {
+        name: editNameInput.trim() || editingChannel.name,
+        stream_url: editUrlInput.trim(),
+        youtube_live_url: isYt ? editUrlInput.trim() : null,
+      };
+      const res = await fetch(`/api/tv/channels/${editingChannel.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        toast.success(`Updated "${updated.name}" stream link`);
+        setChannels((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        setSelectedChannel(updated);
+        setEditingChannel(null);
+        fetchSubpageCounts();
+      }
+    } catch (err: any) {
+      toast.error('Failed to update channel URL');
+    }
+  };
+
+  // Filter channels list
   const filteredChannels = filterChannels(channels, activeShelf, searchQuery, includeDead);
   const healthScore = selectedChannel
     ? calculateHealthRating(selectedChannel.is_alive, probeResult?.latencyMs)
     : 0;
+
+  // Keyboard navigation: ArrowUp / ArrowDown channel switch & 'f' fullscreen (PRD A §7.2)
+  useEffect(() => {
+    if (!isTvViewOpen || filteredChannels.length === 0) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const currentIndex = filteredChannels.findIndex((c) => c.id === selectedChannel?.id);
+        const nextIndex = (currentIndex + 1) % filteredChannels.length;
+        const next = filteredChannels[nextIndex];
+        if (next) {
+          setSelectedChannel(next);
+          setSelectedTvChannelId(next.id);
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const currentIndex = filteredChannels.findIndex((c) => c.id === selectedChannel?.id);
+        const prevIndex = (currentIndex - 1 + filteredChannels.length) % filteredChannels.length;
+        const prev = filteredChannels[prevIndex];
+        if (prev) {
+          setSelectedChannel(prev);
+          setSelectedTvChannelId(prev.id);
+        }
+      } else if (e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        handleFullscreen();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isTvViewOpen, filteredChannels, selectedChannel]);
+
+  if (!isTvViewOpen) return null;
 
   return (
     <div
@@ -294,40 +421,96 @@ export const TVView: React.FC = () => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* 1. Broadsheet Masthead Header */}
-        <header className="p-4 sm:p-5 border-b-2 border-ink bg-paper-alt flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-          <div className="space-y-0.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-ui text-[0.6875rem] font-bold uppercase tracking-widest text-ink-secondary">
-                Live Broadcast Wire &amp; Telecasts · Vol. XCII No. 41
-              </span>
-              <span className="text-ink-muted text-xs">/</span>
-              <span className="font-mono text-xs font-bold text-accent">
-                {channels.filter((c) => c.is_alive).length} Live Signals Available
-              </span>
+        <header className="p-4 sm:p-5 border-b-2 border-ink bg-paper-alt flex flex-col gap-3 shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-ui text-[0.6875rem] font-bold uppercase tracking-widest text-ink-secondary">
+                  Live Broadcast Wire &amp; Telecasts · Vol. XCII No. 41
+                </span>
+                <span className="text-ink-muted text-xs">/</span>
+                <span className="font-mono text-xs font-bold text-accent">
+                  {channels.filter((c) => c.is_alive).length} Live Signals Available
+                </span>
+              </div>
+
+              <h2
+                id="tv-view-heading"
+                className="font-headline text-xl sm:text-2xl font-bold tracking-tight text-ink flex items-center gap-2"
+              >
+                <Tv size={22} className="text-accent" />
+                <span>International Television &amp; Nature Wire</span>
+              </h2>
+
+              <div className="font-ui text-xs text-ink-secondary">
+                IPTV broadcast streams · Nature documentary &amp; wildlife tracking · Multi-method player
+              </div>
             </div>
 
-            <h2
-              id="tv-view-heading"
-              className="font-headline text-xl sm:text-2xl font-bold tracking-tight text-ink flex items-center gap-2"
-            >
-              <Tv size={22} className="text-accent" />
-              <span>International Television &amp; Nature Wire</span>
-            </h2>
-
-            <div className="font-ui text-xs text-ink-secondary">
-              IPTV broadcast streams · Nature documentary &amp; wildlife tracking · HLS live feed
+            <div className="flex items-center gap-2">
+              <button
+                id="btn-close-tv-view"
+                type="button"
+                onClick={() => setTvViewOpen(false)}
+                className="p-1.5 border border-paper-border hover:border-ink bg-paper hover:bg-ink hover:text-paper rounded-xs transition-colors shrink-0"
+                title="Close TV Desk (Esc)"
+              >
+                <X size={18} />
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Subpages Navigation Tabs (PRD A §7.1: LIVE / FAULTY FEEDS / STOPPED LINKS) */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-paper-border">
             <button
-              id="btn-close-tv-view"
               type="button"
-              onClick={() => setTvViewOpen(false)}
-              className="p-1.5 border border-paper-border hover:border-ink bg-paper hover:bg-ink hover:text-paper rounded-xs transition-colors shrink-0"
-              title="Close TV Desk (Esc)"
+              id="tab-subpage-live"
+              onClick={() => setSubpage('live')}
+              className={`px-3 py-1 font-ui text-xs font-bold uppercase tracking-wider rounded-xs border transition-colors flex items-center gap-1.5 ${
+                subpage === 'live'
+                  ? 'border-ink bg-paper text-ink shadow-2xs font-extrabold'
+                  : 'border-transparent text-ink-secondary hover:text-ink hover:border-paper-border'
+              }`}
             >
-              <X size={18} />
+              <span className="w-2 h-2 rounded-full bg-positive" />
+              <span>LIVE</span>
+              <span className="font-mono text-[10px] bg-paper-border/60 px-1 py-0.2 rounded-2xs">
+                {subpageCounts.live || channels.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="tab-subpage-faulty"
+              onClick={() => setSubpage('faulty')}
+              className={`px-3 py-1 font-ui text-xs font-bold uppercase tracking-wider rounded-xs border transition-colors flex items-center gap-1.5 ${
+                subpage === 'faulty'
+                  ? 'border-ink bg-paper text-amber-700 dark:text-amber-400 shadow-2xs font-extrabold'
+                  : 'border-transparent text-ink-secondary hover:text-ink hover:border-paper-border'
+              }`}
+            >
+              <AlertTriangle size={12} className="text-amber-600" />
+              <span>FAULTY FEEDS</span>
+              <span className="font-mono text-[10px] bg-paper-border/60 px-1 py-0.2 rounded-2xs">
+                {subpageCounts.faulty}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="tab-subpage-stopped"
+              onClick={() => setSubpage('stopped')}
+              className={`px-3 py-1 font-ui text-xs font-bold uppercase tracking-wider rounded-xs border transition-colors flex items-center gap-1.5 ${
+                subpage === 'stopped'
+                  ? 'border-ink bg-paper text-accent shadow-2xs font-extrabold'
+                  : 'border-transparent text-ink-secondary hover:text-ink hover:border-paper-border'
+              }`}
+            >
+              <Radio size={12} className="text-accent" />
+              <span>STOPPED LINKS</span>
+              <span className="font-mono text-[10px] bg-paper-border/60 px-1 py-0.2 rounded-2xs">
+                {subpageCounts.stopped}
+              </span>
             </button>
           </div>
         </header>
@@ -515,15 +698,31 @@ export const TVView: React.FC = () => {
                     {copiedUrl ? <Check size={14} className="text-positive" /> : <Copy size={14} />}
                   </button>
 
-                  {/* Audio Mute Toggle */}
-                  <button
-                    type="button"
-                    onClick={handleToggleMute}
-                    className="p-1.5 border border-paper-border hover:border-ink bg-paper rounded-xs text-ink transition-colors"
-                    title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
-                  >
-                    {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-                  </button>
+                  {/* Volume Slider & Audio Mute Toggle */}
+                  <div className="flex items-center gap-1.5 bg-paper border border-paper-border px-1.5 py-1 rounded-xs">
+                    <button
+                      type="button"
+                      onClick={handleToggleMute}
+                      className="text-ink hover:text-accent transition-colors"
+                      title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+                    >
+                      {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                    </button>
+                    <input
+                      id="input-tv-volume"
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={isMuted ? 0 : volume}
+                      onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                      className="w-16 h-1 accent-ink cursor-pointer bg-paper-border rounded-lg"
+                      title={`Volume: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
+                    />
+                    <span className="font-mono text-[9px] text-ink-muted w-6">
+                      {Math.round((isMuted ? 0 : volume) * 100)}%
+                    </span>
+                  </div>
 
                   {/* Probe Health */}
                   <button
@@ -534,6 +733,17 @@ export const TVView: React.FC = () => {
                   >
                     <Activity size={12} className={isProbing ? 'animate-spin' : ''} />
                     <span>{isProbing ? 'Probing...' : 'Probe'}</span>
+                  </button>
+
+                  {/* Picture-in-Picture */}
+                  <button
+                    type="button"
+                    id="btn-tv-pip"
+                    onClick={handleTogglePip}
+                    className="p-1.5 border border-paper-border hover:border-ink bg-paper rounded-xs text-ink transition-colors"
+                    title="Toggle Picture-in-Picture"
+                  >
+                    <PictureInPicture2 size={15} />
                   </button>
 
                   {/* VLC Protocol Link */}
@@ -551,7 +761,7 @@ export const TVView: React.FC = () => {
                     type="button"
                     onClick={handleFullscreen}
                     className="p-1.5 border border-paper-border hover:border-ink bg-paper rounded-xs text-ink transition-colors"
-                    title="Fullscreen"
+                    title="Fullscreen (f)"
                   >
                     <Maximize size={15} />
                   </button>
@@ -741,12 +951,29 @@ export const TVView: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        {/* Status Dot */}
-                        <span
-                          className={`w-2 h-2 rounded-full shrink-0 ${
-                            ch.is_alive ? 'bg-positive' : 'bg-ink-muted/50'
-                          }`}
-                        />
+                        {/* Textual Health Badge (PRD A §7.2: LIVE / SLOW / OFFLINE - No bare colored dots) */}
+                        {(() => {
+                          let healthLabel = 'LIVE';
+                          let badgeClass =
+                            'border-emerald-600/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-400';
+                          if (!ch.is_alive) {
+                            healthLabel = 'OFFLINE';
+                            badgeClass =
+                              'border-red-600/40 bg-red-500/10 text-red-800 dark:text-red-400';
+                          } else if (itemHealth <= 2) {
+                            healthLabel = 'SLOW';
+                            badgeClass =
+                              'border-amber-600/40 bg-amber-500/10 text-amber-800 dark:text-amber-400';
+                          }
+
+                          return (
+                            <span
+                              className={`font-mono text-[9px] font-bold uppercase tracking-wider px-1 py-0.2 border rounded-xs shrink-0 ${badgeClass}`}
+                            >
+                              {healthLabel}
+                            </span>
+                          );
+                        })()}
 
                         <div className="min-w-0 space-y-0.5">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -774,17 +1001,65 @@ export const TVView: React.FC = () => {
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggleFavorite(e, ch)}
-                        className="text-accent hover:scale-110 transition-transform p-1 shrink-0"
-                        title={ch.is_favorite ? 'Remove Favorite' : 'Save to Favorites'}
-                      >
-                        <Heart
-                          size={13}
-                          fill={ch.is_favorite ? 'currentColor' : 'none'}
-                        />
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Subpage Specific Actions (PRD A §7.1) */}
+                        {subpage === 'faulty' && (
+                          <button
+                            type="button"
+                            id={`btn-retry-channel-${ch.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedChannel(ch);
+                              setSelectedTvChannelId(ch.id);
+                              handleHealthProbe();
+                            }}
+                            className="px-2 py-0.5 border border-amber-600/60 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 font-ui text-[10px] font-bold rounded-xs flex items-center gap-1"
+                            title="Test & Retry stream signal"
+                          >
+                            <RotateCcw size={10} />
+                            <span>Retry</span>
+                          </button>
+                        )}
+
+                        {subpage === 'stopped' && (
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              id={`btn-edit-channel-${ch.id}`}
+                              onClick={() => {
+                                setEditingChannel(ch);
+                                setEditNameInput(ch.name);
+                                setEditUrlInput(ch.stream_url || ch.youtube_live_url || '');
+                              }}
+                              className="p-1 border border-paper-border hover:border-ink rounded-xs text-ink-secondary hover:text-ink"
+                              title="Edit Stream URL"
+                            >
+                              <Edit3 size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              id={`btn-delete-channel-${ch.id}`}
+                              onClick={() => handleDeleteChannel(ch.id)}
+                              className="p-1 border border-red-600/40 hover:border-red-600 text-red-700 hover:bg-red-500/10 rounded-xs"
+                              title="Remove Permanently"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleFavorite(e, ch)}
+                          className="text-accent hover:scale-110 transition-transform p-1 shrink-0"
+                          title={ch.is_favorite ? 'Remove Favorite' : 'Save to Favorites'}
+                        >
+                          <Heart
+                            size={13}
+                            fill={ch.is_favorite ? 'currentColor' : 'none'}
+                          />
+                        </button>
+                      </div>
                     </div>
                   );
                 })
@@ -816,8 +1091,81 @@ export const TVView: React.FC = () => {
           if (newChannel.youtube_live_url) {
             setPlaybackMethod('youtube');
           }
+          fetchSubpageCounts();
         }}
       />
+
+      {/* Edit Channel URL Modal (PRD A §7.1 Edit URL) */}
+      {editingChannel && (
+        <div
+          id="modal-edit-channel-url"
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-ink/80 backdrop-blur-xs select-none"
+          onClick={() => setEditingChannel(null)}
+        >
+          <form
+            onSubmit={handleSaveEditChannel}
+            className="w-full max-w-md bg-paper text-ink border-2 border-ink rounded-xs p-5 space-y-4 shadow-overlay"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-paper-border pb-2">
+              <h3 className="font-headline text-base font-bold text-ink">Edit Channel Link</h3>
+              <button
+                type="button"
+                onClick={() => setEditingChannel(null)}
+                className="p-1 border border-paper-border hover:border-ink rounded-xs text-ink-secondary"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-ui text-xs font-bold uppercase tracking-wider text-ink-secondary block">
+                Channel Name
+              </label>
+              <input
+                type="text"
+                value={editNameInput}
+                onChange={(e) => setEditNameInput(e.target.value)}
+                className="w-full px-3 py-1.5 bg-paper-alt border border-paper-border focus:border-ink rounded-xs font-headline text-xs font-bold text-ink focus:outline-none"
+                required
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-ui text-xs font-bold uppercase tracking-wider text-ink-secondary block">
+                Stream URL / YouTube Embed URL
+              </label>
+              <input
+                type="text"
+                value={editUrlInput}
+                onChange={(e) => setEditUrlInput(e.target.value)}
+                placeholder="https://...m3u8 or https://youtube.com/..."
+                className="w-full px-3 py-1.5 bg-paper-alt border border-paper-border focus:border-ink rounded-xs font-mono text-xs text-ink focus:outline-none"
+                required
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-paper-border">
+              <button
+                type="button"
+                onClick={() => setEditingChannel(null)}
+                className="px-3.5 py-1.5 border border-paper-border hover:border-ink bg-paper text-ink font-ui font-semibold text-xs rounded-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                id="btn-confirm-save-channel-url"
+                className="px-4 py-1.5 border border-accent bg-accent text-paper font-ui font-bold text-xs uppercase tracking-wider rounded-xs hover:bg-accent/90"
+              >
+                Save &amp; Restore
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

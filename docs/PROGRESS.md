@@ -198,3 +198,38 @@
   - `ui-step6-tv-youtube-player-paper.png` (YouTube Live embed active, playback method switcher, stream URL copied toast, Paper theme)
   - `ui-step6-tv-youtube-player-night.png` (YouTube Live embed active, Night Edition theme)
   - `ui-step6-add-youtube-modal.png` (Add YouTube Broadcast modal with verified preview card and Channel ID instruction guide)
+
+### Step 7: TV Screen UI & Subpages (Completed)
+- Pre-work SQLite snapshot created at `backups/news.backup_before_cat7_2026-11-02T06-24-18-301Z.sqlite` (12.7 MB).
+- Backend Subpages Engine (`backend/src/routes/tv.ts`):
+  - `GET /api/tv/subpages/counts`: returns dynamic channel counts for `{ live, faulty, stopped }`.
+  - `GET /api/tv/channels?subpage=live|faulty|stopped`:
+    - `live`: strictly lists channels with verified working playback (`is_alive = 1` or `youtube_live_url IS NOT NULL`). Dead streams never appear here.
+    - `faulty`: lists impaired feeds (`is_alive = 0` and unresponsiveness `< 7` days).
+    - `stopped`: lists decommissioned or broken feeds unresponsive for `>= 7` days.
+  - `PUT /api/tv/channels/:id`: allows updating channel stream/embed URL and metadata.
+  - `DELETE /api/tv/channels/:id`: permanently removes decommissioned stopped streams.
+- Frontend Broadcaster Desk (`frontend/src/components/tv/TVView.tsx`):
+  - Subpage tabs in monitor header:
+    - `LIVE` (default) with live channel count badge.
+    - `FAULTY FEEDS` with count badge. Shows failed stream cards with manual "Test & Retry" probe button (`#btn-retry-channel-${id}`).
+    - `STOPPED LINKS` with count badge. Shows decommissioned stream cards with "Edit URL" (`#btn-edit-channel-${id}`) and "Remove Permanently" (`#btn-delete-channel-${id}`) actions.
+  - Textual Health Badges per PRD A §7.2:
+    - Replaced generic round dots with high-contrast textual badges: `LIVE` (emerald), `SLOW` (amber), and `OFFLINE` (red).
+  - Editorial Player Controls:
+    - Volume slider (`#input-tv-volume`) with live percentage readout (0% to 100%).
+    - Picture-in-Picture button (`#btn-tv-pip`) invoking `requestPictureInPicture()`.
+    - Fullscreen toggle via button or `f` keyboard shortcut.
+    - Keyboard channel switching: `ArrowUp` / `ArrowDown` to navigate channels.
+  - Inline "Edit Channel Link" Modal (`#modal-edit-channel-url`):
+    - Allows updating broadcast name and stream/embed URL without leaving the desk.
+- Test Suite:
+  - Added 3 new unit tests in `backend/src/__tests__/unit/tv-playback.test.ts` covering subpage filtering, subpage counts, channel updates, and channel deletion.
+  - Full test suite passing cleanly: **135 backend tests across 31 suites** + **125 frontend tests across 26 suites** (total **260 tests passing**).
+  - Strict TypeScript build passes with 0 errors.
+- Visual Validation completed with Playwright:
+  - `ui-step7-tv-subpages-live-paper.png` (Live subpage active, textual health badges, volume slider at 85%, PiP button, Paper theme)
+  - `ui-step7-tv-subpages-live-night.png` (Live subpage active, Night Edition theme)
+  - `ui-step7-tv-subpage-faulty.png` (Faulty feeds subpage with Retry signal probe actions)
+  - `ui-step7-tv-edit-channel-modal.png` (Edit Channel Link modal for stopped links)
+

@@ -58,15 +58,22 @@ function mapChannelRow(r: TvChannelDbRow) {
 // GET /api/tv/channels
 tvRouter.get('/channels', (req: Request, res: Response) => {
   try {
-    const { category, country, q, include_dead, favorites_only, top5_only, status } = req.query;
+    const { category, country, q, include_dead, favorites_only, top5_only, status, subpage } = req.query;
     const db = getDb();
 
     let sql = 'SELECT * FROM tv_channels WHERE 1=1';
     const params: (string | number)[] = [];
 
-    // Filter dead channels by default unless include_dead=true
-    if (include_dead !== 'true' && include_dead !== '1') {
-      sql += ' AND is_alive = 1';
+    // Subpage filtering (PRD A Category 7: live, faulty, stopped)
+    if (subpage === 'faulty') {
+      sql += " AND is_alive = 0 AND (last_checked_at IS NULL OR (julianday('now') - julianday(last_checked_at)) < 7)";
+    } else if (subpage === 'stopped') {
+      sql += " AND is_alive = 0 AND last_checked_at IS NOT NULL AND (julianday('now') - julianday(last_checked_at)) >= 7";
+    } else if (subpage === 'live') {
+      sql += ' AND (is_alive = 1 OR youtube_live_url IS NOT NULL)';
+    } else if (include_dead !== 'true' && include_dead !== '1') {
+      // Default: show alive or playable streams
+      sql += ' AND (is_alive = 1 OR youtube_live_url IS NOT NULL)';
     }
 
     if (favorites_only === 'true' || favorites_only === '1') {
@@ -113,6 +120,107 @@ tvRouter.get('/channels', (req: Request, res: Response) => {
     res.json({ items, total: items.length });
   } catch (err) {
     console.error('[TV:Channels] Error fetching channels:', err);
+    res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
+  }
+});
+
+// GET /api/tv/subpages/counts - Counts for LIVE, FAULTY, and STOPPED subpages (PRD A Category 7.1)
+tvRouter.get('/subpages/counts', (_req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const live = db
+      .prepare('SELECT COUNT(*) as cnt FROM tv_channels WHERE is_alive = 1 OR youtube_live_url IS NOT NULL')
+      .get() as { cnt: number };
+    const faulty = db
+      .prepare(
+        "SELECT COUNT(*) as cnt FROM tv_channels WHERE is_alive = 0 AND (last_checked_at IS NULL OR (julianday('now') - julianday(last_checked_at)) < 7)"
+      )
+      .get() as { cnt: number };
+    const stopped = db
+      .prepare(
+        "SELECT COUNT(*) as cnt FROM tv_channels WHERE is_alive = 0 AND last_checked_at IS NOT NULL AND (julianday('now') - julianday(last_checked_at)) >= 7"
+      )
+      .get() as { cnt: number };
+
+    res.json({
+      live: live.cnt,
+      faulty: faulty.cnt,
+      stopped: stopped.cnt,
+    });
+  } catch (err: any) {
+    console.error('[TV:SubpagesCounts] Error:', err);
+    res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
+  }
+});
+
+// PUT /api/tv/channels/:id - Update channel stream/embed URL or metadata (PRD A §7.1 Edit URL)
+tvRouter.put('/channels/:id', (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params['id'] || '', 10);
+    const { name, stream_url, youtube_live_url, website, category, country } = req.body || {};
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Valid channel ID required', code: 'VALIDATION_ERROR' });
+      return;
+    }
+
+    const db = getDb();
+    const existing = db.prepare('SELECT * FROM tv_channels WHERE id = ?').get(id) as
+      | TvChannelDbRow
+      | undefined;
+
+    if (!existing) {
+      res.status(404).json({ error: 'Channel not found', code: 'NOT_FOUND' });
+      return;
+    }
+
+    db.prepare(`
+      UPDATE tv_channels SET
+        name = COALESCE(?, name),
+        stream_url = COALESCE(?, stream_url),
+        youtube_live_url = COALESCE(?, youtube_live_url),
+        website = COALESCE(?, website),
+        category = COALESCE(?, category),
+        country = COALESCE(?, country),
+        is_alive = 1,
+        last_checked_at = datetime('now')
+      WHERE id = ?
+    `).run(
+      name || null,
+      stream_url || null,
+      youtube_live_url || null,
+      website || null,
+      category || null,
+      country || null,
+      id
+    );
+
+    const updated = db.prepare('SELECT * FROM tv_channels WHERE id = ?').get(id) as TvChannelDbRow;
+    res.json(mapChannelRow(updated));
+  } catch (err: any) {
+    console.error('[TV:UpdateChannel] Error:', err);
+    res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
+  }
+});
+
+// DELETE /api/tv/channels/:id - Remove channel permanently (PRD A §7.1 Stopped Links)
+tvRouter.delete('/channels/:id', (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params['id'] || '', 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Valid channel ID required', code: 'VALIDATION_ERROR' });
+      return;
+    }
+
+    const db = getDb();
+    const result = db.prepare('DELETE FROM tv_channels WHERE id = ?').run(id);
+    if (result.changes === 0) {
+      res.status(404).json({ error: 'Channel not found', code: 'NOT_FOUND' });
+      return;
+    }
+
+    res.json({ success: true, deleted_id: id });
+  } catch (err: any) {
+    console.error('[TV:DeleteChannel] Error:', err);
     res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
   }
 });

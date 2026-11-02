@@ -322,3 +322,4 @@ export function createCustomChannel(input: CreateCustomChannelInput): any {
 
   return db.prepare('SELECT * FROM tv_channels WHERE id = ?').get(info.lastInsertRowid);
 }
+
