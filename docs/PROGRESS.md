@@ -14,7 +14,7 @@
 | **3** | **Plain Mode (Zero AI)** | 🟢 `DONE` | Plain mode switch, zero AI call engine, rule-based category tagging & breaking heuristics, full-width reader (100%), offline badges across surfaces, catch-up summarization endpoint, Vitest (99 backend + 122 frontend tests pass), Playwright screenshots | 2026-11-02 10:12 |
 | **4** | **Safety Net: Backups & Guards** | 🟢 `DONE` | Automated WAL flush backups, retention pruning (7 daily + 4 weekly), double-confirmation restore with safety pre-restore snapshot, Test-Data Guard blocking test execution on production SQLite, sanitized settings JSON export/import (schema v1), CLI script `db:restore`, Vitest (107 backend + 124 frontend pass), Playwright screenshots | 2026-11-02 10:51 |
 | **5** | **TV Channel Catalog & Top 5** | 🟢 `DONE` | Migration 009, `config/channels-top5.json` (25 outlets across IN, US, CN, JP, AU), IPTV local cache with Unlicense attribution, deduplication with Top-5 precedence, 12 new unit tests (all 243 suite tests pass), Playwright screenshots | 2026-11-02 11:28 |
-| **6** | **Playback & YouTube Adder** | ⚪ `PENDING` | HLS stream proxy with SSRF check, YouTube embed API, link adder with oEmbed preview | - |
+| **6** | **Playback & YouTube Adder** | 🟢 `DONE` | Migration 010 (`tv_channel_health`), HLS proxy with strict SSRF protection, M3U8 chunk rewriter, YouTube oEmbed preview & channel ID guide, multi-method player (HLS/YouTube/VLC), Playwright screenshots | 2026-11-02 11:48 |
 | **7** | **TV Screen UI & Subpages** | ⚪ `PENDING` | Live/Faulty/Stopped tabs, 16:9 player, health indicators (Live/Slow/Offline), screenshots | - |
 | **8** | **Live Feed Counter** | ⚪ `PENDING` | Rolling 24h count, hourly sparkline, independent telemetry tables, retention test | - |
 | **9** | **Confirmation Labels** | ⚪ `PENDING` | Single source / 2 outlets / Confirmed N in M stamps, breaking alert calm/urgent styles | - |
@@ -168,3 +168,33 @@
   - `ui-step5-tv-top5-paper.png` (Top 5 shelf active, ABC News Australia selected, Paper theme)
   - `ui-step5-tv-top5-night.png` (Top 5 shelf active, Night Edition theme)
   - `ui-step5-tv-shelf-india.png` (India shelf active, NDTV 24x7 selected with Curated Outlet banner, Paper theme)
+
+### Step 6: Playback (3 Methods) & YouTube Link Adder (Completed)
+- Applied Migration 010 (`010_tv_channel_health.sql`):
+  - Created `tv_channel_health` table with `channel_id`, `method` ('hls', 'youtube', 'vlc'), `last_checked_at`, `last_worked_at`, `consecutive_failures`, `failure_reason`, and `latency_ms`.
+  - Added indexes `idx_tv_channel_health_channel` and `idx_tv_channel_health_method`.
+- HLS Stream Proxy with Strict SSRF Protection (`backend/src/tv/proxy.ts`):
+  - `GET /api/tv/proxy?url=<encoded>`:
+    - SSRF Guard: blocks private/internal IPv4 ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`, `169.254.0.0/16`, `0.0.0.0/8`), IPv6 loopback/link-local/unique-local (`::1`, `fe80::/10`, `fc00::/7`), and internal hostnames (`localhost`, `*.local`, `*.internal`).
+    - M3U8 chunk rewriting: parses playlists and rewrites relative and absolute segment URLs and tag URIs (`#EXT-X-MAP`, `#EXT-X-KEY`) to route through `/api/tv/proxy`.
+    - Handles binary TS video chunks and sets CORS headers (`Access-Control-Allow-Origin: *`).
+- YouTube Link Parsing & Handle Resolution Protocol (`backend/src/tv/youtube.ts`):
+  - Ingests video URLs (`watch?v=`, `youtu.be/`, `/live/`), channel URLs (`/channel/UC...`), and `@handle` links.
+  - Queries official YouTube oEmbed API (`https://www.youtube.com/oembed?url=...&format=json`) for verified titles, authors, and thumbnails.
+  - If `YOUTUBE_API_KEY` is present in backend environment: queries YouTube Data API v3 (`channels.list?forHandle=...`) for canonical Channel ID (cost: 1 quota unit).
+  - Without API key: returns verified oEmbed card and helpful guide prompting the user to locate the `UC...` ID in YouTube page source. Zero scraping.
+  - Custom channel creation: `createCustomChannel()` inserts verified custom channels into SQLite database.
+- Broadcaster Player & Custom Channel UI (`TVView.tsx` & `AddYouTubeChannelModal.tsx`):
+  - Multi-method playback: switches seamlessly between native HLS proxy and official YouTube iframe embed (`www.youtube-nocookie.com`).
+  - Added playback method switcher pills (`[HLS Proxy]`, `[YouTube Live]`) on the monitor controls bar.
+  - Added 1-click "Copy Stream URL" button (`#btn-copy-stream-url`) with toast feedback.
+  - Added `[+ Add YouTube]` button in directory header.
+  - Modal (`#modal-add-youtube-stream`) provides live oEmbed preview, channel ID guide for handles, country/category tagging, and instant save to broadcast wire.
+- Test Suite:
+  - Added 13 new unit tests in `backend/src/__tests__/unit/tv-playback.test.ts`.
+  - Added 1 new unit test in `frontend/src/__tests__/unit/tv-broadsheet.test.ts`.
+  - Full test suite passing cleanly: **132 backend tests across 31 suites** + **125 frontend tests across 26 suites** (total **257 tests passing**).
+- Visual Validation completed with Playwright:
+  - `ui-step6-tv-youtube-player-paper.png` (YouTube Live embed active, playback method switcher, stream URL copied toast, Paper theme)
+  - `ui-step6-tv-youtube-player-night.png` (YouTube Live embed active, Night Edition theme)
+  - `ui-step6-add-youtube-modal.png` (Add YouTube Broadcast modal with verified preview card and Channel ID instruction guide)

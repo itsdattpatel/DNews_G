@@ -6,6 +6,8 @@ import { Router, type Request, type Response } from 'express';
 import { getDb } from '../db/db';
 import { checkChannelHealth } from '../tv/health';
 import { syncIptvCatalog, loadTop5Channels } from '../tv/catalog';
+import { validateSsrfTarget, rewriteM3u8Playlist } from '../tv/proxy';
+import { previewYouTubeSource, createCustomChannel } from '../tv/youtube';
 
 export const tvRouter = Router();
 
@@ -205,3 +207,179 @@ tvRouter.post('/channels/:id/health-check', async (req: Request, res: Response) 
     res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
   }
 });
+
+// GET /api/tv/proxy?url=<encoded>
+// HLS Stream Proxy with SSRF Protection & M3U8 chunk rewriting (PRD A Category 6)
+tvRouter.get('/proxy', async (req: Request, res: Response) => {
+  const targetUrl = req.query['url'];
+  if (!targetUrl || typeof targetUrl !== 'string') {
+    res.status(400).json({ error: 'Query parameter "url" is required', code: 'MISSING_URL' });
+    return;
+  }
+
+  // 1. SSRF Protection validation
+  const ssrf = await validateSsrfTarget(targetUrl);
+  if (!ssrf.valid) {
+    res.status(403).json({
+      error: `SSRF validation blocked request: ${ssrf.reason}`,
+      code: 'SSRF_BLOCKED',
+    });
+    return;
+  }
+
+  try {
+    const upstreamRes = await fetch(targetUrl, {
+      signal: AbortSignal.timeout(10000),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI-World-News-Desk/1.0',
+        Accept: '*/*',
+      },
+    });
+
+    if (!upstreamRes.ok) {
+      res.status(upstreamRes.status).json({
+        error: `Upstream returned HTTP ${upstreamRes.status}: ${upstreamRes.statusText}`,
+        code: 'UPSTREAM_ERROR',
+      });
+      return;
+    }
+
+    const contentType = upstreamRes.headers.get('content-type') || '';
+    const isM3u8 =
+      targetUrl.includes('.m3u8') ||
+      contentType.includes('application/vnd.apple.mpegurl') ||
+      contentType.includes('application/x-mpegurl');
+
+    // CORS & Cache headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+    if (isM3u8) {
+      const playlistText = await upstreamRes.text();
+      const rewritten = rewriteM3u8Playlist(playlistText, targetUrl);
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      res.send(rewritten);
+    } else {
+      // TS segment / video binary data
+      const arrayBuffer = await upstreamRes.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      res.setHeader('Content-Type', contentType || 'video/MP2T');
+      res.send(buffer);
+    }
+  } catch (err: any) {
+    console.error('[TV:Proxy] Proxy fetch error for url:', targetUrl, err.message);
+    res.status(502).json({
+      error: `Failed to proxy upstream stream: ${err.message}`,
+      code: 'PROXY_FETCH_ERROR',
+    });
+  }
+});
+
+// POST /api/tv/preview-youtube
+tvRouter.post('/preview-youtube', async (req: Request, res: Response) => {
+  try {
+    const { url } = req.body || {};
+    if (!url || typeof url !== 'string') {
+      res.status(400).json({ error: 'Valid "url" string is required', code: 'VALIDATION_ERROR' });
+      return;
+    }
+
+    const preview = await previewYouTubeSource(url);
+    res.json(preview);
+  } catch (err: any) {
+    console.error('[TV:YouTubePreview] Error:', err);
+    res.status(500).json({ error: String(err), code: 'PREVIEW_ERROR' });
+  }
+});
+
+// POST /api/tv/custom-channel
+tvRouter.post('/custom-channel', (req: Request, res: Response) => {
+  try {
+    const channel = createCustomChannel(req.body || {});
+    res.status(201).json(mapChannelRow(channel));
+  } catch (err: any) {
+    console.error('[TV:CustomChannel] Error creating channel:', err);
+    res.status(400).json({ error: err.message, code: 'CHANNEL_CREATE_ERROR' });
+  }
+});
+
+// GET /api/tv/health/:channelId
+tvRouter.get('/health/:channelId', (req: Request, res: Response) => {
+  try {
+    const channelId = parseInt(req.params['channelId'] || '', 10);
+    if (isNaN(channelId)) {
+      res.status(400).json({ error: 'Valid channelId required', code: 'VALIDATION_ERROR' });
+      return;
+    }
+
+    const db = getDb();
+    const rows = db
+      .prepare('SELECT * FROM tv_channel_health WHERE channel_id = ?')
+      .all(channelId);
+
+    res.json({ channel_id: channelId, methods: rows });
+  } catch (err: any) {
+    console.error('[TV:HealthRecords] Error:', err);
+    res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
+  }
+});
+
+// POST /api/tv/health/:channelId/record
+tvRouter.post('/health/:channelId/record', (req: Request, res: Response) => {
+  try {
+    const channelId = parseInt(req.params['channelId'] || '', 10);
+    const { method, success, latency_ms, failure_reason } = req.body || {};
+
+    if (isNaN(channelId) || !['hls', 'youtube', 'vlc'].includes(method)) {
+      res.status(400).json({
+        error: 'Valid channelId and method (hls | youtube | vlc) required',
+        code: 'VALIDATION_ERROR',
+      });
+      return;
+    }
+
+    const db = getDb();
+    const existing = db
+      .prepare('SELECT * FROM tv_channel_health WHERE channel_id = ? AND method = ?')
+      .get(channelId, method) as any;
+
+    if (existing) {
+      const failures = success ? 0 : existing.consecutive_failures + 1;
+      const lastWorked = success ? new Date().toISOString() : existing.last_worked_at;
+
+      db.prepare(`
+        UPDATE tv_channel_health SET
+          last_checked_at = datetime('now'),
+          last_worked_at = ?,
+          consecutive_failures = ?,
+          failure_reason = ?,
+          latency_ms = ?
+        WHERE id = ?
+      `).run(lastWorked, failures, failure_reason || null, latency_ms || null, existing.id);
+    } else {
+      db.prepare(`
+        INSERT INTO tv_channel_health (
+          channel_id, method, last_checked_at, last_worked_at,
+          consecutive_failures, failure_reason, latency_ms
+        ) VALUES (
+          ?, ?, datetime('now'), ?,
+          ?, ?, ?
+        )
+      `).run(
+        channelId,
+        method,
+        success ? new Date().toISOString() : null,
+        success ? 0 : 1,
+        failure_reason || null,
+        latency_ms || null
+      );
+    }
+
+    res.json({ success: true, channel_id: channelId, method });
+  } catch (err: any) {
+    console.error('[TV:RecordHealth] Error:', err);
+    res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
+  }
+});
+

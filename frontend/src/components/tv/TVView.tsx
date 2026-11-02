@@ -28,8 +28,12 @@ import {
   RotateCcw,
   Compass,
   Radio,
+  Copy,
+  Check,
+  Youtube,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AddYouTubeChannelModal } from './AddYouTubeChannelModal';
 
 export const TVView: React.FC = () => {
   const isTvViewOpen = useAppStore((s) => s.isTvViewOpen);
@@ -46,6 +50,9 @@ export const TVView: React.FC = () => {
   const [probeResult, setProbeResult] = useState<{ isAlive: boolean; latencyMs: number } | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [playbackMethod, setPlaybackMethod] = useState<'hls' | 'youtube' | 'vlc'>('hls');
+  const [isAddYoutubeOpen, setIsAddYoutubeOpen] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -81,15 +88,21 @@ export const TVView: React.FC = () => {
   useEffect(() => {
     if (selectedTvChannelId && channels.length > 0) {
       const match = channels.find((c) => c.id === selectedTvChannelId);
-      if (match) setSelectedChannel(match);
+      if (match) {
+        setSelectedChannel(match);
+        if (match.youtube_live_url && (!match.stream_url || match.stream_url.includes('youtube'))) {
+          setPlaybackMethod('youtube');
+        } else {
+          setPlaybackMethod('hls');
+        }
+      }
     }
   }, [selectedTvChannelId, channels]);
 
-  // Handle HLS stream loading
+  // Handle stream loading (HLS with Proxy fallback)
   useEffect(() => {
-    if (!selectedChannel || !videoRef.current || !isTvViewOpen) return;
+    if (!selectedChannel || !isTvViewOpen) return;
 
-    const video = videoRef.current;
     setStreamError(null);
     setProbeResult(null);
 
@@ -99,7 +112,21 @@ export const TVView: React.FC = () => {
       hlsRef.current = null;
     }
 
-    const streamUrl = selectedChannel.stream_url;
+    if (playbackMethod !== 'hls' || !videoRef.current) return;
+
+    const video = videoRef.current;
+    const rawStreamUrl = selectedChannel.stream_url;
+    if (!rawStreamUrl) {
+      if (selectedChannel.youtube_live_url) {
+        setPlaybackMethod('youtube');
+      }
+      return;
+    }
+
+    // Proxy HLS stream through backend to avoid CORS and mixed content (PRD A §6.1)
+    const streamUrl = rawStreamUrl.startsWith('http')
+      ? `/api/tv/proxy?url=${encodeURIComponent(rawStreamUrl)}`
+      : rawStreamUrl;
 
     if (Hls.isSupported()) {
       const hls = new Hls({
@@ -120,7 +147,11 @@ export const TVView: React.FC = () => {
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (data.fatal) {
           console.warn('[HLS] Fatal stream error:', data.type);
-          setStreamError('Live broadcast feed offline or restricted by CORS policy.');
+          if (selectedChannel.youtube_live_url) {
+            setStreamError('HLS signal unreachable. Official YouTube Live broadcast available.');
+          } else {
+            setStreamError('Live broadcast feed offline or restricted by CORS policy.');
+          }
           hls.destroy();
         }
       });
@@ -139,7 +170,18 @@ export const TVView: React.FC = () => {
         hlsRef.current = null;
       }
     };
-  }, [selectedChannel, isTvViewOpen]);
+  }, [selectedChannel, isTvViewOpen, playbackMethod]);
+
+  const handleCopyUrl = () => {
+    if (!selectedChannel) return;
+    const url = selectedChannel.stream_url || selectedChannel.youtube_live_url || '';
+    if (url) {
+      navigator.clipboard.writeText(url);
+      setCopiedUrl(true);
+      toast.success('Stream URL copied to clipboard');
+      setTimeout(() => setCopiedUrl(false), 2000);
+    }
+  };
 
   // Close on Escape
   useEffect(() => {
@@ -299,13 +341,24 @@ export const TVView: React.FC = () => {
           >
             {/* Broadsheet Video Monitor */}
             <div className="w-full aspect-video bg-black border-2 border-ink rounded-xs overflow-hidden relative shadow-md flex items-center justify-center">
-              <video
-                ref={videoRef}
-                className="w-full h-full object-contain"
-                playsInline
-                autoPlay
-                muted={isMuted}
-              />
+              {playbackMethod === 'youtube' && selectedChannel?.youtube_live_url ? (
+                <iframe
+                  id="tv-youtube-embed-frame"
+                  src={selectedChannel.youtube_live_url}
+                  title={selectedChannel.name}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  ref={videoRef}
+                  className="w-full h-full object-contain"
+                  playsInline
+                  autoPlay
+                  muted={isMuted}
+                />
+              )}
 
               {/* Top Monitor Header Overlay */}
               {selectedChannel && (
@@ -317,7 +370,7 @@ export const TVView: React.FC = () => {
                       }`}
                     />
                     <span className="font-mono text-xs font-bold uppercase tracking-wider">
-                      [LIVE] {selectedChannel.name}
+                      [{playbackMethod === 'youtube' ? 'YOUTUBE' : 'HLS'}] {selectedChannel.name}
                     </span>
                   </div>
                   <span className="font-mono text-[0.6875rem] text-zinc-300">
@@ -327,7 +380,7 @@ export const TVView: React.FC = () => {
               )}
 
               {/* Stream Error / Offline Overlay */}
-              {(streamError || (selectedChannel && !selectedChannel.is_alive)) && (
+              {(streamError || (selectedChannel && !selectedChannel.is_alive && playbackMethod === 'hls')) && (
                 <div
                   id="tv-stream-offline-overlay"
                   className="absolute inset-0 bg-paper/95 text-ink flex flex-col items-center justify-center p-6 text-center space-y-3 border-2 border-ink"
@@ -346,6 +399,20 @@ export const TVView: React.FC = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    {selectedChannel?.youtube_live_url && playbackMethod !== 'youtube' && (
+                      <button
+                        type="button"
+                        id="btn-fallback-youtube"
+                        onClick={() => {
+                          setPlaybackMethod('youtube');
+                          setStreamError(null);
+                        }}
+                        className="px-3.5 py-1.5 border border-accent bg-accent text-paper font-ui font-bold text-xs uppercase tracking-wider rounded-xs hover:bg-accent/90 inline-flex items-center gap-1.5 transition-colors"
+                      >
+                        <Youtube size={13} />
+                        <span>Switch to YouTube Live</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={handleHealthProbe}
@@ -357,7 +424,7 @@ export const TVView: React.FC = () => {
                     {selectedChannel && (
                       <a
                         href={getVlcUrl(selectedChannel.stream_url)}
-                        className="px-3.5 py-1.5 border border-accent bg-accent text-paper font-ui font-bold text-xs uppercase tracking-wider rounded-xs hover:bg-accent/90 inline-flex items-center gap-1.5 transition-colors"
+                        className="px-3.5 py-1.5 border border-paper-border hover:border-ink bg-paper text-ink font-ui font-bold text-xs uppercase tracking-wider rounded-xs inline-flex items-center gap-1.5 transition-colors"
                       >
                         <ExternalLink size={12} />
                         <span>Open in VLC</span>
@@ -404,6 +471,50 @@ export const TVView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Multi-Method Playback Switcher (PRD A §6.1) */}
+                  <div className="flex items-center gap-1 bg-paper border border-paper-border p-0.5 rounded-xs">
+                    <button
+                      type="button"
+                      id="btn-method-hls"
+                      onClick={() => setPlaybackMethod('hls')}
+                      className={`px-2 py-0.5 font-mono text-[10px] font-bold uppercase rounded-xs transition-colors ${
+                        playbackMethod === 'hls'
+                          ? 'bg-ink text-paper'
+                          : 'text-ink-secondary hover:text-ink'
+                      }`}
+                      title="Stream using native HLS with backend proxy"
+                    >
+                      HLS Proxy
+                    </button>
+                    {selectedChannel.youtube_live_url && (
+                      <button
+                        type="button"
+                        id="btn-method-youtube"
+                        onClick={() => setPlaybackMethod('youtube')}
+                        className={`px-2 py-0.5 font-mono text-[10px] font-bold uppercase rounded-xs transition-colors flex items-center gap-1 ${
+                          playbackMethod === 'youtube'
+                            ? 'bg-accent text-paper'
+                            : 'text-ink-secondary hover:text-accent'
+                        }`}
+                        title="Stream using official YouTube embed"
+                      >
+                        <Youtube size={11} />
+                        <span>YouTube</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Copy Stream URL */}
+                  <button
+                    type="button"
+                    id="btn-copy-stream-url"
+                    onClick={handleCopyUrl}
+                    className="p-1.5 border border-paper-border hover:border-ink bg-paper rounded-xs text-ink transition-colors"
+                    title="Copy Raw Stream URL"
+                  >
+                    {copiedUrl ? <Check size={14} className="text-positive" /> : <Copy size={14} />}
+                  </button>
+
                   {/* Audio Mute Toggle */}
                   <button
                     type="button"
@@ -521,6 +632,22 @@ export const TVView: React.FC = () => {
           <aside className="w-full lg:w-80 flex flex-col bg-paper-alt shrink-0 overflow-hidden">
             {/* Shelf Filter Tabs */}
             <div className="p-3 border-b border-paper-border space-y-2.5 bg-paper">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-ui text-[11px] font-bold uppercase tracking-wider text-ink-secondary">
+                  Channel Directory
+                </span>
+                <button
+                  type="button"
+                  id="btn-tv-add-youtube"
+                  onClick={() => setIsAddYoutubeOpen(true)}
+                  className="px-2 py-0.5 border border-accent bg-accent/10 hover:bg-accent text-accent hover:text-paper font-ui font-bold text-[10px] uppercase tracking-wider rounded-xs inline-flex items-center gap-1 transition-colors"
+                  title="Add YouTube live broadcast by URL or @handle"
+                >
+                  <Youtube size={12} />
+                  <span>+ Add YouTube</span>
+                </button>
+              </div>
+
               {/* Search */}
               <div className="relative">
                 <Search
@@ -677,6 +804,20 @@ export const TVView: React.FC = () => {
           </span>
         </footer>
       </div>
+
+      {/* Add Custom YouTube Stream Modal (PRD A §6.2) */}
+      <AddYouTubeChannelModal
+        isOpen={isAddYoutubeOpen}
+        onClose={() => setIsAddYoutubeOpen(false)}
+        onChannelAdded={(newChannel) => {
+          setChannels((prev) => [newChannel, ...prev]);
+          setSelectedChannel(newChannel);
+          setSelectedTvChannelId(newChannel.id);
+          if (newChannel.youtube_live_url) {
+            setPlaybackMethod('youtube');
+          }
+        }}
+      />
     </div>
   );
 };

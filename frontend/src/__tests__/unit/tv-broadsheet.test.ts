@@ -90,5 +90,55 @@ describe('Screen (h) TV View & Broadcast Desk', () => {
     const allAlive = filterChannels(sampleChannels, 'all', '', false);
     expect(allAlive.length).toBe(2);
   });
+
+  it('filters curated Top-5 and individual national shelves', () => {
+    const channelsWithTop5: TvChannel[] = [
+      ...sampleChannels,
+      {
+        id: 4,
+        name: 'NDTV 24x7',
+        country: 'India',
+        category: 'news',
+        stream_url: 'https://example.com/ndtv.m3u8',
+        youtube_live_url: 'https://www.youtube.com/embed/live_stream?channel=UCZFMm1mMw0F81Z37aaSuT_Q',
+        is_alive: true,
+        is_favorite: false,
+        is_top5: true,
+        rank: 1,
+        status: 'needs my review',
+        last_checked_at: '2026-11-01T10:00:00Z',
+        logo_url: null,
+      },
+      {
+        id: 5,
+        name: 'ABC News Australia',
+        country: 'Australia',
+        category: 'news',
+        stream_url: 'https://example.com/abc.m3u8',
+        is_alive: true,
+        is_favorite: false,
+        is_top5: true,
+        rank: 1,
+        status: 'needs my review',
+        last_checked_at: '2026-11-01T10:00:00Z',
+        logo_url: null,
+      },
+    ];
+
+    // Top 5 shelf
+    const top5Only = filterChannels(channelsWithTop5, 'top5', '', false);
+    expect(top5Only.length).toBe(2);
+    expect(top5Only.every((c) => c.is_top5)).toBe(true);
+
+    // India shelf
+    const indiaOnly = filterChannels(channelsWithTop5, 'india', '', false);
+    expect(indiaOnly.length).toBe(1);
+    expect(indiaOnly[0]!.name).toBe('NDTV 24x7');
+
+    // Australia shelf
+    const auOnly = filterChannels(channelsWithTop5, 'australia', '', false);
+    expect(auOnly.length).toBe(1);
+    expect(auOnly[0]!.name).toBe('ABC News Australia');
+  });
 });
 

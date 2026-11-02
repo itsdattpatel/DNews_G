@@ -15,3 +15,4 @@ CREATE INDEX IF NOT EXISTS idx_tv_channels_top5 ON tv_channels(is_top5);
 CREATE INDEX IF NOT EXISTS idx_tv_channels_slug ON tv_channels(slug);
 CREATE INDEX IF NOT EXISTS idx_tv_channels_country_code ON tv_channels(country_code);
 CREATE INDEX IF NOT EXISTS idx_tv_channels_rank ON tv_channels(rank);
+
