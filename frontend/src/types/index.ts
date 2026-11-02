@@ -218,6 +218,10 @@ export interface AppSettings {
   theme?: 'paper' | 'night';
   evidence_highlight_enabled?: boolean;
   reading_mode_enabled?: boolean;
+  // Auto-advance reader settings (PRD A Category 2)
+  auto_advance_enabled?: boolean;
+  auto_advance_interval_sec?: number;
+  auto_advance_pause_on_hover?: boolean;
 }
 
 // ─── Startup & Backfill ───────────────────────────────────────────────────────

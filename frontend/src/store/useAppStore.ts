@@ -114,6 +114,15 @@ interface AppState {
   setPanelSizesH: (sizes: [number, number]) => void;
   setPanelSizesV: (sizes: [number, number]) => void;
   resetPanelSizes: () => void;
+
+  // Auto-Advance Reader (PRD A Category 2)
+  isAutoAdvanceManualPaused: boolean;
+  setIsAutoAdvanceManualPaused: (paused: boolean) => void;
+  toggleAutoAdvanceManualPaused: () => void;
+  isArticlePanelHovered: boolean;
+  setIsArticlePanelHovered: (hovered: boolean) => void;
+  autoAdvanceResetToken: number;
+  triggerAutoAdvanceReset: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -179,7 +188,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const idx = articles.findIndex((a) => a.id === selectedArticleId);
     if (idx !== -1 && idx < articles.length - 1) {
       get().setSelectedArticle(articles[idx + 1]);
+    } else {
+      // Seamless wrap-around to beginning (PRD A 2.2)
+      get().setSelectedArticle(articles[0]);
     }
+    get().triggerAutoAdvanceReset();
   },
 
   prevArticle: () => {
@@ -188,8 +201,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     const idx = articles.findIndex((a) => a.id === selectedArticleId);
     if (idx > 0) {
       get().setSelectedArticle(articles[idx - 1]);
+    } else {
+      // Wrap-around to end
+      get().setSelectedArticle(articles[articles.length - 1]);
     }
+    get().triggerAutoAdvanceReset();
   },
+
+  // Auto-Advance State & Handlers
+  isAutoAdvanceManualPaused: false,
+  setIsAutoAdvanceManualPaused: (paused) => set({ isAutoAdvanceManualPaused: paused }),
+  toggleAutoAdvanceManualPaused: () =>
+    set((state) => ({ isAutoAdvanceManualPaused: !state.isAutoAdvanceManualPaused })),
+  isArticlePanelHovered: false,
+  setIsArticlePanelHovered: (hovered) => set({ isArticlePanelHovered: hovered }),
+  autoAdvanceResetToken: 0,
+  triggerAutoAdvanceReset: () =>
+    set((state) => ({ autoAdvanceResetToken: state.autoAdvanceResetToken + 1 })),
 
   articles: [],
   selectedArticleId: null,
@@ -238,6 +266,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (article && !article.body_english) {
       get().selectArticleById(article.id);
     }
+    get().triggerAutoAdvanceReset();
   },
 
   selectArticleById: async (id: number) => {
@@ -334,6 +363,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     sound_enabled: true,
     evidence_highlight_enabled: true,
     reading_mode_enabled: true,
+    auto_advance_enabled: false,
+    auto_advance_interval_sec: 7,
+    auto_advance_pause_on_hover: true,
   },
 
   setSettingsOpen: (open) => {
@@ -355,6 +387,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateSettings: async (updates) => {
     playButtonSound(get().settings.sound_enabled);
+    // Optimistically update store so UI and timers react instantaneously
+    set((state) => ({ settings: { ...state.settings, ...updates } }));
     try {
       const res = await fetch('/api/settings', {
         method: 'PATCH',

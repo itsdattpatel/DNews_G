@@ -10,7 +10,7 @@
 | **0** | **Documentation & Setup** | 🟢 `DONE` | `/docs/PRD_A.md`, `/docs/PROGRESS.md`, `/docs/OPEN_QUESTIONS.md`, `/docs/DB_SCHEMA.md`, DB backup | 2026-11-01 22:30 |
 | **1** | **Dates on Every News Item** | 🟢 `DONE` | Migration 006, Vitest (82 backend + 104 frontend tests pass), Playwright screenshots (paper, night, category-rail) | 2026-11-01 22:56 |
 | **1B** | **Real-Time Foundation** | 🟢 `DONE` | Migration 007 (`app_sessions`), 30s heartbeat, crash/unclean exit detector, `/api/time` clock sync, `<WelcomeBackCard>`, `<HatchedSparkline>`, Vitest (87 backend + 112 frontend pass), screenshots | 2026-11-01 23:18 |
-| **2** | **Auto-Advance (7 Seconds)** | ⚪ `PENDING` | 7s timer, left panel hover pause test, progress bar, play/pause controls, screenshot | - |
+| **2** | **Auto-Advance (7 Seconds)** | 🟢 `DONE` | 7s countdown hairline, left panel hover pause, settings drawer slider (3-60s), Spacebar toggle, Arrow resets, Vitest (90 backend + 118 frontend tests pass), Playwright screenshots | 2026-11-02 09:50 |
 | **3** | **Plain Mode (Zero AI)** | ⚪ `PENDING` | Plain mode switch, zero AI call test, rule-based category tagging, layout screenshot | - |
 | **4** | **Safety Net: Backups & Guards** | ⚪ `PENDING` | Automated DB backup test, test-data guard blocking test runs on real DB, export/import test | - |
 | **5** | **TV Channel Catalog & Top 5** | ⚪ `PENDING` | IPTV catalog caching, `config/channels-top5.json` verified links, deduplication tests | - |
@@ -66,6 +66,23 @@
 - All 87 backend tests (26 suites) and 112 frontend tests (23 suites) pass cleanly.
 - Strict TypeScript build passes with 0 errors.
 - Visual validation completed in Paper mode and Night Edition mode (`ui-step1b-welcome-back-paper.png`, `ui-step1b-welcome-back-night.png`).
+
+### Step 2: Auto-Advance (7 Seconds) (Completed)
+- Backend `settings.ts`: added persistent settings `auto_advance_enabled` (default false), `auto_advance_interval_sec` (min 3, max 60, default 7), `auto_advance_pause_on_hover` (default true).
+- Frontend store `useAppStore.ts`: optimistic `updateSettings`, wrap-around `nextArticle` (index N-1 wraps to 0) and `prevArticle` (index 0 wraps to N-1), `autoAdvanceResetToken`, `isAutoAdvanceManualPaused`, `isArticlePanelHovered`.
+- Built `<AutoAdvanceProgressBar>`: 2px broadsheet hairline progress bar, countdown ticker `[▶ Advancing in 7s]` / `[⏸ Paused: <reason>]`, play/pause quick button.
+- Comprehensive pause handling per PRD A 2.2:
+  - Left panel hover (`Reading (hover)`)
+  - Modals & drawers open (`Settings open`, `Directory view`, `TV desk open`, `PDF desk open`, etc.)
+  - Input or textarea focused (`Input focused`)
+  - Background browser tab / minimized window (`Background tab`)
+  - Manual pause toggle (`Manual pause`)
+  - Restarts full interval (7s) on resume.
+- Keyboard shortcuts in `Shell.tsx`: Spacebar toggles pause/resume; ArrowLeft / ArrowRight jumps and resets 7s timer.
+- Settings drawer in `SettingsMenu.tsx`: Section 6 with toggle switch, 3-60s interval slider, and pause on hover switch.
+- TopBar: Quick access button `[▷ Auto (7s)]` / `[⏸ Auto (7s)]`.
+- All 90 backend tests (27 suites) and 118 frontend tests (24 suites) pass cleanly.
+- Visual validation completed in Paper mode, Night Edition mode, and Settings Drawer (`ui-step2-autoadvance-active-paper.png`, `ui-step2-autoadvance-hover-paused.png`, `ui-step2-settings-autoadvance.png`, `ui-step2-autoadvance-night.png`).
 
 
 

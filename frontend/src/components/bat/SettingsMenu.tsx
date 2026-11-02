@@ -21,6 +21,8 @@ import {
   RotateCcw,
   Highlighter,
   BookOpen,
+  Timer,
+  MousePointer,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -363,6 +365,100 @@ export const SettingsMenu: React.FC = () => {
               </div>
               <div className="font-mono text-[10px] text-ink-muted italic pt-1">
                 * Both features respect system reduced-motion preferences (`prefers-reduced-motion: reduce`).
+              </div>
+            </div>
+
+            {/* Section 6: Auto-Advance Reader Desk (PRD A Category 2) */}
+            <div className="border-t border-paper-border pt-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="font-serif font-bold text-ink flex items-center gap-1.5">
+                    <Timer className="w-4 h-4 text-accent" />
+                    <span>Auto-Advance Reader</span>
+                  </label>
+                  <p className="font-ui text-[11px] text-ink-secondary mt-0.5">
+                    Automatically cycles through news items every {formData.auto_advance_interval_sec ?? 7}s
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  id="btn-toggle-auto-advance"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      auto_advance_enabled: !formData.auto_advance_enabled,
+                    })
+                  }
+                  className={`px-3 py-0.5 border font-mono text-xs font-bold uppercase transition-colors ${
+                    formData.auto_advance_enabled
+                      ? 'border-ink bg-ink text-paper'
+                      : 'border-paper-border bg-paper text-ink-muted'
+                  }`}
+                >
+                  {formData.auto_advance_enabled ? 'ON' : 'OFF'}
+                </button>
+              </div>
+
+              {/* Interval Slider */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-serif text-xs font-semibold text-ink">
+                    Auto-Advance Interval
+                  </label>
+                  <span className="font-mono text-xs font-bold text-accent">
+                    {formData.auto_advance_interval_sec ?? 7} seconds
+                  </span>
+                </div>
+                <input
+                  id="auto-advance-interval-slider"
+                  type="range"
+                  min="3"
+                  max="60"
+                  step="1"
+                  value={formData.auto_advance_interval_sec ?? 7}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      auto_advance_interval_sec: parseInt(e.target.value, 10),
+                    })
+                  }
+                  className="w-full accent-accent cursor-pointer"
+                />
+                <div className="flex justify-between font-mono text-[10px] text-ink-muted">
+                  <span>3s (Brisk wire)</span>
+                  <span>7s (Default)</span>
+                  <span>60s (Slow broadsheet)</span>
+                </div>
+              </div>
+
+              {/* Pause on Hover Switch */}
+              <div className="flex items-center justify-between pt-1">
+                <div>
+                  <label className="font-serif font-bold text-ink flex items-center gap-1.5">
+                    <MousePointer className="w-4 h-4 text-ink-secondary" />
+                    <span>Pause When Hovering Left Panel</span>
+                  </label>
+                  <p className="font-ui text-[11px] text-ink-secondary mt-0.5">
+                    Freezes countdown while cursor is over the main reading pane
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  id="btn-toggle-pause-on-hover"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      auto_advance_pause_on_hover: !(formData.auto_advance_pause_on_hover ?? true),
+                    })
+                  }
+                  className={`px-3 py-0.5 border font-mono text-xs font-bold uppercase transition-colors ${
+                    (formData.auto_advance_pause_on_hover ?? true)
+                      ? 'border-ink bg-ink text-paper'
+                      : 'border-paper-border bg-paper text-ink-muted'
+                  }`}
+                >
+                  {(formData.auto_advance_pause_on_hover ?? true) ? 'ON' : 'OFF'}
+                </button>
               </div>
             </div>
           </div>

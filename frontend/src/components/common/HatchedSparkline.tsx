@@ -125,3 +125,4 @@ export const HatchedSparkline = memo<HatchedSparklineProps>(({
 });
 
 HatchedSparkline.displayName = 'HatchedSparkline';
+

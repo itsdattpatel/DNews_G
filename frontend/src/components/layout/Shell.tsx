@@ -83,6 +83,18 @@ export const Shell: React.FC = () => {
           const searchInput = document.getElementById('article-search-input');
           searchInput?.focus();
           break;
+        case ' ':
+          e.preventDefault();
+          useAppStore.getState().toggleAutoAdvanceManualPaused();
+          break;
+        case 'arrowright':
+          e.preventDefault();
+          nextArticle();
+          break;
+        case 'arrowleft':
+          e.preventDefault();
+          prevArticle();
+          break;
         case 'escape':
           if (isBatMenuOpen) {
             setBatMenuOpen(false);

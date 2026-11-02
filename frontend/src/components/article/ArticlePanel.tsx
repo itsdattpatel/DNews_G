@@ -9,6 +9,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { ExternalLink, Globe2, Languages, BookOpen } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
 import { WelcomeBackCard } from './WelcomeBackCard';
+import { AutoAdvanceProgressBar } from './AutoAdvanceProgressBar';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
@@ -33,6 +34,7 @@ export const ArticlePanel: React.FC = () => {
   const isEvidenceHighlightEnabled = useAppStore(
     (s) => s.settings.evidence_highlight_enabled ?? true
   );
+  const setIsArticlePanelHovered = useAppStore((s) => s.setIsArticlePanelHovered);
 
   const [showOriginal, setShowOriginal] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -144,8 +146,15 @@ export const ArticlePanel: React.FC = () => {
       id="article-panel"
       ref={scrollContainerRef}
       data-lenis-prevent="true"
+      onMouseEnter={() => setIsArticlePanelHovered(true)}
+      onMouseLeave={() => setIsArticlePanelHovered(false)}
       className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain p-6 sm:p-10 lg:p-12 border-r border-paper-border bg-paper text-ink transition-colors duration-150"
     >
+      {/* Auto-Advance Hairline Bar & Ambient Status (PRD A Category 2) */}
+      <div className="-mx-6 sm:-mx-10 lg:-mx-12 -mt-6 sm:-mt-10 lg:-mt-12 mb-6 sticky top-0 z-30">
+        <AutoAdvanceProgressBar />
+      </div>
+
       {/* Real-time Downtime Welcome-Back Card (PRD A Category 1B) */}
       <WelcomeBackCard />
 

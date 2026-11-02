@@ -7,7 +7,7 @@ import React from 'react';
 import { BatIcon } from '../bat/BatIcon';
 import { ProviderBadge } from '../quota/ProviderBadge';
 import { useAppStore } from '../../store/useAppStore';
-import { Search, Flame, X, Clock, RadioTower, Layers, Bell } from 'lucide-react';
+import { Search, Flame, X, Clock, RadioTower, Layers, Bell, Play, Pause } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const CATEGORIES = [
@@ -50,6 +50,8 @@ export const TopBar: React.FC = () => {
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const setAlertsOpen = useAppStore((s) => s.setAlertsOpen);
   const setSourcesOpen = useAppStore((s) => s.setSourcesOpen);
+  const settings = useAppStore((s) => s.settings);
+  const updateSettings = useAppStore((s) => s.updateSettings);
 
   return (
     <header
@@ -154,6 +156,28 @@ export const TopBar: React.FC = () => {
         >
           <Flame size={13} className={isBreakingOnly ? 'text-white' : 'text-accent'} />
           <span>Breaking</span>
+        </button>
+
+        {/* Auto-Advance Quick Toggle Button (PRD A Category 2) */}
+        <button
+          id="btn-auto-advance-toggle"
+          onClick={() => {
+            const currentEnabled = Boolean(settings.auto_advance_enabled);
+            updateSettings({ auto_advance_enabled: !currentEnabled });
+          }}
+          title={
+            settings.auto_advance_enabled
+              ? 'Disable Auto-Advance (7s interval)'
+              : 'Enable Auto-Advance (7s ambient reading)'
+          }
+          className={`hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-xs border text-xs font-bold transition-all ${
+            settings.auto_advance_enabled
+              ? 'border-ink bg-ink text-paper shadow-xs'
+              : 'border-paper-border text-ink-muted hover:border-ink hover:text-ink'
+          }`}
+        >
+          {settings.auto_advance_enabled ? <Pause size={12} /> : <Play size={12} />}
+          <span>Auto ({settings.auto_advance_interval_sec ?? 7}s)</span>
         </button>
 
         {/* Search Input */}

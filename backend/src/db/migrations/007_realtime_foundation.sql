@@ -14,3 +14,4 @@ CREATE TABLE IF NOT EXISTS app_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_started ON app_sessions(started_at DESC);
+

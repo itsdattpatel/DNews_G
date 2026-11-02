@@ -18,6 +18,10 @@ const SETTINGS_SCHEMA: Record<string, { type: 'int' | 'bool' | 'str' | 'float'; 
   theme: { type: 'str' },
   evidence_highlight_enabled: { type: 'bool' },
   reading_mode_enabled: { type: 'bool' },
+  // Auto-advance reader settings (PRD A Category 2)
+  auto_advance_enabled: { type: 'bool' },
+  auto_advance_interval_sec: { type: 'int', min: 3, max: 60 },
+  auto_advance_pause_on_hover: { type: 'bool' },
 };
 
 settingsRouter.get('/', (_req: Request, res: Response) => {
@@ -73,7 +77,19 @@ function getAllSettings(): Record<string, unknown> {
   const keys = Object.keys(SETTINGS_SCHEMA);
   const result: Record<string, unknown> = {};
   for (const key of keys) {
-    const defaultVal = key === 'evidence_highlight_enabled' || key === 'reading_mode_enabled' ? '1' : '';
+    let defaultVal = '';
+    if (
+      key === 'evidence_highlight_enabled' ||
+      key === 'reading_mode_enabled' ||
+      key === 'auto_advance_pause_on_hover'
+    ) {
+      defaultVal = '1';
+    } else if (key === 'auto_advance_interval_sec') {
+      defaultVal = '7';
+    } else if (key === 'auto_advance_enabled') {
+      defaultVal = '0';
+    }
+
     const raw = getSetting(key, defaultVal);
     const schema = SETTINGS_SCHEMA[key]!;
     if (schema.type === 'int') result[key] = parseInt(raw, 10);

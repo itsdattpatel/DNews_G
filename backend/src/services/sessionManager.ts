@@ -206,3 +206,4 @@ export function getDowntimeGap() {
     articlesIngestedInSession: current?.articles_ingested_in_session ?? 0,
   };
 }
+
