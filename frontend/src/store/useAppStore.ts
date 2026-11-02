@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand';
 import type { Article, AlertItem, QuotaData, AppSettings, StartupStatus, BackfillResponse, AppView, ThemeMode } from '../types';
+import type { FeedCounterMetrics } from '../types/feedCounter';
 import { playButtonSound, playAlertChime } from '../utils/sound';
 
 interface AppState {
@@ -123,6 +124,12 @@ interface AppState {
   setIsArticlePanelHovered: (hovered: boolean) => void;
   autoAdvanceResetToken: number;
   triggerAutoAdvanceReset: () => void;
+
+  // Live Feed Counter & Telemetry (PRD A Category 8)
+  feedCounter: FeedCounterMetrics | null;
+  isFeedCounterOpen: boolean;
+  setFeedCounterOpen: (open: boolean) => void;
+  fetchFeedCounter: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -582,6 +589,34 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSourcesOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
     set({ isSourcesOpen: open });
+  },
+
+  // Live Feed Counter & Telemetry (PRD A Category 8)
+  feedCounter: null,
+  isFeedCounterOpen: false,
+  setFeedCounterOpen: (open) => {
+    set({ isFeedCounterOpen: open });
+  },
+  fetchFeedCounter: async () => {
+    try {
+      const res = await fetch('/api/feed/counter');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          set({
+            feedCounter: {
+              rolling24h: data.rolling24h,
+              seven_day_total: data.seven_day_total,
+              thirty_day_total: data.thirty_day_total,
+              lifetime: data.lifetime,
+              session_stats: data.session_stats,
+            },
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[FeedCounter] Failed to fetch feed counter metrics:', err);
+    }
   },
 }));
 

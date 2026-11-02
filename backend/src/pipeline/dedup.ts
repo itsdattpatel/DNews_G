@@ -7,6 +7,7 @@ import { getDb } from '../db/db';
 import { SOURCES } from '../../../config/sources';
 import type { ArticleRaw } from '../fetch/rss';
 import { recordSessionArticlesIngested } from '../services/sessionManager';
+import { recordFeedIngestion } from '../services/feedCounter';
 
 /** Sync sources config into DB on startup */
 export function syncSources(): void {
@@ -62,10 +63,12 @@ export async function insertPendingArticles(
   `);
 
   let inserted = 0;
+  let evaluated = 0;
   const insertAll = db.transaction(() => {
     for (const a of articles) {
       const sourceRow = getSourceId.get(a.sourceSlug);
       if (!sourceRow) continue;
+      evaluated++;
 
       const result = insertArticle.run({
         sourceId: sourceRow.id,
@@ -80,9 +83,16 @@ export async function insertPendingArticles(
     }
   });
   insertAll();
+  const duplicatesSkipped = Math.max(0, evaluated - inserted);
   if (inserted > 0) {
     recordSessionArticlesIngested(inserted);
   }
+  recordFeedIngestion({
+    inserted,
+    catchup: isCatchup ? inserted : 0,
+    duplicatesSkipped,
+    timestampIso: nowIso,
+  });
   return inserted;
 }
 

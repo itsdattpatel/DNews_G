@@ -199,6 +199,14 @@ export function useSSE(options?: UseSSEOptions): {
         }
       });
 
+      es.addEventListener('feed_counter_update', () => {
+        try {
+          useAppStore.getState().fetchFeedCounter();
+        } catch (err) {
+          console.warn('[SSE] Error handling feed_counter_update:', err);
+        }
+      });
+
       es.addEventListener('quota_update', (e: MessageEvent) => {
         try {
           if (e.data) {

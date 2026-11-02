@@ -108,3 +108,27 @@ export interface DbAppSession {
   missed_window_end: string | null;
   articles_ingested_in_session: number;
 }
+
+export interface DbIngestHourly {
+  bucket_utc: string;
+  count: number;
+  catchup_count: number;
+  duplicates_skipped: number;
+}
+
+export interface DbIngestDaily {
+  date_utc: string;
+  count: number;
+  catchup_count: number;
+  duplicates_skipped: number;
+}
+
+export interface DbLifetimeCounter {
+  id: number;
+  tracking_since: string;
+  total_ingested: number;
+  total_catchup: number;
+  total_duplicates_skipped: number;
+  last_updated_at: string;
+}
+

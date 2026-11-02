@@ -3,11 +3,12 @@
  * Master Broadsheet Top Navigation Header
  * Features Bat Masthead, Ink-Stamp Category Tabs, Country Filter, Search, & Live Status.
  */
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BatIcon } from '../bat/BatIcon';
 import { ProviderBadge } from '../quota/ProviderBadge';
+import { FeedCounterPopover } from '../telemetry/FeedCounterPopover';
 import { useAppStore } from '../../store/useAppStore';
-import { Search, Flame, X, Clock, RadioTower, Layers, Bell, Play, Pause, Tv } from 'lucide-react';
+import { Search, Flame, X, Clock, RadioTower, Layers, Bell, Play, Pause, Tv, Radio } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const CATEGORIES = [
@@ -52,6 +53,15 @@ export const TopBar: React.FC = () => {
   const setSourcesOpen = useAppStore((s) => s.setSourcesOpen);
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
+
+  const feedCounter = useAppStore((s) => s.feedCounter);
+  const fetchFeedCounter = useAppStore((s) => s.fetchFeedCounter);
+  const isFeedCounterOpen = useAppStore((s) => s.isFeedCounterOpen);
+  const setFeedCounterOpen = useAppStore((s) => s.setFeedCounterOpen);
+
+  useEffect(() => {
+    fetchFeedCounter();
+  }, [fetchFeedCounter]);
 
   return (
     <header
@@ -231,6 +241,23 @@ export const TopBar: React.FC = () => {
         {/* Provider Badge */}
         <ProviderBadge />
 
+        {/* Live Feed Counter & Velocity Telemetry (PRD A Category 8) */}
+        <button
+          id="btn-topbar-feed-counter"
+          onClick={() => setFeedCounterOpen(!isFeedCounterOpen)}
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-xs border text-[0.6875rem] font-mono font-bold transition-all shadow-xs ${
+            isFeedCounterOpen
+              ? 'border-ink bg-ink text-paper'
+              : 'border-paper-border bg-paper-alt hover:border-ink text-ink hover:text-accent'
+          }`}
+          title="Live Feed Counter (Rolling 24h intake, sparkline & lifetime telemetry)"
+          aria-label="Open Feed Counter Telemetry"
+        >
+          <Radio size={12} className={feedCounter && feedCounter.rolling24h.total > 0 ? "text-positive" : "text-ink-muted"} />
+          <span id="topbar-feed-counter-value" className="font-extrabold">{feedCounter ? feedCounter.rolling24h.total.toLocaleString() : '—'}</span>
+          <span className="hidden sm:inline font-ui text-[10px] text-ink-muted">24H</span>
+        </button>
+
         {/* Live Status Indicator (Pulse) */}
         <div
           className="flex items-center gap-1.5 bg-paper-alt border border-paper-border px-2 py-1 rounded-xs"
@@ -279,6 +306,9 @@ export const TopBar: React.FC = () => {
           <RadioTower size={15} />
         </button>
       </div>
+
+      {/* Live Feed Counter Popover (PRD A Category 8) */}
+      <FeedCounterPopover />
     </header>
   );
 };

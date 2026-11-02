@@ -233,3 +233,40 @@
   - `ui-step7-tv-subpage-faulty.png` (Faulty feeds subpage with Retry signal probe actions)
   - `ui-step7-tv-edit-channel-modal.png` (Edit Channel Link modal for stopped links)
 
+### Step 8: Live Feed Counter & Telemetry (Completed)
+- Pre-work SQLite snapshot created at `backups/news.backup_before_cat8_2026-11-02T07-08-44-565Z.sqlite` (12.7 MB).
+- Applied Migration 011 (`011_ingest_telemetry.sql`):
+  - Created `ingest_hourly` table: `bucket_utc` (PK, ISO string), `count`, `catchup_count`, `duplicates_skipped`.
+  - Created `ingest_daily` table: `date_utc` (PK), `count`, `catchup_count`, `duplicates_skipped` (retained for 13+ months to track historical desk throughput).
+  - Created `lifetime_counter` table: `id` (PK CHECK id=1), `tracking_since`, `total_ingested`, `total_catchup`, `total_duplicates_skipped`, `last_updated_at`.
+  - Normalized existing `articles.ingested_at` to uniform 24-character UTC ISO-8601 with trailing 'Z' and milliseconds.
+  - Backfilled existing data from `articles` table into `ingest_hourly`, `ingest_daily`, and `lifetime_counter`.
+- Telemetry Engine (`backend/src/services/feedCounter.ts`):
+  - `recordFeedIngestion()`: atomic transaction on every article batch updating hourly, daily, and lifetime buckets while recording duplicate skip counts. Emits real-time SSE event `feed_counter_update`.
+  - `getFeedCounterMetrics()`:
+    - Calculates rolling 24-hour total strictly from UTC ISO-8601 timestamps (never `published_at`), including catch-up articles tagged `is_catchup = 1`.
+    - Generates 24 hourly sparkline points (`T-23` to `T-0`) cross-referencing `app_sessions` to accurately flag offline/laptop-off hours (`is_app_off = true`).
+    - Guarantees retention immunity: 30-day article retention cleanup leaves `ingest_hourly`, `ingest_daily`, and `lifetime_counter` intact.
+    - Aggregates 7-day, 30-day, and lifetime totals (`Tracking since {date}`).
+    - Calculates lifetime desk uptime and downtime durations from `app_sessions`.
+  - Wired into `backend/src/pipeline/dedup.ts` and exposed via `GET /api/feed/counter`.
+- Frontend Telemetry Deck (`frontend/src/components/telemetry/FeedCounterPopover.tsx` & `TopBar.tsx`):
+  - Added Live Feed Counter button (`#btn-topbar-feed-counter`) in master TopBar displaying rolling 24h count (`((o)) 1,343 24H`) with live green indicator.
+  - Built broadsheet `<FeedCounterPopover>` with:
+    - Large rolling 24-hour dispatch counter (`#feed-counter-rolling-24h`).
+    - Catch-up intake badge (`+# catch-up`) and duplicates filtered count.
+    - 24-hour hourly arrival velocity sparkline integrating `<HatchedSparkline>` with diagonal hatched stripes for desk downtime hours.
+    - Historical volume grid: 7-Day Total, 30-Day Volume (with `🛡 Immune` badge), and Lifetime Volume (`Since {date}`).
+    - Desk Telemetry: Total Time Running and Total Time Away.
+  - Connected live SSE listener in `useSSE.ts` to re-fetch counter on ingestion without page reload.
+- Test Suite:
+  - Added 6 new unit tests in `backend/src/__tests__/unit/feed-counter.test.ts`.
+  - Added 4 new unit tests in `frontend/src/__tests__/unit/feed-counter-broadsheet.test.tsx`.
+  - Full test suite passing cleanly: **141 backend tests across 32 suites** + **129 frontend tests across 27 suites** (total **270 tests passing**).
+  - Strict TypeScript build passes with 0 errors.
+- Visual Validation completed with Playwright:
+  - `ui-step8-feed-counter-button.png` (TopBar live feed counter button active with 1,343 dispatches in Paper mode)
+  - `ui-step8-feed-counter-popover-paper.png` (Feed Counter Popover with rolling 24h count, sparkline with downtime hatches, 7d/30d/lifetime stats, and uptime/downtime totals, Paper mode)
+  - `ui-step8-feed-counter-popover-night.png` (Feed Counter Popover in Night Edition mode)
+
+
