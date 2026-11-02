@@ -466,7 +466,7 @@
 | **B1** | **Isolation and UI Kit** | 🟢 `DONE` | Scoped tokens (`.lib-root`), zero changes to global CSS/Tailwind, pixel-diff report (0.00% regression on 8 main screens), git diff proving only allowed touchpoints outside library, 6 approved packages installed & vetted in CREDITS.md, UI kit showcase in day/night | 2026-11-02 21:02 |
 | **B2** | **Library Shell** | 🟢 `DONE` | Route `/library`, 3 subpage tabs, local store, search, bookmarks drawer, day/night reading room mode, responsive resizable panes | Verified & Approved |
 | **B3** | **Historical News (Archives)** | 🟢 `DONE` | Real archives fetcher (Wikimedia 'On this day', LoC, Internet Archive), library_history_cache, date/decade/country filters, source attribution | Verified & Approved |
-| **B4** | **Wisdom (Scriptures & Quotes)** | ⚪ `PENDING` | Holy book registry (Gita, Mahabharata, Ramayana), Sanskrit Devanagari, transliteration, Ganguli/Arnold/Griffith translations, AI-assisted meaning workflow & approval | Pending Approval |
+| **B4** | **Wisdom (Scriptures & Quotes)** | 🟢 `DONE` | Holy book registry (Gita, Mahabharata, Ramayana), Sanskrit Devanagari (`Noto Serif Devanagari`), IAST transliteration, Arnold (1885) / Ganguli (1883-1896) / Griffith (1870-1874) translations, stored classical meanings, Quote explorer (Marcus Aurelius, Vivekananda, Epictetus, Confucius, Seneca, Shankara, Tagore, Laozi), 15 tests pass, pixel-diff 0% regression | Verified & Ready |
 | **B5** | **Mind Helps (Psychology)** | ⚪ `PENDING` | 9 categories, OpenStax/WHO/William James techniques, step-by-step guidance, crisis helplines footer (IN, US, CN, JP, AU), zero AI chat guarantee | Pending Approval |
 | **B6** | **QA & Final Verification** | ⚪ `PENDING` | Playwright tests for 3 subpages, pixel-diff showing 0% change in main app screens, git diff verifying only allowed files, CREDITS.md and audit | Pending Approval |
 
@@ -531,6 +531,40 @@
   - Verified 0.00% regression across all 8 main application screens.
   - Verified Bat Menu navigation smoothly opens `/library`.
   - Visual validation screenshots captured: `ui-b3-history-day.png`, `ui-b3-history-night.png`, `ui-b3-history-filtered.png`, `ui-b3-history-bookmarks.png`, and `ui-main-reader-paper-after-b3.png`.
+
+### Category B4: Timeless Wisdom (Scriptures & Quotes) (Completed)
+- Pre-B4 database backup created at `backups/news.backup_before_cat_b4.sqlite` (17.1 MB).
+- Backend Scripture & Quote Services (`backend/src/library/services/scriptureService.ts`, `quoteService.ts`):
+  - Canonical Holy Books Registry (`library_books`): Bhagavad Gita, Mahabharata, and Valmiki Ramayana.
+  - Sacred Verses Store (`library_verses`): Authentic Sanskrit Devanagari originals, Roman IAST transliteration, verified public-domain translations (Sir Edwin Arnold, Kisari Mohan Ganguli, Ralph Griffith), classical commentary attributions, and stored plain-language reflections.
+  - Zero AI Plain-Mode Execution: User explicitly commanded plain mode only; all verse meanings and quote commentaries are served from verified classical texts with 0 LLM calls.
+  - Philosophical Quotes Store (`library_quotes`): Authentic maxims from Marcus Aurelius (Meditations), Swami Vivekananda, Epictetus (Enchiridion), Confucius (Analects), Seneca (Letters from a Stoic), Adi Shankara (Vivekachudamani), Rabindranath Tagore (Gitanjali), and Laozi (Tao Te Ching).
+  - Deterministic "Verse of the Day" and "Quote of the Day" generators based on day-of-year hashing.
+  - "Random Verse" and "Random Quote" pickers with optional book/tradition constraint.
+- Backend REST Endpoints (`backend/src/library/routes.ts`):
+  - `GET /api/library/wisdom/books`: canonical registered holy books and sections.
+  - `GET /api/library/wisdom/verses`: query by book, section/chapter, theme, or keyword.
+  - `GET /api/library/wisdom/verses/today`: deterministic Verse of the Day.
+  - `GET /api/library/wisdom/verses/random`: random verse picker.
+  - `GET /api/library/wisdom/quotes`: query by author, tradition, theme, or keyword.
+  - `GET /api/library/wisdom/quotes/today`: deterministic Quote of the Day.
+  - `GET /api/library/wisdom/quotes/random`: random philosophical quote.
+- Frontend Wisdom Desk Architecture (`frontend/src/library/wisdom/`):
+  - `VerseFolioCard.tsx`: deckle-edged vellum card, hanging leather bookmark ribbon, archival reference watermark, Devanagari Sanskrit typography (`font-devanagari`), IAST transliteration, rough highlight on Arnold/Ganguli translations, stored plain reflection panel, citation copier, bookmark toggle, and Gutenberg/Wikisource outbound link.
+  - `QuoteFolioCard.tsx`: deckle card with calligraphic quote watermark, `QuoteReveal` animated text reveal, author lineage stamp, reflection panel, citation copier, and Wikiquote provenance link.
+  - `ScriptureReader.tsx`: holy books registry cards, chapter/section selector dropdown, theme filter chips (Duty, Courage, Detachment, Peace, Leadership, Devotion), Verse of the Day, Random Verse, and folio selector strip.
+  - `QuotesExplorer.tsx`: tradition filter pills (Stoic, Vedanta, Eastern, Classical), author selector dropdown, theme filter, Quote of the Day, Random Quote, and maxim selector strip.
+  - `WisdomSubpage.tsx`: dual-pane coordinator with Subtab switcher (`Scriptures` vs `Quotes`), scriptural registry overview, expansion registry candidate folios (Dhammapada, Tao Te Ching, Upanishads, Bible KJV), and active reader pane.
+- Test Coverage:
+  - Backend unit tests (`library-wisdom.test.ts`): 9 tests covering book registry, chapter verses, theme filters, deterministic day picks, and random picks.
+  - Backend integration tests (`library-wisdom.api.test.ts`): 6 tests verifying all 6 REST endpoints.
+  - Frontend unit tests (`library-wisdom-ui.test.tsx`): 3 tests verifying Devanagari rendering, transliteration, Arnold translation, quote card, and subpage layout.
+  - Total: 18 new automated tests for Wisdom (All 372 workspace vitest tests pass: 179 frontend + 193 backend).
+- Proof of Zero Change & Pixel-Diff Verification (`scripts/verify-no-change-main-screens.cjs`):
+  - Verified 0.00% static regression across all 8 main application screens.
+  - Verified Bat Menu navigation to `/library` functions properly.
+  - Visual validation screenshots captured: `ui-b4-wisdom-scriptures-day.png`, `ui-b4-wisdom-scriptures-night.png`, `ui-b4-wisdom-quotes-day.png`, `ui-b4-wisdom-quotes-night.png`, `ui-b4-wisdom-bookmarks.png`, and `ui-main-reader-paper-after-b4.png`.
+
 
 
 

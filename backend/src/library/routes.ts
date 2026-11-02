@@ -11,6 +11,8 @@ import {
   type LibraryItemType,
 } from './services/bookmarkService';
 import { HistoryService } from './services/historyService';
+import { ScriptureService } from './services/scriptureService';
+import { QuoteService } from './services/quoteService';
 
 export const libraryRouter = Router();
 
@@ -141,4 +143,116 @@ libraryRouter.get('/history/search', (req, res) => {
     res.status(500).json({ error: 'Failed to search historical archives', details: err.message });
   }
 });
+
+// ─── Wisdom Endpoints (Category B4: Scriptures & Quotes) ──────────────────────
+
+function ensureWisdomSeeded(db: any) {
+  const scriptureService = new ScriptureService(db);
+  const quoteService = new QuoteService(db);
+  scriptureService.seedCanonicalBooksAndVerses();
+  quoteService.seedCanonicalQuotes();
+  return { scriptureService, quoteService };
+}
+
+// GET /api/library/wisdom/books
+libraryRouter.get('/wisdom/books', (_req, res) => {
+  try {
+    const db = getDb();
+    const { scriptureService } = ensureWisdomSeeded(db);
+    const books = scriptureService.getBooks();
+    res.json({ books, total: books.length });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve holy books registry', details: err.message });
+  }
+});
+
+// GET /api/library/wisdom/verses
+libraryRouter.get('/wisdom/verses', (req, res) => {
+  try {
+    const db = getDb();
+    const { scriptureService } = ensureWisdomSeeded(db);
+    const { book, section, theme, q, limit, offset } = req.query;
+    const verses = scriptureService.getVerses({
+      bookSlug: book as string | undefined,
+      section: section ? parseInt(section as string, 10) : undefined,
+      theme: theme as string | undefined,
+      query: q as string | undefined,
+      limit: limit ? parseInt(limit as string, 10) : undefined,
+      offset: offset ? parseInt(offset as string, 10) : undefined,
+    });
+    res.json({ verses, total: verses.length });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve scripture verses', details: err.message });
+  }
+});
+
+// GET /api/library/wisdom/verses/today
+libraryRouter.get('/wisdom/verses/today', (_req, res) => {
+  try {
+    const db = getDb();
+    const { scriptureService } = ensureWisdomSeeded(db);
+    const verse = scriptureService.getVerseOfTheDay();
+    res.json({ verse });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve Verse of the Day', details: err.message });
+  }
+});
+
+// GET /api/library/wisdom/verses/random
+libraryRouter.get('/wisdom/verses/random', (req, res) => {
+  try {
+    const db = getDb();
+    const { scriptureService } = ensureWisdomSeeded(db);
+    const book = req.query.book as string | undefined;
+    const verse = scriptureService.getRandomVerse(book);
+    res.json({ verse });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve random verse', details: err.message });
+  }
+});
+
+// GET /api/library/wisdom/quotes
+libraryRouter.get('/wisdom/quotes', (req, res) => {
+  try {
+    const db = getDb();
+    const { quoteService } = ensureWisdomSeeded(db);
+    const { author, theme, tradition, q, limit, offset } = req.query;
+    const quotes = quoteService.getQuotes({
+      author: author as string | undefined,
+      theme: theme as string | undefined,
+      tradition: tradition as string | undefined,
+      query: q as string | undefined,
+      limit: limit ? parseInt(limit as string, 10) : undefined,
+      offset: offset ? parseInt(offset as string, 10) : undefined,
+    });
+    res.json({ quotes, total: quotes.length });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve quotes', details: err.message });
+  }
+});
+
+// GET /api/library/wisdom/quotes/today
+libraryRouter.get('/wisdom/quotes/today', (_req, res) => {
+  try {
+    const db = getDb();
+    const { quoteService } = ensureWisdomSeeded(db);
+    const quote = quoteService.getQuoteOfTheDay();
+    res.json({ quote });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve Quote of the Day', details: err.message });
+  }
+});
+
+// GET /api/library/wisdom/quotes/random
+libraryRouter.get('/wisdom/quotes/random', (_req, res) => {
+  try {
+    const db = getDb();
+    const { quoteService } = ensureWisdomSeeded(db);
+    const quote = quoteService.getRandomQuote();
+    res.json({ quote });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve random quote', details: err.message });
+  }
+});
+
 

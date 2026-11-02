@@ -198,3 +198,4 @@ describe('Library Historical News Service (Category B3)', () => {
     expect(items[0].headline).toBe('Historical Milestone');
   });
 });
+

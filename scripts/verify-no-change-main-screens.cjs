@@ -216,24 +216,31 @@ async function runPixelDiffVerification() {
     }
   }
 
-  console.log('\n[3/4] Capturing The Library Historical News (Category B3) screens...');
+  console.log('\n[3/4] Capturing The Library Wisdom (Category B4) screens...');
   await page.goto('http://localhost:5173/library', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2000);
 
-  // 1. History Tab (Day Theme with Real Archival Feed)
-  const historyDayPath = path.join(LIBRARY_DIR, 'ui-b3-history-day.png');
-  await page.screenshot({ path: historyDayPath });
-  console.log('  Saved: ui-b3-history-day.png');
+  // Switch to Wisdom tab
+  const wisdomTabBtn = page.locator('button:has-text("Wisdom")').first();
+  if (await wisdomTabBtn.count() > 0) {
+    await wisdomTabBtn.click();
+    await page.waitForTimeout(1500);
+  }
 
-  // 2. Night Theme Toggle
+  // 1. Wisdom Scriptures - Day Theme
+  const wisdomScripturesDayPath = path.join(LIBRARY_DIR, 'ui-b4-wisdom-scriptures-day.png');
+  await page.screenshot({ path: wisdomScripturesDayPath });
+  console.log('  Saved: ui-b4-wisdom-scriptures-day.png');
+
+  // 2. Night Theme Toggle for Scriptures
   const themeToggle = page.locator('button[aria-label*="theme" i], button:has-text("Day"), button:has-text("Night")').first();
   if (await themeToggle.count() > 0) {
     await themeToggle.click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(600);
   }
-  const historyNightPath = path.join(LIBRARY_DIR, 'ui-b3-history-night.png');
-  await page.screenshot({ path: historyNightPath });
-  console.log('  Saved: ui-b3-history-night.png');
+  const wisdomScripturesNightPath = path.join(LIBRARY_DIR, 'ui-b4-wisdom-scriptures-night.png');
+  await page.screenshot({ path: wisdomScripturesNightPath });
+  console.log('  Saved: ui-b4-wisdom-scriptures-night.png');
 
   // Toggle back to Day theme
   if (await themeToggle.count() > 0) {
@@ -241,33 +248,49 @@ async function runPixelDiffVerification() {
     await page.waitForTimeout(400);
   }
 
-  // 3. Filtered Historical View (Click 1940s or decade chip)
-  const decadeChip = page.locator('button:has-text("1940s")').first();
-  if (await decadeChip.count() > 0) {
-    await decadeChip.click();
-    await page.waitForTimeout(1000);
+  // 3. Switch to Quotes Sub-tab
+  const quotesSubTabBtn = page.locator('button:has-text("Quotes")').first();
+  if (await quotesSubTabBtn.count() > 0) {
+    await quotesSubTabBtn.click();
+    await page.waitForTimeout(1200);
   }
-  const historyFilteredPath = path.join(LIBRARY_DIR, 'ui-b3-history-filtered.png');
-  await page.screenshot({ path: historyFilteredPath });
-  console.log('  Saved: ui-b3-history-filtered.png');
+  const wisdomQuotesDayPath = path.join(LIBRARY_DIR, 'ui-b4-wisdom-quotes-day.png');
+  await page.screenshot({ path: wisdomQuotesDayPath });
+  console.log('  Saved: ui-b4-wisdom-quotes-day.png');
 
-  // 4. Bookmarks Drawer Open
+  // 4. Quotes Night Theme
+  if (await themeToggle.count() > 0) {
+    await themeToggle.click();
+    await page.waitForTimeout(500);
+  }
+  const wisdomQuotesNightPath = path.join(LIBRARY_DIR, 'ui-b4-wisdom-quotes-night.png');
+  await page.screenshot({ path: wisdomQuotesNightPath });
+  console.log('  Saved: ui-b4-wisdom-quotes-night.png');
+
+  // Toggle back to Day theme
+  if (await themeToggle.count() > 0) {
+    await themeToggle.click();
+    await page.waitForTimeout(400);
+  }
+
+  // 5. Bookmarks Drawer Open on Wisdom
   const bookmarksBtn = page.locator('button:has-text("Bookmarks"), button[aria-label*="bookmark" i]').first();
   if (await bookmarksBtn.count() > 0) {
     await bookmarksBtn.click();
     await page.waitForTimeout(600);
   }
-  const bookmarksPath = path.join(LIBRARY_DIR, 'ui-b3-history-bookmarks.png');
+  const bookmarksPath = path.join(LIBRARY_DIR, 'ui-b4-wisdom-bookmarks.png');
   await page.screenshot({ path: bookmarksPath });
-  console.log('  Saved: ui-b3-history-bookmarks.png');
+  console.log('  Saved: ui-b4-wisdom-bookmarks.png');
 
   // Copy screenshots to Antigravity Artifact directory
   if (fs.existsSync(ARTIFACT_DIR)) {
     const filesToCopy = [
-      'ui-b3-history-day.png',
-      'ui-b3-history-night.png',
-      'ui-b3-history-filtered.png',
-      'ui-b3-history-bookmarks.png',
+      'ui-b4-wisdom-scriptures-day.png',
+      'ui-b4-wisdom-scriptures-night.png',
+      'ui-b4-wisdom-quotes-day.png',
+      'ui-b4-wisdom-quotes-night.png',
+      'ui-b4-wisdom-bookmarks.png',
     ];
     for (const file of filesToCopy) {
       const src = path.join(LIBRARY_DIR, file);
@@ -275,12 +298,12 @@ async function runPixelDiffVerification() {
         fs.copyFileSync(src, path.join(ARTIFACT_DIR, file));
       }
     }
-    // Also copy reader after B3
+    // Also copy reader after B4
     const currentReader = path.join(CURRENT_DIR, '01-main-reader-paper.png');
     if (fs.existsSync(currentReader)) {
-      fs.copyFileSync(currentReader, path.join(ARTIFACT_DIR, 'ui-main-reader-paper-after-b3.png'));
+      fs.copyFileSync(currentReader, path.join(ARTIFACT_DIR, 'ui-main-reader-paper-after-b4.png'));
     }
-    console.log('  Copied Category B3 screenshots to artifact directory.');
+    console.log('  Copied Category B4 screenshots to artifact directory.');
   }
 
   console.log('\n[4/4] Verifying Bat Menu navigation to /library...');
