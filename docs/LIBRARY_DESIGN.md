@@ -178,3 +178,4 @@ All font imports are isolated to the `/frontend/src/library/` tree or imported c
    - Zero default Tailwind purples or blues.
    - Zero stock emoji used as interface icons (all icons are custom SVG or Lucide).
    - Zero lorem ipsum or placeholder text.
+

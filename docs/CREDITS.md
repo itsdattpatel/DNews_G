@@ -215,6 +215,12 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 | 2026-11-01 | `supertest` | `^7.0.0` | MIT | Approved (Dev) | HTTP endpoint integration testing |
 | 2026-11-01 | `tsx` | `^4.7.3` | MIT | Approved (Dev) | TypeScript execution in development |
 | 2026-11-01 | `concurrently` | `^8.2.2` | MIT | Approved (Dev) | Parallel dev server orchestration |
+| 2026-11-02 | `rough-notation` | `0.5.1` | MIT | Approved (Library) | Hand-drawn SVG annotations for reading room |
+| 2026-11-02 | `embla-carousel-react` | `8.6.0` | MIT | Approved (Library) | Accessible reading carousel for scripture verses |
+| 2026-11-02 | `@fontsource/noto-serif-devanagari` | `5.3.0` | OFL-1.1 | Approved (Library) | Sanskrit Devanagari typography |
+| 2026-11-02 | `@fontsource/eb-garamond` | `5.3.0` | OFL-1.1 | Approved (Library) | Classical reading room serif |
+| 2026-11-02 | `@fontsource/cormorant-garamond` | `5.3.0` | OFL-1.1 | Approved (Library) | Display serif for library titles |
+| 2026-11-02 | `@fontsource/lora` | `5.3.0` | OFL-1.1 | Approved (Library) | Screen serif for mind help cards |
 
 ---
 

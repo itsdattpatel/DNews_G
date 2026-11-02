@@ -1,0 +1,171 @@
+/**
+ * frontend/src/library/styles/library.css
+ * Strictly Scoped Design System for The Library ("The Reading Room")
+ * All rules apply ONLY inside .lib-root. ZERO impact on main broadsheet app.
+ */
+
+/* ─── Isolated Font Imports (Loaded strictly for The Library) ──────────────── */
+@import "@fontsource/cormorant-garamond/400.css";
+@import "@fontsource/cormorant-garamond/600.css";
+@import "@fontsource/eb-garamond/400.css";
+@import "@fontsource/eb-garamond/400-italic.css";
+@import "@fontsource/eb-garamond/600.css";
+@import "@fontsource/lora/400.css";
+@import "@fontsource/lora/400-italic.css";
+@import "@fontsource/lora/600.css";
+@import "@fontsource/noto-serif-devanagari/400.css";
+@import "@fontsource/noto-serif-devanagari/700.css";
+
+/* ─── Base Scoped Variables ────────────────────────────────────────────────── */
+.lib-root {
+  /* Typography */
+  --lib-font-display: "Cormorant Garamond", Georgia, serif;
+  --lib-font-reading: "EB Garamond", Garamond, Georgia, serif;
+  --lib-font-mind: "Lora", Georgia, serif;
+  --lib-font-devanagari: "Noto Serif Devanagari", "EB Garamond", serif;
+  --lib-font-meta: "IBM Plex Mono", monospace;
+
+  /* Sizing and Spacing */
+  --lib-radius-sm: 4px;
+  --lib-radius-md: 8px;
+  --lib-radius-lg: 14px;
+  --lib-radius-full: 9999px;
+
+  /* Micro transitions */
+  --lib-transition: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Day Theme: Warm Aged Manuscript & Walnut Ink ─────────────────────────── */
+.lib-root,
+.lib-root[data-lib-theme="day"] {
+  --lib-bg: #F7F4EC;
+  --lib-surface: #EFE9DC;
+  --lib-surface-hover: #E7DFCFA0;
+  --lib-surface-elevated: #FFFDF9;
+  --lib-border: #D8CCB8;
+  --lib-border-soft: #E5DAC9;
+
+  --lib-ink: #231E18;
+  --lib-ink-secondary: #584C3C;
+  --lib-ink-muted: #8E7E6B;
+  --lib-ink-faint: #B7A895;
+
+  --lib-accent: #8E3B24;       /* Terracotta bookmark */
+  --lib-accent-soft: #F2E3DC;  /* Terracotta wash */
+  --lib-gold: #9E7B36;         /* Illumination gold */
+  --lib-gold-soft: #F6EEDD;    /* Pale gold leaf */
+  --lib-sage: #4E6E5A;         /* Calming botanical sage */
+  --lib-sage-soft: #E7EFEA;    /* Herbal wash */
+
+  --lib-shadow-page: 0 4px 24px -2px rgba(35, 30, 24, 0.08);
+  --lib-shadow-card: 0 2px 10px -1px rgba(35, 30, 24, 0.05);
+  --lib-shadow-inner: inset 0 1px 3px rgba(35, 30, 24, 0.04);
+}
+
+/* ─── Night Theme: Dark Mahogany Reading Stack & Candlelit Vellum ──────────── */
+.lib-root[data-lib-theme="night"] {
+  --lib-bg: #13110E;
+  --lib-surface: #1C1915;
+  --lib-surface-hover: #26221D;
+  --lib-surface-elevated: #28241E;
+  --lib-border: #2F2821;
+  --lib-border-soft: #231E18;
+
+  --lib-ink: #EDE5D8;
+  --lib-ink-secondary: #B4A693;
+  --lib-ink-muted: #746755;
+  --lib-ink-faint: #443B30;
+
+  --lib-accent: #D46949;       /* Candlelit terracotta */
+  --lib-accent-soft: #382119;
+  --lib-gold: #D6AB4E;         /* Gilt illumination */
+  --lib-gold-soft: #382E19;
+  --lib-sage: #70A27E;         /* Night sage */
+  --lib-sage-soft: #1B2C21;
+
+  --lib-shadow-page: 0 8px 32px rgba(0, 0, 0, 0.65);
+  --lib-shadow-card: 0 3px 14px rgba(0, 0, 0, 0.45);
+  --lib-shadow-inner: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Root Scoped Container Rules ──────────────────────────────────────────── */
+.lib-root {
+  background-color: var(--lib-bg);
+  color: var(--lib-ink);
+  font-family: var(--lib-font-reading);
+  line-height: 1.7;
+  min-height: 100vh;
+  transition: background-color var(--lib-transition), color var(--lib-transition);
+}
+
+/* ─── Reading Room Decorative & Tactile Utilities ──────────────────────────── */
+.lib-deckle {
+  background-color: var(--lib-surface);
+  border: 1px solid var(--lib-border);
+  box-shadow: var(--lib-shadow-card);
+  position: relative;
+  transition: transform var(--lib-transition), box-shadow var(--lib-transition), border-color var(--lib-transition);
+}
+
+.lib-deckle:hover {
+  border-color: var(--lib-gold);
+}
+
+.lib-deckle-elevated {
+  background-color: var(--lib-surface-elevated);
+  border: 1px solid var(--lib-border);
+  box-shadow: var(--lib-shadow-page);
+}
+
+/* Sanskrit & Sacred text formatting */
+.lib-devanagari {
+  font-family: var(--lib-font-devanagari);
+  letter-spacing: 0.02em;
+  line-height: 1.9;
+}
+
+/* Display titles */
+.lib-display {
+  font-family: var(--lib-font-display);
+  letter-spacing: -0.01em;
+  font-feature-settings: "swsh" 1, "dlig" 1;
+}
+
+/* Psychology Mind Helps typography */
+.lib-mind-font {
+  font-family: var(--lib-font-mind);
+  line-height: 1.65;
+}
+
+/* Monospace & bibliographic metadata */
+.lib-meta {
+  font-family: var(--lib-font-meta);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Custom quiet scrollbar for library panes */
+.lib-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.lib-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.lib-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--lib-border);
+  border-radius: 3px;
+}
+.lib-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--lib-ink-muted);
+}
+
+/* Reduced-motion accessibility overrides */
+@media (prefers-reduced-motion: reduce) {
+  .lib-root * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

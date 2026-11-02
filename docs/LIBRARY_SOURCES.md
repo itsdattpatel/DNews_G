@@ -121,3 +121,4 @@ Verified as of **November 2, 2026** against national government and peak health 
 | **6** | `@fontsource/lora` | `5.3.0` | **OFL-1.1** | `2026-07-19` (>3 mos ago) | `https://fontsource.org/fonts/lora` | Modern calligraphic serif optimized for screen readability in psychological help cards and step-by-step techniques. |
 
 *Note on UI Libraries (React Bits, MagicUI, Aceternity, 21st.dev, Uiverse, Codrops)*: In accordance with anti-bloat best practices and Rule B1, interactive UI effects from these sources (e.g. deckle-edge borders, paper-grain illumination, serene quote reveals) will be implemented as **zero-dependency copy-paste components** inside `/frontend/src/library/ui/**` utilizing already-installed `motion@14.3.0`, Lucide icons, and scoped CSS. No additional npm packages are required.
+

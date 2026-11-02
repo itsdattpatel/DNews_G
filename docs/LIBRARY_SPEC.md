@@ -378,3 +378,4 @@ Deletes an active bookmark.
   - When the app is in Plain Mode (`plain_mode_enabled = 1`), the library operates with 100% functionality on stored data.
   - The "Generate Meaning" AI button is deactivated and displays `[Plain Mode: Stored meanings only]`.
   - Upstream archival fetching relies strictly on deterministic HTTP JSON APIs (Wikimedia / Chronicling America) with zero LLM mediation.
+

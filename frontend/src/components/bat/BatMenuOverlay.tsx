@@ -23,13 +23,14 @@ import {
   Sliders,
   RadioTower,
   Activity,
+  Library,
   Sun,
   Moon,
   X,
 } from 'lucide-react';
 
 interface MenuItem {
-  view: AppView;
+  view: AppView | 'library';
   label: string;
   icon: LucideIcon;
   shortcut?: string;
@@ -38,6 +39,7 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
   { view: 'reader', label: 'Main Reader', icon: BookOpen, shortcut: 'j / k', description: 'Dual-pane translated article text with verbatim evidence linking' },
+  { view: 'library', label: 'The Library', icon: Library, shortcut: 'l', description: 'Tranquil reading room: historical archives, sacred scriptures & mind helps' },
   { view: 'category', label: 'Category Rail', icon: Layers, shortcut: '/', description: 'Instant category filtering with outlet & country tags' },
   { view: 'compare', label: 'Compare Coverage', icon: GitCompare, description: 'Side-by-side international reporting on identical real-world events' },
   { view: 'timeline', label: 'Story Timeline', icon: History, description: 'Chronological progression of evolving world stories' },
@@ -74,7 +76,14 @@ export const BatMenuOverlay: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isBatMenuOpen, setBatMenuOpen]);
 
-  const handleSelect = (view: AppView) => {
+  const handleSelect = (view: AppView | 'library') => {
+    if (view === 'library') {
+      setBatMenuOpen(false);
+      window.history.pushState(null, '', '/library');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      return;
+    }
+
     if (view === 'compare' && !useAppStore.getState().compareClusterId) {
       const art = useAppStore.getState().selectedArticle;
       useAppStore.getState().setCompareClusterId(art?.cluster_id ?? 1);

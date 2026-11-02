@@ -124,3 +124,4 @@ The Library operates under a strict isolation contract: it introduces **zero reg
 2. **Git Diff Audit**: `git diff --stat` must confirm only allowed files (`App.tsx`, `BatMenu.tsx`, `backend/src/index.ts`, `014_library_tables.sql`) are touched outside `/src/library/` and `/server/library/`.
 3. **Automated Unit & E2E Tests**: Vitest suite for library services and Playwright end-to-end tests for all 3 subpages in both Day and Night modes.
 4. **Security & Package Audit**: `npm audit` with 0 high/critical vulnerabilities. Only approved licenses (MIT, Apache-2.0, ISC, OFL-1.1).
+

@@ -59,49 +59,46 @@
 
 ---
 
-## Active Open Questions — PRD B: The Library
+## Resolved Decisions & Clarifications — PRD B: The Library
 
 ### 6. [PRD B / Category B1.4] Package Shortlist Approval
-- **Status**: **Awaiting User Approval**
-- **Proposal**: Install only the following 6 pinned, audited, permissive-license packages (>14 days old, MIT/OFL-1.1) inside `frontend/`:
-  1. `rough-notation@0.5.1` (MIT, published 2022-05-16) — Hand-drawn SVG annotations and underlines for wisdom passages.
-  2. `embla-carousel-react@8.6.0` (MIT, published 2026-10-08) — Frictionless, accessible carousel for verse reading and timeline cards.
-  3. `@fontsource/noto-serif-devanagari@5.3.0` (OFL-1.1, published 2026-07-19) — Authentic typography for Sanskrit slokas.
-  4. `@fontsource/eb-garamond@5.3.0` (OFL-1.1, published 2026-07-19) — Primary humanist reading serif for "reading room".
-  5. `@fontsource/cormorant-garamond@5.3.0` (OFL-1.1, published 2026-07-19) — Classical display serif for book covers and mastheads.
-  6. `@fontsource/lora@5.3.0` (OFL-1.1, published 2026-07-19) — Modern serif for psychology self-help cards.
-- **UI Components Policy**: All interactive effects inspired by React Bits, MagicUI, Aceternity, 21st.dev, Uiverse, and Codrops will be implemented as **zero-dependency copy-paste components** within `/frontend/src/library/ui/**` utilizing existing `motion@14.3.0` and scoped CSS.
-- **Question**: Do you approve installing these 6 packages for the Library?
+- **Decision**: **APPROVED & INSTALLED (2026-11-02)**.
+- Installed exact pinned versions in `frontend/`:
+  - `rough-notation@0.5.1` (MIT)
+  - `embla-carousel-react@8.6.0` (MIT)
+  - `@fontsource/noto-serif-devanagari@5.3.0` (OFL-1.1)
+  - `@fontsource/eb-garamond@5.3.0` (OFL-1.1)
+  - `@fontsource/cormorant-garamond@5.3.0` (OFL-1.1)
+  - `@fontsource/lora@5.3.0` (OFL-1.1)
+- Copy-paste UI kit elements from React Bits, MagicUI, Aceternity, 21st.dev, Uiverse, and Codrops implemented natively with `motion` and scoped CSS under `.lib-root`.
 
 ---
 
 ### 7. [PRD B / Category B3.1] Free Archival Sources for India, Japan, Australia
-- **Status**: **Awaiting User Guidance**
-- **Proposal**:
-  - **India**: *Abhilekh Patal* (National Archives of India) & Pre-1947 Digitized Periodicals.
-  - **Japan**: *National Diet Library (NDL) Digital Collections* Open Data API (pre-1953 public records).
-  - **Australia**: *Trove* (National Library of Australia) Newspapers API (pre-1955 public domain).
-- **Question**: Would you like these integrated directly during B3 alongside Wikimedia "On this day" and Library of Congress / Chronicling America, or staged as phase 2 archival connectors?
+- **Decision**: **APPROVED (2026-11-02)**.
+- Integrated directly in B3 alongside Wikimedia "On this day" and Library of Congress / Chronicling America:
+  - India: *Abhilekh Patal* (National Archives of India) & Pre-1947 Periodicals.
+  - Japan: *National Diet Library (NDL) Digital Collections* Open Data API (pre-1953 public records).
+  - Australia: *Trove* (National Library of Australia) Newspapers API (pre-1955 public domain).
 
 ---
 
 ### 8. [PRD B / Category B4.1] Sacred Scriptures Registry Expansion
-- **Status**: **Awaiting User Review**
-- **Starting Books**: Bhagavad Gita (Edwin Arnold, 1885), Mahabharata (Kisari Mohan Ganguli, 1883–1896), Ramayana (Valmiki / Griffith & Dutt, 1870–1894).
-- **Proposed Candidates for Registry**:
-  - *The Dhammapada* (Buddhist canon, Max Müller translation, 1881)
-  - *Tao Te Ching* (Daoist canon, James Legge translation, 1891)
-  - *The Principal Upanishads* (Swami Paramananda translation, 1919)
-  - *The Holy Bible* (King James Version, 1611)
-- **Question**: Do you approve this candidate shortlist for the database registry? (None will be added until approved).
+- **Decision**: **APPROVED (2026-11-02)**.
+- Starting books: Bhagavad Gita, Mahabharata, Ramayana.
+- Approved registry candidate books: *The Dhammapada*, *Tao Te Ching*, *The Principal Upanishads*, *The Holy Bible (KJV 1611)*.
 
 ---
 
-### 9. [PRD B / Category B4.4] AI Meaning Review Workflow & Plain Mode Verification
-- **Status**: **Awaiting User Confirmation**
-- **Proposal**:
-  - Whenever AI is enabled and an explanation is generated, it is automatically marked with the exact required badge: `"AI-assisted explanation, not scholarly commentary"`.
-  - The item is saved with `ai_meaning_reviewed = 0`. An admin button `[Edit / Approve]` lets the user refine or approve it, setting `ai_meaning_reviewed = 1`.
-  - In Plain Mode (`plain_mode_enabled = 1`), only pre-stored explanations are displayed; the AI generation button is replaced with `[Plain Mode: Stored meanings only]`.
-- **Question**: Does this review workflow meet your expectations?
+### 9. [PRD B / Category B4.4] Zero-AI & Pure Plain Mode Mandate
+- **Decision**: **STRICTLY APPROVED: NO AI, PLAIN MODE ONLY (2026-11-02)**.
+- **Rule**: Absolutely **no AI** in The Library.
+- No LLM generation endpoints, no AI prompts, no token quota consumption.
+- Only authentic historical human translations, classical commentaries, and pre-curated scholarly summaries are permitted.
+- The Library operates exclusively in Plain Mode with zero external LLM dependencies.
+
+---
+
+## Active Open Questions
+*(No unresolved questions. Category B1 is authorized to proceed).*
 
