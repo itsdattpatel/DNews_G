@@ -247,24 +247,65 @@ export interface QuotaResponse {
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 export interface AppSettings {
-  refresh_interval_minutes: number;
-  alert_threshold: number;
-  auto_cleanup_enabled: boolean;
-  retention_days: number;
-  sound_enabled: boolean;
-  // UI-only tokens
-  theme?: 'paper' | 'night';
-  evidence_highlight_enabled?: boolean;
-  reading_mode_enabled?: boolean;
-  // Auto-advance reader settings (PRD A Category 2)
+  // General & Realtime
+  timezone_mode?: 'local' | 'utc';
+  catchup_alert_enabled?: boolean;
+  clock_sync_enabled?: boolean;
+  debug_logging?: boolean;
+  rail_pinned?: boolean;
+
+  // Reading Desk (PRD A Cat 2 & PRD C Cat 4)
   auto_advance_enabled?: boolean;
   auto_advance_interval_sec?: number;
   auto_advance_pause_on_hover?: boolean;
-  // Plain Mode (PRD A Category 3)
+  strip_follow_enabled?: boolean;
+  strip_follow_grace_sec?: number;
+  ticker_speed?: 'slow' | 'normal' | 'fast';
+  evidence_highlight_enabled?: boolean;
+  reading_mode_enabled?: boolean;
+
+  // News & Sources
+  refresh_interval_minutes: number;
+  default_country_filter?: string;
+  category_filter_list?: string;
+  enrich_batch_size?: number;
+
+  // AI & Plain Mode (PRD A Cat 3 & 10)
   plain_mode_enabled?: boolean;
-  // Two-Pass AI Ingestion & Quota Telemetry (PRD A Category 10)
   two_pass_ai_enabled?: boolean;
   pass2_threshold?: number;
+
+  // TV Broadcasts (PRD C Cat 5)
+  tv_method_order?: string;
+  tv_autoplay_muted?: boolean;
+  tv_volume?: number;
+  tv_health_interval_min?: number;
+  tv_stopped_fail_threshold?: number;
+  tv_mini_player_enabled?: boolean;
+
+  // Map & Globe (PRD C Cat 7)
+  map_engine?: 'globe' | 'flat';
+  globe_autorotate?: boolean;
+  map_wildlife_layer?: boolean;
+  map_pulse_enabled?: boolean;
+
+  // Alerts & Sound
+  alert_threshold: number;
+  sound_enabled: boolean;
+  browser_notifications?: boolean;
+
+  // Appearance & Broadsheet Typography
+  theme?: 'paper' | 'night';
+  layout_density?: 'comfortable' | 'compact';
+  reduce_motion_override?: 'system' | 'reduce' | 'allow';
+
+  // Data & Storage (PRD A Cat 4)
+  auto_cleanup_enabled: boolean;
+  retention_days: number;
+
+  // Library & Mind (PRD B)
+  library_citation_format?: 'apa' | 'chicago';
+  helpline_default_region?: string;
 }
 
 export interface TwoPassTelemetry {

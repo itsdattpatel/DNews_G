@@ -13,7 +13,7 @@ import { NewsTicker } from './NewsTicker';
 import { ArticlePanel } from '../article/ArticlePanel';
 import { SummaryPanel } from '../article/SummaryPanel';
 import { CardStrip } from '../article/CardStrip';
-import { SettingsMenu } from '../bat/SettingsMenu';
+import { UnifiedSettingsDialog } from '../settings/UnifiedSettingsDialog';
 import { SourcesSettingsDesk } from '../sources/SourcesSettingsDesk';
 import { AlertBanner } from '../alert/AlertBanner';
 import { AlertsCenter } from '../alert/AlertsCenter';
@@ -306,8 +306,8 @@ export const Shell: React.FC = () => {
         <AlertBanner />
       </ErrorBoundary>
 
-      <ErrorBoundary panelName="Settings Drawer">
-        <SettingsMenu />
+      <ErrorBoundary panelName="Settings Dialog">
+        <UnifiedSettingsDialog />
       </ErrorBoundary>
 
       <ErrorBoundary panelName="API & Sources Settings Desk">

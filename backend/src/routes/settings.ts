@@ -11,23 +11,65 @@ import { getUnenrichedCount, summarizeUnenrichedBatch } from '../pipeline/enrich
 export const settingsRouter = Router();
 
 const SETTINGS_SCHEMA: Record<string, { type: 'int' | 'bool' | 'str' | 'float'; min?: number; max?: number }> = {
-  refresh_interval_minutes: { type: 'int', min: 1, max: 60 },
-  alert_threshold: { type: 'int', min: 0, max: 100 },
-  auto_cleanup_enabled: { type: 'bool' },
-  retention_days: { type: 'int', min: 7, max: 365 },
-  sound_enabled: { type: 'bool' },
-  theme: { type: 'str' },
-  evidence_highlight_enabled: { type: 'bool' },
-  reading_mode_enabled: { type: 'bool' },
-  // Auto-advance reader settings (PRD A Category 2)
+  // General & Realtime
+  timezone_mode: { type: 'str' },
+  catchup_alert_enabled: { type: 'bool' },
+  clock_sync_enabled: { type: 'bool' },
+  debug_logging: { type: 'bool' },
+  rail_pinned: { type: 'bool' },
+
+  // Reading Desk (PRD A Cat 2 & PRD C Cat 4)
   auto_advance_enabled: { type: 'bool' },
   auto_advance_interval_sec: { type: 'int', min: 3, max: 60 },
   auto_advance_pause_on_hover: { type: 'bool' },
-  // Plain Mode (PRD A Category 3)
+  strip_follow_enabled: { type: 'bool' },
+  strip_follow_grace_sec: { type: 'int', min: 2, max: 15 },
+  ticker_speed: { type: 'str' },
+  evidence_highlight_enabled: { type: 'bool' },
+  reading_mode_enabled: { type: 'bool' },
+
+  // News & Sources
+  refresh_interval_minutes: { type: 'int', min: 1, max: 60 },
+  default_country_filter: { type: 'str' },
+  category_filter_list: { type: 'str' },
+  enrich_batch_size: { type: 'int', min: 5, max: 50 },
+
+  // AI & Plain Mode (PRD A Cat 3 & 10)
   plain_mode_enabled: { type: 'bool' },
-  // Two-Pass AI Ingestion & Quota Telemetry (PRD A Category 10)
   two_pass_ai_enabled: { type: 'bool' },
   pass2_threshold: { type: 'int', min: 50, max: 100 },
+
+  // TV Broadcasts (PRD C Cat 5)
+  tv_method_order: { type: 'str' },
+  tv_autoplay_muted: { type: 'bool' },
+  tv_volume: { type: 'float', min: 0, max: 1 },
+  tv_health_interval_min: { type: 'int', min: 5, max: 180 },
+  tv_stopped_fail_threshold: { type: 'int', min: 2, max: 20 },
+  tv_mini_player_enabled: { type: 'bool' },
+
+  // Cartography & Map (PRD C Cat 7)
+  map_engine: { type: 'str' },
+  globe_autorotate: { type: 'bool' },
+  map_wildlife_layer: { type: 'bool' },
+  map_pulse_enabled: { type: 'bool' },
+
+  // Alerts & Acoustic
+  alert_threshold: { type: 'int', min: 0, max: 100 },
+  sound_enabled: { type: 'bool' },
+  browser_notifications: { type: 'bool' },
+
+  // Appearance & Broadsheet Typography
+  theme: { type: 'str' },
+  layout_density: { type: 'str' },
+  reduce_motion_override: { type: 'str' },
+
+  // Data & Storage (PRD A Cat 4)
+  auto_cleanup_enabled: { type: 'bool' },
+  retention_days: { type: 'int', min: 7, max: 365 },
+
+  // Library & Mind (PRD B)
+  library_citation_format: { type: 'str' },
+  helpline_default_region: { type: 'str' },
 };
 
 settingsRouter.get('/', (_req: Request, res: Response) => {
@@ -267,26 +309,73 @@ settingsRouter.post('/import', (req: Request, res: Response) => {
   });
 });
 
+const SETTINGS_DEFAULTS: Record<string, string> = {
+  // General & Realtime
+  timezone_mode: 'local',
+  catchup_alert_enabled: '1',
+  clock_sync_enabled: '1',
+  debug_logging: '0',
+  rail_pinned: '0',
+
+  // Reading Desk
+  auto_advance_enabled: '0',
+  auto_advance_interval_sec: '7',
+  auto_advance_pause_on_hover: '1',
+  strip_follow_enabled: '1',
+  strip_follow_grace_sec: '4',
+  ticker_speed: 'normal',
+  evidence_highlight_enabled: '1',
+  reading_mode_enabled: '1',
+
+  // News & Sources
+  refresh_interval_minutes: '15',
+  default_country_filter: '',
+  category_filter_list: 'all',
+  enrich_batch_size: '20',
+
+  // AI & Plain Mode
+  plain_mode_enabled: '0',
+  two_pass_ai_enabled: '1',
+  pass2_threshold: '75',
+
+  // TV Broadcasts
+  tv_method_order: 'youtube,hls,vlc',
+  tv_autoplay_muted: '1',
+  tv_volume: '0.8',
+  tv_health_interval_min: '30',
+  tv_stopped_fail_threshold: '5',
+  tv_mini_player_enabled: '0',
+
+  // Map & Globe
+  map_engine: 'globe',
+  globe_autorotate: '1',
+  map_wildlife_layer: '1',
+  map_pulse_enabled: '1',
+
+  // Alerts & Sound
+  alert_threshold: '75',
+  sound_enabled: '0',
+  browser_notifications: '0',
+
+  // Appearance
+  theme: 'paper',
+  layout_density: 'comfortable',
+  reduce_motion_override: 'system',
+
+  // Data & Storage
+  auto_cleanup_enabled: '0',
+  retention_days: '30',
+
+  // Library
+  library_citation_format: 'apa',
+  helpline_default_region: 'all',
+};
+
 function getAllSettings(): Record<string, unknown> {
   const keys = Object.keys(SETTINGS_SCHEMA);
   const result: Record<string, unknown> = {};
   for (const key of keys) {
-    let defaultVal = '';
-    if (
-      key === 'evidence_highlight_enabled' ||
-      key === 'reading_mode_enabled' ||
-      key === 'auto_advance_pause_on_hover' ||
-      key === 'two_pass_ai_enabled'
-    ) {
-      defaultVal = '1';
-    } else if (key === 'auto_advance_interval_sec') {
-      defaultVal = '7';
-    } else if (key === 'pass2_threshold') {
-      defaultVal = '75';
-    } else if (key === 'auto_advance_enabled' || key === 'plain_mode_enabled') {
-      defaultVal = '0';
-    }
-
+    const defaultVal = SETTINGS_DEFAULTS[key] ?? '';
     const raw = getSetting(key, defaultVal);
     const schema = SETTINGS_SCHEMA[key]!;
     if (schema.type === 'int') result[key] = parseInt(raw, 10);

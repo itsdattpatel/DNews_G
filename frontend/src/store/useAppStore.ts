@@ -389,17 +389,65 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Settings
   isSettingsOpen: false,
   settings: {
-    refresh_interval_minutes: 5,
-    alert_threshold: 75,
-    auto_cleanup_enabled: false,
-    retention_days: 30,
-    sound_enabled: true,
-    evidence_highlight_enabled: true,
-    reading_mode_enabled: true,
+    // General & Realtime
+    timezone_mode: 'local',
+    catchup_alert_enabled: true,
+    clock_sync_enabled: true,
+    debug_logging: false,
+    rail_pinned: false,
+
+    // Reading
     auto_advance_enabled: false,
     auto_advance_interval_sec: 7,
     auto_advance_pause_on_hover: true,
+    strip_follow_enabled: true,
+    strip_follow_grace_sec: 4,
+    ticker_speed: 'normal',
+    evidence_highlight_enabled: true,
+    reading_mode_enabled: true,
+
+    // News & Sources
+    refresh_interval_minutes: 15,
+    default_country_filter: '',
+    category_filter_list: 'all',
+    enrich_batch_size: 20,
+
+    // AI & Plain
     plain_mode_enabled: false,
+    two_pass_ai_enabled: true,
+    pass2_threshold: 75,
+
+    // TV
+    tv_method_order: 'youtube,hls,vlc',
+    tv_autoplay_muted: true,
+    tv_volume: 0.8,
+    tv_health_interval_min: 30,
+    tv_stopped_fail_threshold: 5,
+    tv_mini_player_enabled: false,
+
+    // Map & Globe
+    map_engine: 'globe',
+    globe_autorotate: true,
+    map_wildlife_layer: true,
+    map_pulse_enabled: true,
+
+    // Alerts & Sound
+    alert_threshold: 75,
+    sound_enabled: true,
+    browser_notifications: false,
+
+    // Appearance
+    theme: 'paper',
+    layout_density: 'comfortable',
+    reduce_motion_override: 'system',
+
+    // Data & Storage
+    auto_cleanup_enabled: false,
+    retention_days: 30,
+
+    // Library
+    library_citation_format: 'apa',
+    helpline_default_region: 'all',
   },
 
   setSettingsOpen: (open) => {

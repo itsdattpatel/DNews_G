@@ -90,4 +90,60 @@ describe('Settings API (T1-08)', () => {
     expect(res.body.can_backfill).toBe(true);
     expect(res.body.detected).toBe(true);
   });
+
+  describe('PRD C Category 3: Unified Settings Keys & Validation', () => {
+    it('GET /api/settings returns new PRD C defaults across sections', async () => {
+      const res = await request(app).get('/api/settings');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('timezone_mode', 'local');
+      expect(res.body).toHaveProperty('strip_follow_enabled', true);
+      expect(res.body).toHaveProperty('strip_follow_grace_sec', 4);
+      expect(res.body).toHaveProperty('ticker_speed', 'normal');
+      expect(res.body).toHaveProperty('tv_method_order', 'youtube,hls,vlc');
+      expect(res.body).toHaveProperty('tv_autoplay_muted', true);
+      expect(res.body).toHaveProperty('tv_volume', 0.8);
+      expect(res.body).toHaveProperty('tv_health_interval_min', 30);
+      expect(res.body).toHaveProperty('map_engine', 'globe');
+      expect(res.body).toHaveProperty('layout_density', 'comfortable');
+      expect(res.body).toHaveProperty('library_citation_format', 'apa');
+    });
+
+    it('PATCH /api/settings validates strip_follow_grace_sec range (2 to 15s)', async () => {
+      const lowRes = await request(app).patch('/api/settings').send({ strip_follow_grace_sec: 1 });
+      expect(lowRes.status).toBe(400);
+      expect(lowRes.body.error).toContain('strip_follow_grace_sec min is 2');
+
+      const highRes = await request(app).patch('/api/settings').send({ strip_follow_grace_sec: 20 });
+      expect(highRes.status).toBe(400);
+      expect(highRes.body.error).toContain('strip_follow_grace_sec max is 15');
+
+      const validRes = await request(app).patch('/api/settings').send({ strip_follow_grace_sec: 6 });
+      expect(validRes.status).toBe(200);
+      expect(validRes.body.strip_follow_grace_sec).toBe(6);
+    });
+
+    it('PATCH /api/settings validates tv_volume bounds (0.0 to 1.0)', async () => {
+      const invalidRes = await request(app).patch('/api/settings').send({ tv_volume: 1.5 });
+      expect(invalidRes.status).toBe(400);
+      expect(invalidRes.body.error).toContain('tv_volume max is 1');
+
+      const validRes = await request(app).patch('/api/settings').send({ tv_volume: 0.65 });
+      expect(validRes.status).toBe(200);
+      expect(validRes.body.tv_volume).toBe(0.65);
+    });
+
+    it('GET /api/settings/export strictly redacts sensitive keys and API tokens', async () => {
+      const res = await request(app).get('/api/settings/export');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('app', 'ai-world-news-desk');
+      expect(res.body).toHaveProperty('settings');
+      const exportedKeys = Object.keys(res.body.settings);
+      for (const k of exportedKeys) {
+        expect(k).not.toMatch(/api[_-]?key/i);
+        expect(k).not.toMatch(/secret/i);
+        expect(k).not.toMatch(/token/i);
+        expect(k).not.toMatch(/password/i);
+      }
+    });
+  });
 });

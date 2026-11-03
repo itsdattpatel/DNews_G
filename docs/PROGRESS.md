@@ -628,7 +628,7 @@
 | **0** | **Documentation & Setup** | 🟢 `DONE` | `/docs/PRD_C.md`, `/docs/LAYOUT_SPEC.md`, `/docs/SETTINGS_SPEC.md`, `/docs/TV_FIXES.md`, `/docs/GLOBE_SPEC.md`, `/docs/OPEN_QUESTIONS.md`, `PROGRESS.md`, DB backup | 2026-11-03 19:40 |
 | **1** | **Top Bar & Right Icon Rail** | 🟢 `DONE` | Top bar retains ONLY 6 designated items; Right Icon Rail in document flow (44px collapsed, 180px pinned); 40x40 touch targets; Playwright matrix (1280x720, 1366x768, 1536x864, 1920x1080) in Paper & Night 100% PASS with 12 screenshots; 402 suite tests pass | 2026-11-03 20:06 |
 | **2** | **Status Strip** | 🟢 `DONE` | Floating bar removed; in-flow 28px Status Strip under Top Bar; auto-advance status + pause reason, 7s hairline countdown, Gap & Plain chips; Playwright 4-viewport matrix screenshots verifying zero article overlap; 12 unit tests pass | 2026-11-03 20:30 |
-| **3** | **Unified Settings Dialog** | ⚪ `PENDING` | Rail settings button + `,` shortcut; focus-trapped 11-section dialog with live search, autosave confirmation, per-section reset, restart notices, masked API keys; backend `/api/settings` integration tests | — |
+| **3** | **Unified Settings Dialog** | 🟢 `DONE` | Focus-trapped modal dialog; 11 categorized sections; live search query filter; autosave with `✓ Saved` feedback; per-section reset to defaults; sealed API credentials; Playwright 4-viewport matrix screenshots; 10 integration + 6 unit tests pass | 2026-11-03 20:53 |
 | **4** | **Bottom Story Strip Follow** | ⚪ `PENDING` | Auto-centering of active card on navigation (j/k, auto-advance, click); smooth wrap-around; 4s user-scroll pause; "Follow current story" setting; Playwright 20-story automated scroll test | — |
 | **5A** | **TV Playback Diagnostics** | ⚪ `PENDING` | Automated probe of all 28 catalog channels via proxy & YouTube; comprehensive audit table (pass/fail, exact failure reason, proxy logs); user approval obtained | — |
 | **5B** | **TV Playback & Layout Fix** | ⚪ `PENDING` | "Health truth" (LIVE only if playable); HLS proxy rewrite & headers; true 16:9 player frame; scrollable non-clipped channel directory; Quick Switcher "Name (Country)"; dedicated mute toggle + `m` shortcut + memory; error actions panel | — |
@@ -731,6 +731,57 @@
     - `ui-cat2-1536x864-paper.png`, `ui-cat2-1536x864-night.png`
     - `ui-cat2-1920x1080-paper.png`, `ui-cat2-1920x1080-night.png`
     - `ui-cat2-hover-paused-reading.png`, `ui-cat2-scrolled-no-overlap.png`
+
+### Category 3: Main Settings Button & Unified Settings Dialog (Completed)
+- **Backend Route & Schema Expansion (`backend/src/routes/settings.ts`)**:
+  - Expanded `SETTINGS_SCHEMA` with all PRD C preferences specified in `SETTINGS_SPEC.md`:
+    - `timezone_mode`, `catchup_alert_enabled`, `clock_sync_enabled`, `debug_logging`, `rail_pinned`
+    - `strip_follow_enabled`, `strip_follow_grace_sec` (2-15s), `ticker_speed` ('slow'|'normal'|'fast')
+    - `default_country_filter`, `category_filter_list`, `enrich_batch_size` (5-50)
+    - `tv_method_order`, `tv_autoplay_muted`, `tv_volume` (0.0-1.0), `tv_health_interval_min` (5-180m), `tv_stopped_fail_threshold` (2-20), `tv_mini_player_enabled`
+    - `map_engine` ('globe'|'flat'), `globe_autorotate`, `map_wildlife_layer`, `map_pulse_enabled`
+    - `browser_notifications`, `layout_density` ('comfortable'|'compact'), `reduce_motion_override` ('system'|'reduce'|'allow')
+    - `library_citation_format` ('apa'|'chicago'), `helpline_default_region`
+  - Populated comprehensive fallback defaults in `getAllSettings()`.
+  - Added range and bounds validation for numeric parameters and verified API export secret redaction.
+- **Frontend Architecture (`frontend/src/components/settings/UnifiedSettingsDialog.tsx`)**:
+  - Replaced legacy slide-in drawer with a full-scale, broadsheet focus-trapped dialog modal.
+  - Keyboard accessible: Esc closes, `,` shortcut opens, focus trapped.
+  - Organized into 11 distinct sections with dedicated icons and active broadsheet styling:
+    1. General
+    2. Reading
+    3. News and Sources (with `[RESTART REQUIRED FOR SCHEDULER]` badge & Sources Desk link)
+    4. AI and Plain mode (with Quota telemetry scorecard & catch-up batch summarization)
+    5. TV Broadcasts (playback method order, mute, volume, health check interval)
+    6. Map & Globe (3D globe vs 2D flat map, rotation, wildlife pins, pulse rings)
+    7. Alerts & Audio (breaking threshold slider, broadsheet acoustic sound effects)
+    8. Appearance & Typography (Paper vs Night edition, layout density, reduce motion)
+    9. Data, Backups & Storage (retention cleanup, SQLite snapshots table, manual backup, export/import)
+    10. Library Archives (citation format, crisis helpline regional default)
+    11. Advanced & Developer (debug logging, clock sync compensation, sealed API credentials readout)
+  - Live Search (`#settings-search-input`): filters sections and settings dynamically.
+  - Autosave: debounced state and SQLite patch with non-blocking `✓ Saved to local desk configuration` indicator.
+  - Reset to Defaults: per-section reset button (`#btn-settings-reset-section`) with prompt confirmation.
+  - Sealed Credentials: API tokens displayed permanently as `••••••••••••••••••••••••••••••••` and never exported.
+- **Test Coverage**:
+  - 10 backend integration tests in `backend/src/__tests__/integration/settings.api.test.ts` (100% pass).
+  - 6 frontend unit tests in `frontend/src/__tests__/unit/unified-settings.test.tsx` (100% pass).
+  - All 207 frontend workspace unit tests pass with zero regressions.
+  - Full build check `npm run build` succeeds with 0 errors.
+- **Viewport Matrix & Visual Validation (`scripts/verify-prd-c-cat3-settings-dialog.cjs`)**:
+  - Validated on 1280x720, 1366x768, 1536x864, 1920x1080 across Paper and Night editions:
+    - Dialog fits within window: 100% PASS across all viewports.
+    - All 11 section buttons present and navigable: 100% PASS.
+    - Esc key closes dialog: 100% PASS.
+    - Comma shortcut `,` opens dialog: 100% PASS.
+    - Live search filters sections by keyword: 100% PASS.
+  - 13 screenshot artifacts saved to brain directory:
+    - `ui-cat3-settings-1280x720-paper.png`, `ui-cat3-settings-1280x720-night.png`
+    - `ui-cat3-settings-1366x768-paper.png`, `ui-cat3-settings-1366x768-night.png`
+    - `ui-cat3-settings-1536x864-paper.png`, `ui-cat3-settings-1536x864-night.png`
+    - `ui-cat3-settings-1920x1080-paper.png`, `ui-cat3-settings-1920x1080-night.png`
+    - `ui-cat3-section-reading.png`, `ui-cat3-section-tv.png`, `ui-cat3-section-data-backup.png`, `ui-cat3-section-advanced-sealed-keys.png`, `ui-cat3-search-filter.png`
+
 
 
 
