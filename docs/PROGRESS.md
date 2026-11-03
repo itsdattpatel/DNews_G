@@ -614,6 +614,38 @@
   - Authored `/CREDITS.md` and updated `/docs/CREDITS.md` with exact pinned versions, licenses, and roles for all 6 library packages.
   - Authored `/docs/LIBRARY_SOURCES.md` documenting verified digital surrogate repositories, translators, and terms.
 
+---
+
+# Progress Tracker — PRD C: UI Fixes, TV Fixes & New 3D Globe
+*Version 1.0 · 2026-11-03 · AI World News Desk*
+
+---
+
+## Overall Status
+
+| Step | Category | Status | Proof / Evidence Required | Timestamp |
+| :--- | :--- | :---: | :--- | :--- |
+| **0** | **Documentation & Setup** | 🟡 `IN_REVIEW` | `/docs/PRD_C.md`, `/docs/LAYOUT_SPEC.md`, `/docs/SETTINGS_SPEC.md`, `/docs/TV_FIXES.md`, `/docs/GLOBE_SPEC.md`, `/docs/OPEN_QUESTIONS.md`, `PROGRESS.md`, DB backup | 2026-11-03 19:40 |
+| **1** | **Top Bar & Right Icon Rail** | ⚪ `PENDING` | Top bar retains only masthead, region, Directory, Breaking, Auto, search; right rail with groups (a)-(d), tooltips, keyboard focus, feed counter downward popover; Playwright 4-viewport matrix screenshots | — |
+| **2** | **Status Strip** | ⚪ `PENDING` | Floating bar removed; in-flow 28px Status Strip under Top Bar; auto-advance status + pause reason, 7s hairline countdown, Gap & Plain chips; Playwright 4-viewport matrix screenshots verifying no article overlap | — |
+| **3** | **Unified Settings Dialog** | ⚪ `PENDING` | Rail settings button + `,` shortcut; focus-trapped 11-section dialog with live search, autosave confirmation, per-section reset, restart notices, masked API keys; backend `/api/settings` integration tests | — |
+| **4** | **Bottom Story Strip Follow** | ⚪ `PENDING` | Auto-centering of active card on navigation (j/k, auto-advance, click); smooth wrap-around; 4s user-scroll pause; "Follow current story" setting; Playwright 20-story automated scroll test | — |
+| **5A** | **TV Playback Diagnostics** | ⚪ `PENDING` | Automated probe of all 28 catalog channels via proxy & YouTube; comprehensive audit table (pass/fail, exact failure reason, proxy logs); user approval obtained | — |
+| **5B** | **TV Playback & Layout Fix** | ⚪ `PENDING` | "Health truth" (LIVE only if playable); HLS proxy rewrite & headers; true 16:9 player frame; scrollable non-clipped channel directory; Quick Switcher "Name (Country)"; dedicated mute toggle + `m` shortcut + memory; error actions panel | — |
+| **6** | **Verified YouTube Live Embeds** | ⚪ `PENDING` | Official channel IDs for Top 5 of IN, US, CN, JP, AU & wildlife webcams; YouTube IFrame API live embeds; oEmbed verification; `/config/channels-top5.json` updated with user approval | — |
+| **7** | **New 3D Interactive Globe** | ⚪ `PENDING` | Approved `react-globe.gl` + `three` integration; local TopoJSON geometry; broadsheet theme styling; story pins, wildlife pins, arrival pulse rings, hover tooltips, click camera fly-to, multi-country arcs; 60 FPS target & automatic 2D flat map fallback | — |
+| **8** | **Suggested Additions (S1-S5)**| ⚪ `PENDING` | S1 (Ctrl+K Command Palette), S2 (Status Strip System Health indicator), S3 (Layout Presets), S4 (TV Mini-Player), S5 (Automated Viewport Regression Test Suite) | — |
+| **9** | **Master QA & Verification** | ⚪ `PENDING` | 4-viewport Playwright screenshots (1280x720, 1366x768, 1536x864, 1920x1080) in Paper & Night themes; ui-visual-validator; security-auditor; 0 console errors; CREDITS.md updated | — |
+
+---
+
+## Prerequisite Verification
+- [x] **PRD A Completed & Approved**: Real news pipeline (3,251 live articles), dual timestamps, realtime foundation, 7s auto-advance, Plain mode, safety net backups, TV catalog, live feed counter, confirmation stamps, two-pass AI, control room desk, 326 unit tests passed (`2026-11-02 19:48`).
+- [x] **PRD B Completed & Approved**: The Library shell, Historical News archives with Wikimedia feed & citation copying, Timeless Wisdom with Sanskrit Devanagari & philosophical maxims, Mind Helps with 9 cognitive domains & international crisis helplines, 0.00% regression verified, 396 tests passed (`2026-11-02 22:45`).
+- [x] **Pre-PRD C Database Backup**: Created at `backups/news.backup_before_prd_c_step0_20261103_193653.sqlite` (17.12 MB).
+- [x] **Pre-PRD C Git Checkpoint**: Committed clean tree at `4d8633a`.
+
+
 
 
 
