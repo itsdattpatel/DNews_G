@@ -13,6 +13,7 @@ import {
 import { HistoryService } from './services/historyService';
 import { ScriptureService } from './services/scriptureService';
 import { QuoteService } from './services/quoteService';
+import { MindService, type MindCategory } from './services/mindService';
 
 export const libraryRouter = Router();
 
@@ -254,5 +255,78 @@ libraryRouter.get('/wisdom/quotes/random', (_req, res) => {
     res.status(500).json({ error: 'Failed to retrieve random quote', details: err.message });
   }
 });
+
+// ─── Mind Helps Endpoints (Category B5) ───────────────────────────────────────
+
+function ensureMindSeeded(db: any) {
+  const mindService = new MindService(db);
+  mindService.seedCanonicalMindCards();
+  mindService.seedCanonicalHelplines();
+  return mindService;
+}
+
+// GET /api/library/mind/cards
+libraryRouter.get('/mind/cards', (req, res) => {
+  try {
+    const db = getDb();
+    const mindService = ensureMindSeeded(db);
+    const { category, max_time, q, limit, offset } = req.query;
+
+    const cards = mindService.getCards({
+      category: category as MindCategory | 'all' | undefined,
+      maxTime: max_time ? parseInt(max_time as string, 10) : undefined,
+      query: q as string | undefined,
+      limit: limit ? parseInt(limit as string, 10) : undefined,
+      offset: offset ? parseInt(offset as string, 10) : undefined,
+    });
+
+    res.json({ cards, total: cards.length });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve psychological help cards', details: err.message });
+  }
+});
+
+// GET /api/library/mind/cards/:id
+libraryRouter.get('/mind/cards/:id', (req, res) => {
+  try {
+    const db = getDb();
+    const mindService = ensureMindSeeded(db);
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid card ID' });
+      return;
+    }
+
+    const card = mindService.getCardById(id);
+    if (!card) {
+      res.status(404).json({ error: 'Mind card not found' });
+      return;
+    }
+
+    res.json({ card });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve help card', details: err.message });
+  }
+});
+
+// GET /api/library/mind/helplines
+libraryRouter.get('/mind/helplines', (req, res) => {
+  try {
+    const db = getDb();
+    const mindService = ensureMindSeeded(db);
+    const country = req.query.country as string | undefined;
+
+    const helplines = mindService.getHelplines(country);
+    res.json({
+      helplines,
+      total: helplines.length,
+      notice: 'General education only. Not medical advice or a substitute for a healthcare professional.',
+      verified_date: '2026-11-02',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve crisis helplines registry', details: err.message });
+  }
+});
+
 
 

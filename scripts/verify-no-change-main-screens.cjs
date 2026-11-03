@@ -30,9 +30,36 @@ async function runPixelDiffVerification() {
   await context.addInitScript(() => {
     sessionStorage.setItem('missed_news_dismissed', 'true');
     localStorage.setItem('missed_news_dismissed', 'true');
+    sessionStorage.setItem('dismissed_welcome_back', '1');
+    localStorage.setItem('dismissed_welcome_back', '1');
   });
 
   const page = await context.newPage();
+
+  await page.route('**/api/session/current', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        session: { id: 1, started_at: '2026-11-02T12:00:00Z', articles_ingested_in_session: 0 },
+        downtime: { detected: false, missed_minutes: 0 }
+      })
+    });
+  });
+
+  await page.route('**/api/startup-status', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        uptime_ms: 10000,
+        missed_minutes: 0,
+        detected: false,
+        can_backfill: false
+      })
+    });
+  });
 
   if (fixtureData) {
     await page.route('**/api/articles*', async (route) => {
@@ -216,31 +243,31 @@ async function runPixelDiffVerification() {
     }
   }
 
-  console.log('\n[3/4] Capturing The Library Wisdom (Category B4) screens...');
+  console.log('\n[3/4] Capturing The Library Mind Helps (Category B5) screens...');
   await page.goto('http://localhost:5173/library', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2000);
 
-  // Switch to Wisdom tab
-  const wisdomTabBtn = page.locator('button:has-text("Wisdom")').first();
-  if (await wisdomTabBtn.count() > 0) {
-    await wisdomTabBtn.click();
+  // Switch to Mind Helps tab
+  const mindTabBtn = page.locator('button:has-text("Mind Helps")').first();
+  if (await mindTabBtn.count() > 0) {
+    await mindTabBtn.click();
     await page.waitForTimeout(1500);
   }
 
-  // 1. Wisdom Scriptures - Day Theme
-  const wisdomScripturesDayPath = path.join(LIBRARY_DIR, 'ui-b4-wisdom-scriptures-day.png');
-  await page.screenshot({ path: wisdomScripturesDayPath });
-  console.log('  Saved: ui-b4-wisdom-scriptures-day.png');
+  // 1. Mind Helps - Day Theme
+  const mindDayPath = path.join(LIBRARY_DIR, 'ui-b5-mind-day.png');
+  await page.screenshot({ path: mindDayPath });
+  console.log('  Saved: ui-b5-mind-day.png');
 
-  // 2. Night Theme Toggle for Scriptures
+  // 2. Night Theme Toggle for Mind Helps
   const themeToggle = page.locator('button[aria-label*="theme" i], button:has-text("Day"), button:has-text("Night")').first();
   if (await themeToggle.count() > 0) {
     await themeToggle.click();
     await page.waitForTimeout(600);
   }
-  const wisdomScripturesNightPath = path.join(LIBRARY_DIR, 'ui-b4-wisdom-scriptures-night.png');
-  await page.screenshot({ path: wisdomScripturesNightPath });
-  console.log('  Saved: ui-b4-wisdom-scriptures-night.png');
+  const mindNightPath = path.join(LIBRARY_DIR, 'ui-b5-mind-night.png');
+  await page.screenshot({ path: mindNightPath });
+  console.log('  Saved: ui-b5-mind-night.png');
 
   // Toggle back to Day theme
   if (await themeToggle.count() > 0) {
@@ -248,49 +275,51 @@ async function runPixelDiffVerification() {
     await page.waitForTimeout(400);
   }
 
-  // 3. Switch to Quotes Sub-tab
-  const quotesSubTabBtn = page.locator('button:has-text("Quotes")').first();
-  if (await quotesSubTabBtn.count() > 0) {
-    await quotesSubTabBtn.click();
-    await page.waitForTimeout(1200);
+  // 3. Filtered Mind Technique View (Click Anxiety chip)
+  const anxietyChip = page.locator('button:has-text("Anxiety")').first();
+  if (await anxietyChip.count() > 0) {
+    await anxietyChip.click();
+    await page.waitForTimeout(1000);
   }
-  const wisdomQuotesDayPath = path.join(LIBRARY_DIR, 'ui-b4-wisdom-quotes-day.png');
-  await page.screenshot({ path: wisdomQuotesDayPath });
-  console.log('  Saved: ui-b4-wisdom-quotes-day.png');
+  const mindFilteredPath = path.join(LIBRARY_DIR, 'ui-b5-mind-filtered.png');
+  await page.screenshot({ path: mindFilteredPath });
+  console.log('  Saved: ui-b5-mind-filtered.png');
 
-  // 4. Quotes Night Theme
-  if (await themeToggle.count() > 0) {
-    await themeToggle.click();
+  // 4. Open Verified Crisis Helplines Modal
+  const helplinesBtn = page.locator('button:has-text("Crisis Helplines")').first();
+  if (await helplinesBtn.count() > 0) {
+    await helplinesBtn.click();
+    await page.waitForTimeout(800);
+  }
+  const mindHelplinesPath = path.join(LIBRARY_DIR, 'ui-b5-mind-helplines.png');
+  await page.screenshot({ path: mindHelplinesPath });
+  console.log('  Saved: ui-b5-mind-helplines.png');
+
+  // Close helplines modal
+  const closeHelplinesBtn = page.locator('button:has-text("Close Directory")').first();
+  if (await closeHelplinesBtn.count() > 0) {
+    await closeHelplinesBtn.click();
     await page.waitForTimeout(500);
   }
-  const wisdomQuotesNightPath = path.join(LIBRARY_DIR, 'ui-b4-wisdom-quotes-night.png');
-  await page.screenshot({ path: wisdomQuotesNightPath });
-  console.log('  Saved: ui-b4-wisdom-quotes-night.png');
 
-  // Toggle back to Day theme
-  if (await themeToggle.count() > 0) {
-    await themeToggle.click();
-    await page.waitForTimeout(400);
-  }
-
-  // 5. Bookmarks Drawer Open on Wisdom
+  // 5. Bookmarks Drawer Open on Mind Helps
   const bookmarksBtn = page.locator('button:has-text("Bookmarks"), button[aria-label*="bookmark" i]').first();
   if (await bookmarksBtn.count() > 0) {
     await bookmarksBtn.click();
     await page.waitForTimeout(600);
   }
-  const bookmarksPath = path.join(LIBRARY_DIR, 'ui-b4-wisdom-bookmarks.png');
+  const bookmarksPath = path.join(LIBRARY_DIR, 'ui-b5-mind-bookmarks.png');
   await page.screenshot({ path: bookmarksPath });
-  console.log('  Saved: ui-b4-wisdom-bookmarks.png');
+  console.log('  Saved: ui-b5-mind-bookmarks.png');
 
   // Copy screenshots to Antigravity Artifact directory
   if (fs.existsSync(ARTIFACT_DIR)) {
     const filesToCopy = [
-      'ui-b4-wisdom-scriptures-day.png',
-      'ui-b4-wisdom-scriptures-night.png',
-      'ui-b4-wisdom-quotes-day.png',
-      'ui-b4-wisdom-quotes-night.png',
-      'ui-b4-wisdom-bookmarks.png',
+      'ui-b5-mind-day.png',
+      'ui-b5-mind-night.png',
+      'ui-b5-mind-filtered.png',
+      'ui-b5-mind-helplines.png',
+      'ui-b5-mind-bookmarks.png',
     ];
     for (const file of filesToCopy) {
       const src = path.join(LIBRARY_DIR, file);
@@ -298,12 +327,12 @@ async function runPixelDiffVerification() {
         fs.copyFileSync(src, path.join(ARTIFACT_DIR, file));
       }
     }
-    // Also copy reader after B4
+    // Also copy reader after B5
     const currentReader = path.join(CURRENT_DIR, '01-main-reader-paper.png');
     if (fs.existsSync(currentReader)) {
-      fs.copyFileSync(currentReader, path.join(ARTIFACT_DIR, 'ui-main-reader-paper-after-b4.png'));
+      fs.copyFileSync(currentReader, path.join(ARTIFACT_DIR, 'ui-main-reader-paper-after-b5.png'));
     }
-    console.log('  Copied Category B4 screenshots to artifact directory.');
+    console.log('  Copied Category B5 screenshots to artifact directory.');
   }
 
   console.log('\n[4/4] Verifying Bat Menu navigation to /library...');

@@ -209,3 +209,4 @@ export const VerseFolioCard: React.FC<VerseFolioCardProps> = ({
     </div>
   );
 };
+

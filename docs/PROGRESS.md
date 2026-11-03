@@ -467,7 +467,7 @@
 | **B2** | **Library Shell** | 🟢 `DONE` | Route `/library`, 3 subpage tabs, local store, search, bookmarks drawer, day/night reading room mode, responsive resizable panes | Verified & Approved |
 | **B3** | **Historical News (Archives)** | 🟢 `DONE` | Real archives fetcher (Wikimedia 'On this day', LoC, Internet Archive), library_history_cache, date/decade/country filters, source attribution | Verified & Approved |
 | **B4** | **Wisdom (Scriptures & Quotes)** | 🟢 `DONE` | Holy book registry (Gita, Mahabharata, Ramayana), Sanskrit Devanagari (`Noto Serif Devanagari`), IAST transliteration, Arnold (1885) / Ganguli (1883-1896) / Griffith (1870-1874) translations, stored classical meanings, Quote explorer (Marcus Aurelius, Vivekananda, Epictetus, Confucius, Seneca, Shankara, Tagore, Laozi), 15 tests pass, pixel-diff 0% regression | Verified & Ready |
-| **B5** | **Mind Helps (Psychology)** | ⚪ `PENDING` | 9 categories, OpenStax/WHO/William James techniques, step-by-step guidance, crisis helplines footer (IN, US, CN, JP, AU), zero AI chat guarantee | Pending Approval |
+| **B5** | **Mind Helps (Psychology)** | 🟢 `DONE` | 9 categories, OpenStax/WHO/William James techniques, step-by-step guidance, crisis helplines directory (IN, US, CN, JP, AU), zero AI chat guarantee, 16 tests pass, pixel-diff 0% regression | Verified & Ready |
 | **B6** | **QA & Final Verification** | ⚪ `PENDING` | Playwright tests for 3 subpages, pixel-diff showing 0% change in main app screens, git diff verifying only allowed files, CREDITS.md and audit | Pending Approval |
 
 ### Step 0: Documentation & Prerequisites (Completed)
@@ -564,6 +564,34 @@
   - Verified 0.00% static regression across all 8 main application screens.
   - Verified Bat Menu navigation to `/library` functions properly.
   - Visual validation screenshots captured: `ui-b4-wisdom-scriptures-day.png`, `ui-b4-wisdom-scriptures-night.png`, `ui-b4-wisdom-quotes-day.png`, `ui-b4-wisdom-quotes-night.png`, `ui-b4-wisdom-bookmarks.png`, and `ui-main-reader-paper-after-b4.png`.
+
+### Category B5: Mind Helps (Psychology Books & Helplines) (Completed)
+- Pre-B5 database backup created at `backups/news.backup_before_cat_b5.sqlite` (17.1 MB).
+- Backend Mind Service (`backend/src/library/services/mindService.ts`):
+  - Evidence-Based Psychological Cards (`library_mind_cards`): Seeds 10 classical self-help techniques across all 9 domains: *stress, anxiety, sleep, focus, habits, anger, grief, relationships, selftalk*.
+  - Authoritative Open Sources: *OpenStax Psychology 2e (CC BY 4.0)*, *WHO Doing What Matters in Times of Stress (CC BY-NC-SA 3.0 IGO)*, and *William James The Principles of Psychology (1890, Public Domain)*.
+  - Paraphrased Step Guidance: Numbered practical steps written in concise, compassionate language without medical jargon or shock/pain methods.
+  - Verified International Crisis Helplines (`library_helplines`): Complete directory covering India (Tele-MANAS, KIRAN), United States (988 Lifeline, Crisis Text Line), China (Beijing Suicide Research Center), Japan (TELL Lifeline, Inochi no Denwa), and Australia (Lifeline Australia, Beyond Blue), verified as of 2026-11-02.
+  - Strict Safety Mandate (Rule B5.4): "General education only. Not medical advice or a substitute for a healthcare professional. No diagnosing, no medication advice." Zero AI chat or therapist features.
+- Backend REST Endpoints (`backend/src/library/routes.ts`):
+  - `GET /api/library/mind/cards`: query by category, max duration, or keyword.
+  - `GET /api/library/mind/cards/:id`: single technique details with parsed steps.
+  - `GET /api/library/mind/helplines`: directory with regional filter, safety notice, and verification date.
+- Frontend Mind Desk Architecture (`frontend/src/library/mind/`):
+  - `HelpCard.tsx`: deckle-edged vellum card, hanging leather ribbon bookmark, duration watermark, category ink stamp (`variant="sage"`), duration badge, physiological mechanism panel, trigger situations panel, numbered step-by-step guidance cards, citation clipboard exporter, bookmark toggle, and open-source archive link.
+  - `CategoryFilterBar.tsx`: 9 domain filter chips, duration filter dropdown, non-negotiable safety notice banner, and helplines directory trigger button.
+  - `HelplinesModal.tsx`: accessible dialog with regional flag tabs (🌐 All, 🇮🇳 India, 🇺🇸 US, 🇨🇳 China, 🇯🇵 Japan, 🇦🇺 Australia), phone numbers, SMS/chat info, official websites, and 24/7 hours.
+  - `MindHelpsSubpage.tsx`: dual-pane coordinator with resizable panels, techniques list with category/duration stamps, empty/loading/error states, and active HelpCard reading desk.
+- Test Coverage:
+  - Backend unit tests (`library-mind.test.ts`): 7 tests covering 9 categories, time filters, keyword search, ID lookup, and helpline seeding.
+  - Backend integration tests (`library-mind.api.test.ts`): 5 tests verifying REST contract, status codes, safety notice, and country filters.
+  - Frontend unit tests (`library-mind-ui.test.tsx`): 4 tests verifying HelpCard rendering, 9-category filter bar, HelplinesModal safety mandate, and subpage layout.
+  - Total: 16 new automated tests for Mind Helps (All 388 workspace vitest tests pass: 183 frontend + 205 backend).
+- Proof of Zero Change & Pixel-Diff Verification (`scripts/verify-no-change-main-screens.cjs`):
+  - Verified 0.00% static regression across all 8 main application screens.
+  - Verified Bat Menu navigation smoothly opens `/library`.
+  - Visual validation screenshots captured: `ui-b5-mind-day.png`, `ui-b5-mind-night.png`, `ui-b5-mind-filtered.png`, `ui-b5-mind-helplines.png`, `ui-b5-mind-bookmarks.png`, and `ui-main-reader-paper-after-b5.png`.
+
 
 
 
