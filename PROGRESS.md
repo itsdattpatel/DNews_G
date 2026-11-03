@@ -816,6 +816,21 @@
     - `ui-cat4-strip-1920x1080-paper.png`, `ui-cat4-strip-1920x1080-night.png`
     - `ui-cat4-20-stories-follow.png`, `ui-cat4-wrap-around.png`, `ui-cat4-follow-paused-grace.png`
 
+### Category 5A: TV Signal Diagnostics & Failure Analysis (Completed - Awaiting User Approval)
+- **Comprehensive Probe Execution (`scripts/diagnose-tv-channels.cjs`)**:
+  - Probed all 29 catalog channels through real playback paths (backend proxy `http://127.0.0.1:3001/api/tv/proxy?url=...` checking master playlist `#EXTM3U`, child variant parsing, and media segment retrieval > 1KB, plus direct YouTube oEmbed validation).
+  - Total channels audited: 29.
+  - Verified Pass: 2 channels (`NDTV 24x7`, `Sky News Australia`).
+  - Total Fail: 27 channels.
+- **Root Cause Analysis (Why Channels Were Marked "LIVE")**:
+  1. **Shallow HEAD/GET Probing**: `checkStreamHealth` in `backend/src/tv/health.ts` performed only a lightweight HTTP HEAD/GET request on the top-level URL, accepting any HTTP 200–399 response as `isAlive: true` without inspecting M3U8 headers or media segment playability.
+  2. **Mock URLs Returning HTTP 200 HTML**: Channels like *Wild Earth Safari* and *African Waterhole Live* used `http://example.com/*.m3u8`. The IANA example web server responds with HTTP 200 OK returning an HTML web page. The shallow probe marked `is_alive: 1`, but hls.js failed with *"Stream Signal Offline or Restricted by CORS"* when receiving HTML instead of `#EXTM3U`.
+  3. **Synthetic / Non-Existent Akamai Hostnames**: Several channels in migration 009 were seeded with placeholder hostnames (e.g. `fnn-live.akamaized.net`, `seven-live.akamaized.net`, `phoenix-live.akamaized.net`) which fail DNS lookup (`ENOTFOUND`). The proxy's SSRF validator blocked them with HTTP 403.
+  4. **Missing Proxy Header Forwarding & CDN Token Protection**: For valid broadcast CDNs (Uplynk, Akamai, CGTN, NHK), requests without incoming `User-Agent`, `Referer`, and `Origin` headers were rejected by upstream CDNs with HTTP 403 or 404.
+  5. **Inactive YouTube Channel IDs**: Generic embed URLs like `/embed/live_stream?channel=...` returned HTTP 404 from YouTube oEmbed because broadcaster live streams either concluded, changed URLs, or disabled external embedding.
+- **Detailed Audit Table**: Generated in `/docs/TV_DIAGNOSTICS_REPORT.md` and presented to user for approval prior to initiating Step 5B.
+
+
 
 
 
