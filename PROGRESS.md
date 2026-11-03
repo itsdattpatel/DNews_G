@@ -625,8 +625,8 @@
 
 | Step | Category | Status | Proof / Evidence Required | Timestamp |
 | :--- | :--- | :---: | :--- | :--- |
-| **0** | **Documentation & Setup** | 🟡 `IN_REVIEW` | `/docs/PRD_C.md`, `/docs/LAYOUT_SPEC.md`, `/docs/SETTINGS_SPEC.md`, `/docs/TV_FIXES.md`, `/docs/GLOBE_SPEC.md`, `/docs/OPEN_QUESTIONS.md`, `PROGRESS.md`, DB backup | 2026-11-03 19:40 |
-| **1** | **Top Bar & Right Icon Rail** | ⚪ `PENDING` | Top bar retains only masthead, region, Directory, Breaking, Auto, search; right rail with groups (a)-(d), tooltips, keyboard focus, feed counter downward popover; Playwright 4-viewport matrix screenshots | — |
+| **0** | **Documentation & Setup** | 🟢 `DONE` | `/docs/PRD_C.md`, `/docs/LAYOUT_SPEC.md`, `/docs/SETTINGS_SPEC.md`, `/docs/TV_FIXES.md`, `/docs/GLOBE_SPEC.md`, `/docs/OPEN_QUESTIONS.md`, `PROGRESS.md`, DB backup | 2026-11-03 19:40 |
+| **1** | **Top Bar & Right Icon Rail** | 🟢 `DONE` | Top bar retains ONLY 6 designated items; Right Icon Rail in document flow (44px collapsed, 180px pinned); 40x40 touch targets; Playwright matrix (1280x720, 1366x768, 1536x864, 1920x1080) in Paper & Night 100% PASS with 12 screenshots; 402 suite tests pass | 2026-11-03 20:06 |
 | **2** | **Status Strip** | ⚪ `PENDING` | Floating bar removed; in-flow 28px Status Strip under Top Bar; auto-advance status + pause reason, 7s hairline countdown, Gap & Plain chips; Playwright 4-viewport matrix screenshots verifying no article overlap | — |
 | **3** | **Unified Settings Dialog** | ⚪ `PENDING` | Rail settings button + `,` shortcut; focus-trapped 11-section dialog with live search, autosave confirmation, per-section reset, restart notices, masked API keys; backend `/api/settings` integration tests | — |
 | **4** | **Bottom Story Strip Follow** | ⚪ `PENDING` | Auto-centering of active card on navigation (j/k, auto-advance, click); smooth wrap-around; 4s user-scroll pause; "Follow current story" setting; Playwright 20-story automated scroll test | — |
@@ -644,6 +644,53 @@
 - [x] **PRD B Completed & Approved**: The Library shell, Historical News archives with Wikimedia feed & citation copying, Timeless Wisdom with Sanskrit Devanagari & philosophical maxims, Mind Helps with 9 cognitive domains & international crisis helplines, 0.00% regression verified, 396 tests passed (`2026-11-02 22:45`).
 - [x] **Pre-PRD C Database Backup**: Created at `backups/news.backup_before_prd_c_step0_20261103_193653.sqlite` (17.12 MB).
 - [x] **Pre-PRD C Git Checkpoint**: Committed clean tree at `4d8633a`.
+
+---
+
+## Detailed Category Logs — PRD C
+
+### Category 1: Top Bar & Right Icon Rail (Completed)
+- **Top Bar Simplification (`frontend/src/components/layout/TopBar.tsx`)**:
+  - Top Bar retains ONLY the 6 core controls:
+    1. Masthead (Bat SVG + "The World Desk" logotype)
+    2. Region / Country Selector (`#country-filter-select`)
+    3. Directory View Toggle (`#btn-toggle-category-view`)
+    4. Breaking News Filter (`#breaking-filter-toggle`)
+    5. Auto-Advance Toggle (`#btn-auto-advance-toggle`)
+    6. Search Wire Input (`#article-search-input`)
+  - Guaranteed never to overflow: search input contracts smoothly (`w-48` down to `w-24`) while Directory and Breaking collapse to icon-only buttons on small screens (< 1366px).
+  - All other items removed from Top Bar.
+- **Right Icon Rail Architecture (`frontend/src/components/layout/RightIconRail.tsx`)**:
+  - Positioned on far right edge in document flow (not floating).
+  - Width: 44px (collapsed) / 180px (pinned open via `#btn-rail-pin-toggle`).
+  - Pin-open state persisted in store and `localStorage`.
+  - Every button features clickable touch target >= 40x40px (`min-w-[40px] min-h-[40px]`).
+  - Organized into 4 clear groups with thin dividers:
+    - **Group A (Live Status)**: Live feed counter badge (with downward telemetry popover), alerts bell with ping animation.
+    - **Group B (Views)**: TV Wire (`t`), 3D Globe Radar (`g`), The Library (`l`), Control Room (`c`).
+    - **Group C (Modes & Theme)**: Plain mode switch (Zero AI), Theme switch (Paper ↔ Night).
+    - **Group D (Bottom Utilities)**: Settings (`btn-rail-settings`, shortcut `,`), Pin rail toggle.
+  - Left-popping tooltips in collapsed mode ensure zero edge clipping.
+  - Active item highlighted with high-contrast ink broadsheet styling.
+- **Layout Integration in `frontend/src/components/layout/Shell.tsx`**:
+  - Encapsulated within `#central-workspace-row`, side-by-side with `#main-split-container`.
+  - Resizable panels dynamically adjust to remaining width without layout shifts.
+  - Added global keyboard shortcuts: `l` (The Library) and `,` (Settings).
+- **Feed Counter Telemetry (`frontend/src/components/telemetry/FeedCounterPopover.tsx`)**:
+  - Downward popover opening inwards, avoiding window edge clipping.
+- **Test Coverage**:
+  - 6 new automated unit tests in `frontend/src/__tests__/unit/icon-rail-topbar.test.tsx` (100% pass).
+  - All 402 workspace unit tests pass (213 backend + 189 frontend across 78 suites).
+  - Strict TypeScript build passes with 0 errors (`npm run build`).
+- **Viewport Matrix & Visual Validation (`scripts/verify-prd-c-cat1-viewport-matrix.cjs`)**:
+  - Tested 4 resolutions: 1280x720, 1366x768, 1536x864, 1920x1080 across Paper and Night themes.
+  - 100% pass: Top Bar overflow = PASS, Page horizontal scroll = PASS, Touch targets = PASS, Pinned state = PASS.
+  - 12 screenshots generated and saved to artifact directory:
+    - `ui-cat1-1280x720-paper.png`, `ui-cat1-1280x720-night.png`, `ui-cat1-pinned-1280x720.png`
+    - `ui-cat1-1366x768-paper.png`, `ui-cat1-1366x768-night.png`, `ui-cat1-rail-hover-tooltip.png`, `ui-cat1-feed-counter-popover.png`
+    - `ui-cat1-1536x864-paper.png`, `ui-cat1-1536x864-night.png`
+    - `ui-cat1-1920x1080-paper.png`, `ui-cat1-1920x1080-night.png`, `ui-cat1-pinned-1920x1080.png`
+
 
 
 

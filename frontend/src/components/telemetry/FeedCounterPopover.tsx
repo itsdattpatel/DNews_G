@@ -68,9 +68,10 @@ export const FeedCounterPopover: React.FC<FeedCounterPopoverProps> = ({
     if (!isFeedCounterOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        // Only close if not clicking the toggle button
-        const toggleBtn = document.getElementById('btn-topbar-feed-counter');
-        if (toggleBtn && toggleBtn.contains(e.target as Node)) return;
+        // Only close if not clicking the toggle button (topbar or rail)
+        const railBtn = document.getElementById('btn-rail-feed-counter');
+        const topbarBtn = document.getElementById('btn-topbar-feed-counter');
+        if ((railBtn && railBtn.contains(e.target as Node)) || (topbarBtn && topbarBtn.contains(e.target as Node))) return;
         setFeedCounterOpen(false);
       }
     };
@@ -106,7 +107,7 @@ export const FeedCounterPopover: React.FC<FeedCounterPopoverProps> = ({
       ref={popoverRef}
       role="region"
       aria-label="Live Feed Counter & Telemetry Panel"
-      className="absolute right-4 top-14 mt-1.5 w-[26rem] max-w-[calc(100vw-2rem)] bg-paper text-ink border-2 border-ink rounded-xs shadow-overlay p-4 z-50 animate-in fade-in zoom-in-95 duration-150 select-none"
+      className="fixed right-14 top-14 w-[26rem] max-w-[calc(100vw-4rem)] bg-paper text-ink border-2 border-ink rounded-xs shadow-overlay p-4 z-50 animate-in fade-in zoom-in-95 duration-150 select-none"
     >
       {/* 1. Broadsheet Header */}
       <div className="flex items-center justify-between border-b-2 border-ink pb-2.5 mb-3">

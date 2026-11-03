@@ -135,6 +135,11 @@ interface AppState {
   isFeedCounterOpen: boolean;
   setFeedCounterOpen: (open: boolean) => void;
   fetchFeedCounter: () => Promise<void>;
+
+  // Right Icon Rail (PRD C Category 1)
+  isRailPinned: boolean;
+  setIsRailPinned: (pinned: boolean) => void;
+  toggleRailPinned: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -645,6 +650,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (err) {
       console.warn('[FeedCounter] Failed to fetch feed counter metrics:', err);
     }
+  },
+
+  // Right Icon Rail (PRD C Category 1)
+  isRailPinned:
+    typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+      ? localStorage.getItem('news_rail_pinned') === 'true'
+      : false,
+  setIsRailPinned: (pinned) => {
+    try {
+      if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+        localStorage.setItem('news_rail_pinned', String(pinned));
+      }
+    } catch {
+      // ignore in tests or private browsing
+    }
+    set({ isRailPinned: pinned });
+  },
+  toggleRailPinned: () => {
+    const next = !get().isRailPinned;
+    try {
+      if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+        localStorage.setItem('news_rail_pinned', String(next));
+      }
+    } catch {
+      // ignore in tests or private browsing
+    }
+    set({ isRailPinned: next });
   },
 }));
 

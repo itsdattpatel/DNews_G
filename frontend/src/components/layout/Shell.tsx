@@ -6,6 +6,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Toaster } from 'sonner';
 import { TopBar } from './TopBar';
+import { RightIconRail } from './RightIconRail';
 import { BatMenuOverlay } from '../bat/BatMenuOverlay';
 import { NewsTicker } from './NewsTicker';
 import { ArticlePanel } from '../article/ArticlePanel';
@@ -84,6 +85,15 @@ export const Shell: React.FC = () => {
           e.preventDefault();
           useAppStore.getState().setControlRoomOpen(true);
           setCurrentView('control-room');
+          break;
+        case 'l':
+          e.preventDefault();
+          window.history.pushState(null, '', '/library');
+          window.dispatchEvent(new PopStateEvent('popstate'));
+          break;
+        case ',':
+          e.preventDefault();
+          useAppStore.getState().setSettingsOpen(true);
           break;
         case '/':
           e.preventDefault();
@@ -165,113 +175,120 @@ export const Shell: React.FC = () => {
         <BatMenuOverlay />
       </ErrorBoundary>
 
-      {/* 3. Main Split View or Section Desks */}
-      <main
-        id="main-split-container"
-        className="flex-1 w-full h-full min-h-0 min-w-0 flex overflow-hidden relative"
-      >
-        {currentView === 'category' ? (
-          <ErrorBoundary panelName="Category Rail Desk">
-            <CategoryRailView />
-          </ErrorBoundary>
-        ) : (
-          /* Main Reader View with Accessible Resizable Panels */
-          <PanelGroup
-            ref={verticalGroupRef}
-            direction="vertical"
-            id="reader-vertical-group"
-            onLayout={handleVerticalLayout}
-            className="w-full h-full min-h-0 min-w-0 flex flex-col"
-          >
-            {/* Top Reader Desk: Article + Summary (or Full-Width Reader in Plain Mode) */}
-            <Panel
-              id="reader-top-panel"
-              defaultSize={panelSizesV[0]}
-              minSize={50}
-              maxSize={90}
-              className="min-h-0 min-w-0"
+      {/* 3. Central Workspace Row: Main Split View + Right Icon Rail in document flow */}
+      <div id="central-workspace-row" className="flex-1 w-full min-h-0 min-w-0 flex overflow-hidden relative">
+        <main
+          id="main-split-container"
+          className="flex-1 h-full min-h-0 min-w-0 flex overflow-hidden relative"
+        >
+          {currentView === 'category' ? (
+            <ErrorBoundary panelName="Category Rail Desk">
+              <CategoryRailView />
+            </ErrorBoundary>
+          ) : (
+            /* Main Reader View with Accessible Resizable Panels */
+            <PanelGroup
+              ref={verticalGroupRef}
+              direction="vertical"
+              id="reader-vertical-group"
+              onLayout={handleVerticalLayout}
+              className="w-full h-full min-h-0 min-w-0 flex flex-col"
             >
-              {isPlainMode ? (
-                <div id="reader-plain-mode-container" className="w-full h-full min-h-0 min-w-0">
-                  <ErrorBoundary panelName="Article Reader Desk (Plain Mode)">
-                    <ArticlePanel />
-                  </ErrorBoundary>
-                </div>
-              ) : (
-                <PanelGroup
-                  ref={horizontalGroupRef}
-                  direction="horizontal"
-                  id="reader-horizontal-group"
-                  onLayout={handleHorizontalLayout}
-                  className="w-full h-full min-h-0 min-w-0 flex"
-                >
-                  {/* Left Panel: Article Column */}
-                  <Panel
-                    id="reader-article-panel"
-                    defaultSize={panelSizesH[0]}
-                    minSize={30}
-                    maxSize={75}
-                    className="min-h-0 min-w-0 h-full"
-                  >
-                    <ErrorBoundary panelName="Article Reader Desk">
+              {/* Top Reader Desk: Article + Summary (or Full-Width Reader in Plain Mode) */}
+              <Panel
+                id="reader-top-panel"
+                defaultSize={panelSizesV[0]}
+                minSize={50}
+                maxSize={90}
+                className="min-h-0 min-w-0"
+              >
+                {isPlainMode ? (
+                  <div id="reader-plain-mode-container" className="w-full h-full min-h-0 min-w-0">
+                    <ErrorBoundary panelName="Article Reader Desk (Plain Mode)">
                       <ArticlePanel />
                     </ErrorBoundary>
-                  </Panel>
-
-                  {/* Vertical Drag Handle between Article & Summary */}
-                  <PanelResizeHandle
-                    id="handle-article-summary"
-                    onDoubleClick={handleResetH}
-                    aria-label="Resize article and summary columns (Double-click to reset)"
-                    className="resize-handle-vertical"
+                  </div>
+                ) : (
+                  <PanelGroup
+                    ref={horizontalGroupRef}
+                    direction="horizontal"
+                    id="reader-horizontal-group"
+                    onLayout={handleHorizontalLayout}
+                    className="w-full h-full min-h-0 min-w-0 flex"
                   >
-                    <div className="resize-handle-grip-v" />
-                  </PanelResizeHandle>
+                    {/* Left Panel: Article Column */}
+                    <Panel
+                      id="reader-article-panel"
+                      defaultSize={panelSizesH[0]}
+                      minSize={30}
+                      maxSize={75}
+                      className="min-h-0 min-w-0 h-full"
+                    >
+                      <ErrorBoundary panelName="Article Reader Desk">
+                        <ArticlePanel />
+                      </ErrorBoundary>
+                    </Panel>
 
-                  {/* Right Panel: Summary Column */}
-                  <Panel
-                    id="reader-summary-panel"
-                    defaultSize={panelSizesH[1]}
-                    minSize={25}
-                    maxSize={70}
-                    className="min-h-0 min-w-0 h-full"
-                  >
-                    <ErrorBoundary panelName="Summary Wire Desk">
-                      <SummaryPanel />
-                    </ErrorBoundary>
-                  </Panel>
-                </PanelGroup>
-              )}
-            </Panel>
+                    {/* Vertical Drag Handle between Article & Summary */}
+                    <PanelResizeHandle
+                      id="handle-article-summary"
+                      onDoubleClick={handleResetH}
+                      aria-label="Resize article and summary columns (Double-click to reset)"
+                      className="resize-handle-vertical"
+                    >
+                      <div className="resize-handle-grip-v" />
+                    </PanelResizeHandle>
 
-            {/* Horizontal Drag Handle between Reading Desk & Bottom Card Strip */}
-            <PanelResizeHandle
-              id="handle-desk-strip"
-              onDoubleClick={handleResetV}
-              aria-label="Resize wire dispatch strip (Double-click to reset, drag down to snap-collapse)"
-              className="resize-handle-horizontal"
-            >
-              <div className="resize-handle-grip-h" />
-            </PanelResizeHandle>
+                    {/* Right Panel: Summary Column */}
+                    <Panel
+                      id="reader-summary-panel"
+                      defaultSize={panelSizesH[1]}
+                      minSize={25}
+                      maxSize={70}
+                      className="min-h-0 min-w-0 h-full"
+                    >
+                      <ErrorBoundary panelName="Summary Wire Desk">
+                        <SummaryPanel />
+                      </ErrorBoundary>
+                    </Panel>
+                  </PanelGroup>
+                )}
+              </Panel>
 
-            {/* Bottom Strip: Snap-collapsible Wire Cards */}
-            <Panel
-              id="reader-bottom-strip-panel"
-              ref={stripPanelRef}
-              defaultSize={panelSizesV[1]}
-              minSize={12}
-              maxSize={45}
-              collapsible={true}
-              collapsedSize={0}
-              className="min-h-0 min-w-0"
-            >
-              <ErrorBoundary panelName="Dispatch Wire Strip">
-                <CardStrip />
-              </ErrorBoundary>
-            </Panel>
-          </PanelGroup>
-        )}
-      </main>
+              {/* Horizontal Drag Handle between Reading Desk & Bottom Card Strip */}
+              <PanelResizeHandle
+                id="handle-desk-strip"
+                onDoubleClick={handleResetV}
+                aria-label="Resize wire dispatch strip (Double-click to reset, drag down to snap-collapse)"
+                className="resize-handle-horizontal"
+              >
+                <div className="resize-handle-grip-h" />
+              </PanelResizeHandle>
+
+              {/* Bottom Strip: Snap-collapsible Wire Cards */}
+              <Panel
+                id="reader-bottom-strip-panel"
+                ref={stripPanelRef}
+                defaultSize={panelSizesV[1]}
+                minSize={12}
+                maxSize={45}
+                collapsible={true}
+                collapsedSize={0}
+                className="min-h-0 min-w-0"
+              >
+                <ErrorBoundary panelName="Dispatch Wire Strip">
+                  <CardStrip />
+                </ErrorBoundary>
+              </Panel>
+            </PanelGroup>
+          )}
+        </main>
+
+        {/* 4. Right Vertical Icon Rail (PRD C Category 1) */}
+        <ErrorBoundary panelName="Right Navigation Rail">
+          <RightIconRail />
+        </ErrorBoundary>
+      </div>
 
       {/* 5. Continuous News Ticker (z-30) */}
       <ErrorBoundary panelName="Bottom Ticker">
