@@ -1,10 +1,14 @@
 /**
  * frontend/src/components/article/CardStrip.tsx
- * Bottom horizontal wire dispatch strip styled as broadsheet news cards.
- * Performance-optimized with React.memo, pure Tailwind design tokens, and zero inline styles.
- * Supports horizontal two-finger swipe, vertical wheel tilt scroll, and non-overlapping arrow navigators.
+ * PRD C Category 4: Bottom horizontal dispatch strip following active story.
+ * - Smoothly centers active card on auto-advance, click, or j/k keys.
+ * - Smooth wrap-around when transitioning between last and first card.
+ * - Suspends follow during user two-finger drag/wheel for 4s grace period (configurable 2-15s).
+ * - Immediate follow resumption on story click, next/prev, or keyboard navigation.
+ * - Honors reduce-motion preference (instant jump vs smooth scroll).
+ * - Toggleable via Settings > Reading ("Follow current story").
  */
-import React, { useRef, memo } from 'react';
+import React, { useRef, useState, useEffect, useCallback, memo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import type { Article } from '../../types';
 import { ChevronLeft, ChevronRight, Flame, Star } from 'lucide-react';
@@ -37,15 +41,17 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
     <div
       id={`article-card-${article.id}`}
       data-testid="article-card"
+      data-active-card={isSelected ? 'true' : 'false'}
       role="button"
       tabIndex={0}
       aria-selected={isSelected}
+      aria-current={isSelected ? 'true' : undefined}
       aria-label={`Dispatch: ${article.title_english || article.title_original} from ${article.source.name}`}
       onClick={() => onSelect(article.id)}
       onKeyDown={handleKeyDown}
-      className={`relative shrink-0 w-[300px] min-w-[300px] h-[150px] p-3.5 rounded-xs flex flex-col justify-between cursor-pointer transition-all ${
+      className={`relative shrink-0 w-[300px] min-w-[300px] h-[150px] p-3.5 rounded-xs flex flex-col justify-between cursor-pointer transition-all duration-150 ${
         isSelected
-          ? 'border-2 border-ink bg-paper shadow-md -translate-y-1 news-rule-t'
+          ? 'border-2 border-[var(--color-ink,#111827)] bg-[var(--color-paper,#fff)] shadow-md -translate-y-1 ring-1 ring-[var(--color-ink,#111827)] news-rule-t'
           : isBreaking
           ? 'border-2 border-accent bg-paper-alt hover:bg-paper hover:border-ink shadow-xs'
           : 'border border-paper-border/80 bg-paper-alt/60 hover:bg-paper hover:border-ink hover:-translate-y-0.5'
@@ -124,28 +130,161 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
 
 ArticleCardItem.displayName = 'ArticleCardItem';
 
-export const CardStrip: React.FC = () => {
-  const articles = useAppStore((s) => s.articles);
-  const selectedArticleId = useAppStore((s) => s.selectedArticleId);
+export interface CardStripProps {
+  forcedArticles?: Article[];
+  forcedSelectedArticleId?: number | null;
+  forcedFollowPaused?: boolean;
+  forcedStripFollowEnabled?: boolean;
+  forcedStripFollowGraceSec?: number;
+}
+
+export const CardStrip: React.FC<CardStripProps> = ({
+  forcedArticles,
+  forcedSelectedArticleId,
+  forcedFollowPaused,
+  forcedStripFollowEnabled,
+  forcedStripFollowGraceSec,
+}) => {
+  const storeArticles = useAppStore((s) => s.articles);
+  const articles = forcedArticles ?? storeArticles;
+
+  const storeSelectedArticleId = useAppStore((s) => s.selectedArticleId);
+  const selectedArticleId = forcedSelectedArticleId !== undefined ? forcedSelectedArticleId : storeSelectedArticleId;
+
   const selectArticleById = useAppStore((s) => s.selectArticleById);
   const toggleBookmark = useAppStore((s) => s.toggleBookmark);
 
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Settings for auto-follow (PRD C Category 4)
+  const storeStripFollowEnabled = useAppStore((s) => s.settings.strip_follow_enabled ?? true);
+  const stripFollowEnabled = forcedStripFollowEnabled !== undefined ? forcedStripFollowEnabled : storeStripFollowEnabled;
 
-  const handleScroll = (offset: number) => {
+  const storeStripFollowGraceSec = useAppStore((s) => s.settings.strip_follow_grace_sec ?? 4);
+  const stripFollowGraceSec = forcedStripFollowGraceSec !== undefined ? forcedStripFollowGraceSec : storeStripFollowGraceSec;
+
+  const reduceMotionOverride = useAppStore((s) => s.settings.reduce_motion_override ?? 'system');
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isUserInteractingRef = useRef(false);
+  const isPointerDownRef = useRef(false);
+  const graceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [internalFollowPaused, setInternalFollowPaused] = useState(false);
+  const followPaused = forcedFollowPaused !== undefined ? forcedFollowPaused : internalFollowPaused;
+
+  // Resolve reduce-motion
+  const getScrollBehavior = useCallback((): ScrollBehavior => {
+    if (reduceMotionOverride === 'reduce') return 'auto';
+    if (reduceMotionOverride === 'allow') return 'smooth';
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return 'auto';
+    }
+    return 'smooth';
+  }, [reduceMotionOverride]);
+
+  // Center target card in container
+  const centerCard = useCallback(
+    (articleId: number | null, overrideBehavior?: ScrollBehavior) => {
+      if (!articleId || !scrollContainerRef.current) return;
+      const cardEl = document.getElementById(`article-card-${articleId}`);
+      const trackEl = scrollContainerRef.current;
+      if (cardEl && trackEl) {
+        // Calculate centered offset
+        const targetLeft = Math.max(0, cardEl.offsetLeft - (trackEl.clientWidth - cardEl.clientWidth) / 2);
+        trackEl.scrollTo({
+          left: targetLeft,
+          behavior: overrideBehavior || getScrollBehavior(),
+        });
+      }
+    },
+    [getScrollBehavior]
+  );
+
+  // Resume follow immediately
+  const resumeFollow = useCallback(() => {
+    isUserInteractingRef.current = false;
+    setInternalFollowPaused(false);
+    if (graceTimeoutRef.current) {
+      clearTimeout(graceTimeoutRef.current);
+      graceTimeoutRef.current = null;
+    }
+  }, []);
+
+  // User manual scroll / drag trigger
+  const handleUserInteraction = useCallback(() => {
+    isUserInteractingRef.current = true;
+    setInternalFollowPaused(true);
+
+    if (graceTimeoutRef.current) clearTimeout(graceTimeoutRef.current);
+    graceTimeoutRef.current = setTimeout(() => {
+      isUserInteractingRef.current = false;
+      setInternalFollowPaused(false);
+    }, stripFollowGraceSec * 1000);
+  }, [stripFollowGraceSec]);
+
+  // Track onScroll: ONLY treat as user interaction if pointer is actively dragging scrollbar
+  const handleTrackScroll = () => {
+    if (isPointerDownRef.current) {
+      handleUserInteraction();
+    }
+  };
+
+  // Manual button scroll
+  const handleScrollBy = (offset: number) => {
+    handleUserInteraction();
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+      scrollContainerRef.current.scrollBy({ left: offset, behavior: getScrollBehavior() });
     }
   };
 
   // Convert vertical wheel events to horizontal scrolling over cards strip
   const handleWheel = (e: React.WheelEvent) => {
+    handleUserInteraction();
     if (scrollContainerRef.current) {
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && e.deltaY !== 0) {
         scrollContainerRef.current.scrollLeft += e.deltaY;
       }
     }
   };
+
+  // Immediate resume of follow on direct card select
+  const handleDirectSelect = useCallback(
+    (id: number) => {
+      resumeFollow();
+      selectArticleById(id);
+      centerCard(id);
+    },
+    [resumeFollow, selectArticleById, centerCard]
+  );
+
+  // Global listener: keys j/k or Arrow navigation immediately resumes follow
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['j', 'k', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key.toLowerCase())) {
+        resumeFollow();
+      }
+    };
+
+    const handlePointerUp = () => {
+      isPointerDownRef.current = false;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [resumeFollow]);
+
+  // When selectedArticleId changes:
+  useEffect(() => {
+    if (!stripFollowEnabled) return;
+    if (!selectedArticleId) return;
+
+    // Do not fight user during active 4s scroll grace window
+    if (isUserInteractingRef.current) return;
+
+    centerCard(selectedArticleId);
+  }, [selectedArticleId, stripFollowEnabled, centerCard]);
 
   return (
     <footer
@@ -157,9 +296,10 @@ export const CardStrip: React.FC = () => {
       {/* Non-overlapping Left Scroll Pillar */}
       <div className="shrink-0 px-2 h-full flex items-center justify-center bg-paper-alt border-r border-paper-border/60 z-10 shadow-xs">
         <button
-          onClick={() => handleScroll(-340)}
+          id="btn-card-strip-prev"
+          onClick={() => handleScrollBy(-340)}
           aria-label="Scroll wire left"
-          className="p-1.5 rounded-xs border border-ink bg-paper text-ink shadow-xs hover:bg-ink hover:text-paper transition-colors"
+          className="p-1.5 rounded-xs border border-ink bg-paper text-ink shadow-xs hover:bg-ink hover:text-paper transition-colors cursor-pointer"
         >
           <ChevronLeft size={16} />
         </button>
@@ -170,10 +310,12 @@ export const CardStrip: React.FC = () => {
         id="card-strip-track"
         ref={scrollContainerRef}
         onWheel={handleWheel}
+        onPointerDown={() => { isPointerDownRef.current = true; }}
+        onScroll={handleTrackScroll}
         data-lenis-prevent="true"
         role="feed"
         aria-busy="false"
-        className="flex-1 flex items-center gap-3.5 px-4 py-2 overflow-x-auto overscroll-x-contain h-full"
+        className="flex-1 flex items-center gap-3.5 px-4 py-2 overflow-x-auto overscroll-x-contain h-full scrollbar-thin"
       >
         {articles.length === 0 ? (
           <div className="font-ui text-xs text-ink-muted italic m-auto">
@@ -185,19 +327,30 @@ export const CardStrip: React.FC = () => {
               key={art.id}
               article={art}
               isSelected={art.id === selectedArticleId}
-              onSelect={selectArticleById}
+              onSelect={handleDirectSelect}
               onToggleBookmark={toggleBookmark}
             />
           ))
         )}
       </div>
 
+      {/* User Scroll Grace Indicator */}
+      {followPaused && stripFollowEnabled && (
+        <div
+          id="card-strip-follow-paused-badge"
+          className="absolute right-14 bottom-2 z-20 px-2 py-0.5 font-mono text-[10px] font-semibold bg-[var(--color-paper-card,#f4efe6)] border border-[var(--color-ink-border,#d1d5db)] text-[var(--color-ink-muted,#6b7280)] rounded-xs shadow-xs pointer-events-none animate-in fade-in duration-150"
+        >
+          Follow paused ({stripFollowGraceSec}s)
+        </div>
+      )}
+
       {/* Non-overlapping Right Scroll Pillar */}
       <div className="shrink-0 px-2 h-full flex items-center justify-center bg-paper-alt border-l border-paper-border/60 z-10 shadow-xs">
         <button
-          onClick={() => handleScroll(340)}
+          id="btn-card-strip-next"
+          onClick={() => handleScrollBy(340)}
           aria-label="Scroll wire right"
-          className="p-1.5 rounded-xs border border-ink bg-paper text-ink shadow-xs hover:bg-ink hover:text-paper transition-colors"
+          className="p-1.5 rounded-xs border border-ink bg-paper text-ink shadow-xs hover:bg-ink hover:text-paper transition-colors cursor-pointer"
         >
           <ChevronRight size={16} />
         </button>

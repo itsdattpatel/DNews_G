@@ -629,7 +629,7 @@
 | **1** | **Top Bar & Right Icon Rail** | 🟢 `DONE` | Top bar retains ONLY 6 designated items; Right Icon Rail in document flow (44px collapsed, 180px pinned); 40x40 touch targets; Playwright matrix (1280x720, 1366x768, 1536x864, 1920x1080) in Paper & Night 100% PASS with 12 screenshots; 402 suite tests pass | 2026-11-03 20:06 |
 | **2** | **Status Strip** | 🟢 `DONE` | Floating bar removed; in-flow 28px Status Strip under Top Bar; auto-advance status + pause reason, 7s hairline countdown, Gap & Plain chips; Playwright 4-viewport matrix screenshots verifying zero article overlap; 12 unit tests pass | 2026-11-03 20:30 |
 | **3** | **Unified Settings Dialog** | 🟢 `DONE` | Focus-trapped modal dialog; 11 categorized sections; live search query filter; autosave with `✓ Saved` feedback; per-section reset to defaults; sealed API credentials; Playwright 4-viewport matrix screenshots; 10 integration + 6 unit tests pass | 2026-11-03 20:53 |
-| **4** | **Bottom Story Strip Follow** | ⚪ `PENDING` | Auto-centering of active card on navigation (j/k, auto-advance, click); smooth wrap-around; 4s user-scroll pause; "Follow current story" setting; Playwright 20-story automated scroll test | — |
+| **4** | **Bottom Story Strip Follow** | 🟢 `DONE` | Smooth centering on card changes (j/k, click, auto-advance); wrap-around back to first card; 4s user-scroll pause with badge; immediate resumption on key/click; Playwright 20-story automated scroll test 100% pass | 2026-11-03 21:20 |
 | **5A** | **TV Playback Diagnostics** | ⚪ `PENDING` | Automated probe of all 28 catalog channels via proxy & YouTube; comprehensive audit table (pass/fail, exact failure reason, proxy logs); user approval obtained | — |
 | **5B** | **TV Playback & Layout Fix** | ⚪ `PENDING` | "Health truth" (LIVE only if playable); HLS proxy rewrite & headers; true 16:9 player frame; scrollable non-clipped channel directory; Quick Switcher "Name (Country)"; dedicated mute toggle + `m` shortcut + memory; error actions panel | — |
 | **6** | **Verified YouTube Live Embeds** | ⚪ `PENDING` | Official channel IDs for Top 5 of IN, US, CN, JP, AU & wildlife webcams; YouTube IFrame API live embeds; oEmbed verification; `/config/channels-top5.json` updated with user approval | — |
@@ -781,6 +781,41 @@
     - `ui-cat3-settings-1536x864-paper.png`, `ui-cat3-settings-1536x864-night.png`
     - `ui-cat3-settings-1920x1080-paper.png`, `ui-cat3-settings-1920x1080-night.png`
     - `ui-cat3-section-reading.png`, `ui-cat3-section-tv.png`, `ui-cat3-section-data-backup.png`, `ui-cat3-section-advanced-sealed-keys.png`, `ui-cat3-search-filter.png`
+
+### Category 4: Bottom Story Strip Follows Current News (Completed)
+- **Active Card Centering (`frontend/src/components/article/CardStrip.tsx`)**:
+  - Automatically calculates centered offset:
+    `targetLeft = Math.max(0, cardEl.offsetLeft - (trackEl.clientWidth - cardEl.clientWidth) / 2)`
+  - Smoothly centers whenever `selectedArticleId` changes via auto-advance (7s), keyboard navigation (`j`/`k`, `ArrowRight`/`ArrowLeft`), or direct card selection.
+  - Active card distinctively highlighted with ink broadsheet border (`border-2 border-[var(--color-ink,#111827)]`), background paper fill, top rule stamp, and `data-active-card="true"`.
+- **Seamless Wrap-Around Transitions**:
+  - Transition from the final article back to the initial dispatch smoothly animates the strip container back to `scrollLeft = 0` without jarring jump, page flicker, or layout shift.
+- **User Manual Scroll 4-Second Grace Window**:
+  - Detects two-finger trackpad horizontal swipe, mouse wheel tilts, and scrollbar dragging.
+  - Suspends auto-centering for 4.0 seconds (user-configurable from 2s to 15s in Settings > Reading) with non-interfering indicator: `[Follow paused (4s)]`.
+  - Distinguishes programmatic smooth scrolling from user gestures so auto-advancement never falsely restarts the grace period.
+  - Immediate resumption: clicking any card, pressing `j`/`k`, or arrow keys immediately cancels the pause grace window and centers the chosen dispatch.
+- **Reduced Motion & Settings Integration**:
+  - Respects user preference: if `reduce_motion_override === 'reduce'` or `prefers-reduced-motion` is active, replaces smooth scroll animation with instant jump cuts (`behavior: 'auto'`).
+  - Toggleable via Settings > Reading ("Follow current story in wire strip").
+- **Test Coverage**:
+  - 5 automated unit tests in `frontend/src/__tests__/unit/card-strip-follow.test.tsx` (100% pass).
+  - All 212 frontend workspace unit tests pass with zero regressions.
+  - Strict TypeScript build passes with 0 errors (`npm run build`).
+- **Viewport Matrix & Visual Validation (`scripts/verify-prd-c-cat4-story-strip-follow.cjs`)**:
+  - Verified across 1280x720, 1366x768, 1536x864, 1920x1080 in Paper & Night editions:
+    - Initial active card in view: 100% PASS across all viewports.
+    - 20-story navigation sequence (`j` keypresses): 100% PASS (all 20 cards verified visibly in track).
+    - Wrap-around back to first card: 100% PASS.
+    - 4s user scroll grace pause badge: 100% PASS.
+    - Immediate resumption on 'j' keypress: 100% PASS.
+  - 11 screenshot artifacts saved to brain directory:
+    - `ui-cat4-strip-1280x720-paper.png`, `ui-cat4-strip-1280x720-night.png`
+    - `ui-cat4-strip-1366x768-paper.png`, `ui-cat4-strip-1366x768-night.png`
+    - `ui-cat4-strip-1536x864-paper.png`, `ui-cat4-strip-1536x864-night.png`
+    - `ui-cat4-strip-1920x1080-paper.png`, `ui-cat4-strip-1920x1080-night.png`
+    - `ui-cat4-20-stories-follow.png`, `ui-cat4-wrap-around.png`, `ui-cat4-follow-paused-grace.png`
+
 
 
 
