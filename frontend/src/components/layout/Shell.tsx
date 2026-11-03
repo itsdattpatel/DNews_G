@@ -6,6 +6,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Toaster } from 'sonner';
 import { TopBar } from './TopBar';
+import { StatusStrip } from './StatusStrip';
 import { RightIconRail } from './RightIconRail';
 import { BatMenuOverlay } from '../bat/BatMenuOverlay';
 import { NewsTicker } from './NewsTicker';
@@ -170,7 +171,12 @@ export const Shell: React.FC = () => {
         <TopBar />
       </ErrorBoundary>
 
-      {/* 2. Bat Menu Overlay (Unfolds like broadsheet paper) */}
+      {/* 2. Status Strip (In-flow layout row directly under TopBar - PRD C Category 2) */}
+      <ErrorBoundary panelName="Status Strip">
+        <StatusStrip />
+      </ErrorBoundary>
+
+      {/* 3. Bat Menu Overlay (Unfolds like broadsheet paper) */}
       <ErrorBoundary panelName="Bat Masthead Menu">
         <BatMenuOverlay />
       </ErrorBoundary>

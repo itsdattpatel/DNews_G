@@ -627,7 +627,7 @@
 | :--- | :--- | :---: | :--- | :--- |
 | **0** | **Documentation & Setup** | 🟢 `DONE` | `/docs/PRD_C.md`, `/docs/LAYOUT_SPEC.md`, `/docs/SETTINGS_SPEC.md`, `/docs/TV_FIXES.md`, `/docs/GLOBE_SPEC.md`, `/docs/OPEN_QUESTIONS.md`, `PROGRESS.md`, DB backup | 2026-11-03 19:40 |
 | **1** | **Top Bar & Right Icon Rail** | 🟢 `DONE` | Top bar retains ONLY 6 designated items; Right Icon Rail in document flow (44px collapsed, 180px pinned); 40x40 touch targets; Playwright matrix (1280x720, 1366x768, 1536x864, 1920x1080) in Paper & Night 100% PASS with 12 screenshots; 402 suite tests pass | 2026-11-03 20:06 |
-| **2** | **Status Strip** | ⚪ `PENDING` | Floating bar removed; in-flow 28px Status Strip under Top Bar; auto-advance status + pause reason, 7s hairline countdown, Gap & Plain chips; Playwright 4-viewport matrix screenshots verifying no article overlap | — |
+| **2** | **Status Strip** | 🟢 `DONE` | Floating bar removed; in-flow 28px Status Strip under Top Bar; auto-advance status + pause reason, 7s hairline countdown, Gap & Plain chips; Playwright 4-viewport matrix screenshots verifying zero article overlap; 12 unit tests pass | 2026-11-03 20:30 |
 | **3** | **Unified Settings Dialog** | ⚪ `PENDING` | Rail settings button + `,` shortcut; focus-trapped 11-section dialog with live search, autosave confirmation, per-section reset, restart notices, masked API keys; backend `/api/settings` integration tests | — |
 | **4** | **Bottom Story Strip Follow** | ⚪ `PENDING` | Auto-centering of active card on navigation (j/k, auto-advance, click); smooth wrap-around; 4s user-scroll pause; "Follow current story" setting; Playwright 20-story automated scroll test | — |
 | **5A** | **TV Playback Diagnostics** | ⚪ `PENDING` | Automated probe of all 28 catalog channels via proxy & YouTube; comprehensive audit table (pass/fail, exact failure reason, proxy logs); user approval obtained | — |
@@ -690,6 +690,48 @@
     - `ui-cat1-1366x768-paper.png`, `ui-cat1-1366x768-night.png`, `ui-cat1-rail-hover-tooltip.png`, `ui-cat1-feed-counter-popover.png`
     - `ui-cat1-1536x864-paper.png`, `ui-cat1-1536x864-night.png`
     - `ui-cat1-1920x1080-paper.png`, `ui-cat1-1920x1080-night.png`, `ui-cat1-pinned-1920x1080.png`
+
+### Category 2: Status Strip (Completed)
+- **Removal of Floating Overlays (`frontend/src/components/article/ArticlePanel.tsx`)**:
+  - Completely removed `<AutoAdvanceProgressBar />` and its floating `-mx-6 -mt-6 sticky` container from `ArticlePanel`.
+  - Article header (kicker, category stamp, outlet, dates, headline) now renders directly at the top with guaranteed zero overlap or occlusion.
+- **In-Flow Status Strip Component (`frontend/src/components/layout/StatusStrip.tsx`)**:
+  - Implemented as a dedicated, in-flow layout strip directly underneath `TopBar` (height 28px).
+  - Contains:
+    - 2px hairline countdown progress bar with smooth transition.
+    - Status indicator: `[▶ Advancing in 7s]` or `[⏸ Paused: <reason>]` honoring all pause reasons from PRD A (`Reading (hover)`, `Settings open`, `Directory view`, `TV desk open`, `Input focused`, `Background tab`, `Manual pause`).
+    - Quick Play/Pause button (`#btn-status-strip-play-pause`).
+    - `[Gap]` status chip showing catch-up ingestion state when active.
+    - `[• PLAIN MODE (ZERO AI)]` status chip with amber accent indicator when Plain Mode is enabled.
+  - Zero extraneous items; adheres strictly to `DESIGN_SYSTEM.md` typography and color tokens.
+- **Layout Integration in `frontend/src/components/layout/Shell.tsx`**:
+  - Mounted `<StatusStrip />` in natural document flow between `<TopBar />` and `#central-workspace-row`.
+  - Automatically reserves its own layout height (28px), ensuring child panels (Article, Summary, Sidebar) never collide with it.
+- **Unit Test Coverage (`frontend/src/__tests__/unit/status-strip.test.tsx`)**:
+  - 12 comprehensive unit tests covering:
+    - In-flow rendering and ID `#status-strip`.
+    - Auto-advance countdown timer display.
+    - Pause label rendering for all pause reasons.
+    - Play/Pause button states.
+    - Plain mode chip visibility.
+    - Gap status chip handling.
+    - 100% pass across all tests.
+- **Viewport Matrix & Visual Validation (`scripts/verify-prd-c-cat2-status-strip.cjs`)**:
+  - Verified across all 4 target viewports (1280x720, 1366x768, 1536x864, 1920x1080) in both Paper and Night editions.
+  - Validated:
+    - In-flow positioning: 100% PASS across all viewports.
+    - Strip directly below Top Bar: 100% PASS.
+    - Article header clearance (0px overlap): 100% PASS.
+    - Old floating bar completely removed: 100% PASS.
+    - Hover pause triggering `[⏸ Paused: Reading (hover)]`: 100% PASS.
+    - Scrolled article (350px down) zero occlusion: 100% PASS.
+  - 10 screenshots generated and saved to artifact directory:
+    - `ui-cat2-1280x720-paper.png`, `ui-cat2-1280x720-night.png`
+    - `ui-cat2-1366x768-paper.png`, `ui-cat2-1366x768-night.png`
+    - `ui-cat2-1536x864-paper.png`, `ui-cat2-1536x864-night.png`
+    - `ui-cat2-1920x1080-paper.png`, `ui-cat2-1920x1080-night.png`
+    - `ui-cat2-hover-paused-reading.png`, `ui-cat2-scrolled-no-overlap.png`
+
 
 
 

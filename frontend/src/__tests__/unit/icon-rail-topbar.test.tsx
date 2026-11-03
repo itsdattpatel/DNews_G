@@ -4,7 +4,6 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import React from 'react';
 import { TopBar } from '../../components/layout/TopBar';
 import { RightIconRail } from '../../components/layout/RightIconRail';
 import { useAppStore } from '../../store/useAppStore';
