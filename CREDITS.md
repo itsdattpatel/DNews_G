@@ -18,3 +18,4 @@ All packages pinned with exact versions, vetted for license compliance (MIT / OF
 - **Philosophical Quotes**: Marcus Aurelius, Epictetus, Seneca, Laozi, Swami Vivekananda, Confucius — **Public Domain** / **CC BY-SA 4.0** (Wikiquote).
 - **Psychological Techniques**: OpenStax Psychology 2e (**CC BY 4.0**), WHO Illustrated Guide (**CC BY-NC-SA 3.0 IGO**), William James (**Public Domain**).
 - **Crisis Helplines**: Official governmental & public health directories (Tele-MANAS, 988 Lifeline, TELL Japan, Lifeline Australia, Beijing Suicide Research Center) verified as of 2026-11-02.
+
