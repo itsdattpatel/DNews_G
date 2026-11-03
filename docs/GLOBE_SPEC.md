@@ -136,3 +136,4 @@ To guarantee 60 FPS on diverse laptop hardware:
    - A performance monitor tracks rendering frame rate: if average FPS drops below 30 over 3 consecutive seconds, prompt the user with:
      `[ Switch to Lightweight 2D Map for Smoother Performance ]`.
 5. **Manual Switch**: Top-right toggle allows instantaneous switching between `3D Globe` and `Flat 2D Map`. The original `WorldMap.tsx` is preserved intact.
+

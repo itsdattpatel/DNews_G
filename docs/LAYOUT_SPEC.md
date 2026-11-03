@@ -198,3 +198,4 @@ The Status Strip resolves Issue 4 by removing the floating countdown container t
 | **1920 × 1080** (Full HD) | Search w-52; full masthead subtitle | 28px; spacious layout | Can stay pinned open (180px) without content squeeze | Split: Left 62% / Right 38%; Bottom strip 165px |
 
 *Zero horizontal page scrollbars permitted across all viewports.*
+

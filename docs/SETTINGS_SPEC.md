@@ -108,3 +108,4 @@ New keys required for PRD C are specified below.
 - API keys (e.g. `GEMINI_API_KEY`, `GROQ_API_KEY`, `YOUTUBE_API_KEY`) remain strictly masked (`••••••••••••`).
 - Keys are never transmitted in `/api/settings/export` payloads.
 - JSON import operations strictly reject unknown or secret keys to prevent privilege escalation or state corruption.
+
