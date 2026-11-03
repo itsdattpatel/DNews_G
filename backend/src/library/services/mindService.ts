@@ -521,3 +521,4 @@ export class MindService {
     return this.db.prepare(sql).all(...bindings) as HelplineEntry[];
   }
 }
+

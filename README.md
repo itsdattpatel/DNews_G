@@ -41,6 +41,31 @@ AI World News Desk is an offline-resilient, autonomous investigative news workst
 
 ---
 
+## 📚 The Library ("The Reading Room")
+
+The Library is an isolated, lazy-loaded sanctuary (`/library`) designed for quiet reflection away from the fast-paced breaking news wire. Built with a bespoke ink-and-vellum design system (`.lib-root`, `--lib-*`), it guarantees 100% Plain Mode (zero AI calls) and public-domain compliance.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       THE READING ROOM (/library)                           │
+├───────────────────────┬─────────────────────────────┬───────────────────────┤
+│  🏛️ HISTORICAL NEWS   │  📜 TIMELESS WISDOM         │  🧠 MIND HELPS        │
+│  - Real archives feed │  - Sacred Scriptures        │  - 9 Cognitive domains│
+│  - Wikimedia & LoC    │    (Gita, Mahabharata, etc) │  - OpenStax, WHO,     │
+│  - Decade/date filter │  - Devanagari Sanskrit      │    William James      │
+│  - Citation clipboard │  - Philosophical Maxims     │  - International      │
+│  - Size-capped cache  │  - Deterministic Day Picks  │    Crisis Helplines   │
+└───────────────────────┴─────────────────────────────┴───────────────────────┘
+```
+
+- **Historical News Archives**: Browse real historical clippings across centuries with date pickers, decade jump chips, and Chicago/APA citation exporters.
+- **Timeless Wisdom**: Canonical scriptures with Sanskrit Devanagari typography (`@fontsource/noto-serif-devanagari`), IAST transliteration, public-domain translations (Arnold 1885, Ganguli 1883), and classical philosophical quotes.
+- **Mind Helps & Safety**: Practical, compassionate cognitive techniques with numbered steps, duration filters, and verified 24/7 crisis helplines (India, USA, China, Japan, Australia). Explicit safety mandate: general education only, zero diagnostics or medical advice.
+
+---
+
+---
+
 ## ⚡ Quickstart
 
 ### Prerequisites

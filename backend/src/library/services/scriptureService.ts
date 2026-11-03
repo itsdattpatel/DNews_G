@@ -74,7 +74,7 @@ export class ScriptureService {
   /**
    * Retrieves verses filtered by book, chapter/parva, theme, or keyword.
    */
-  getVerses(params: ScriptureQueryParams): ScriptureVerse[] {
+  getVerses(params: ScriptureQueryParams = {}): ScriptureVerse[] {
     const conditions: string[] = ['1=1'];
     const sqlParams: any[] = [];
 

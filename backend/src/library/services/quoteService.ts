@@ -46,7 +46,7 @@ export class QuoteService {
   /**
    * Retrieves quotes filtered by author, theme, tradition, or keyword.
    */
-  getQuotes(params: QuoteQueryParams): WisdomQuote[] {
+  getQuotes(params: QuoteQueryParams = {}): WisdomQuote[] {
     const conditions: string[] = ['1=1'];
     const sqlParams: any[] = [];
 

@@ -121,3 +121,4 @@ describe('Mind Helps UI Components (Category B5)', () => {
     expect(html).toContain('Verified Crisis Helplines');
   });
 });
+

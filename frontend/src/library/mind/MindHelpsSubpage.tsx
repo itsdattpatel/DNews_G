@@ -194,3 +194,4 @@ export const MindHelpsSubpage: React.FC = () => {
     </>
   );
 };
+
