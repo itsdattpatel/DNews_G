@@ -64,16 +64,16 @@ tvRouter.get('/channels', (req: Request, res: Response) => {
     let sql = 'SELECT * FROM tv_channels WHERE 1=1';
     const params: (string | number)[] = [];
 
-    // Subpage filtering (PRD A Category 7: live, faulty, stopped)
+    // Subpage filtering (PRD C Category 5B Health Truth: live = is_alive = 1, faulty / stopped = is_alive = 0)
     if (subpage === 'faulty') {
       sql += " AND is_alive = 0 AND (last_checked_at IS NULL OR (julianday('now') - julianday(last_checked_at)) < 7)";
     } else if (subpage === 'stopped') {
       sql += " AND is_alive = 0 AND last_checked_at IS NOT NULL AND (julianday('now') - julianday(last_checked_at)) >= 7";
     } else if (subpage === 'live') {
-      sql += ' AND (is_alive = 1 OR youtube_live_url IS NOT NULL)';
+      sql += ' AND is_alive = 1';
     } else if (include_dead !== 'true' && include_dead !== '1') {
-      // Default: show alive or playable streams
-      sql += ' AND (is_alive = 1 OR youtube_live_url IS NOT NULL)';
+      // Default: show alive streams
+      sql += ' AND is_alive = 1';
     }
 
     if (favorites_only === 'true' || favorites_only === '1') {
@@ -129,7 +129,7 @@ tvRouter.get('/subpages/counts', (_req: Request, res: Response) => {
   try {
     const db = getDb();
     const live = db
-      .prepare('SELECT COUNT(*) as cnt FROM tv_channels WHERE is_alive = 1 OR youtube_live_url IS NOT NULL')
+      .prepare('SELECT COUNT(*) as cnt FROM tv_channels WHERE is_alive = 1')
       .get() as { cnt: number };
     const faulty = db
       .prepare(
@@ -309,6 +309,8 @@ tvRouter.post('/channels/:id/health-check', async (req: Request, res: Response) 
     res.json({
       is_alive: health.isAlive,
       latency_ms: health.latencyMs,
+      method: health.method,
+      detail: health.detail,
     });
   } catch (err) {
     console.error('[TV:Health] Probe failed:', err);
@@ -316,8 +318,43 @@ tvRouter.post('/channels/:id/health-check', async (req: Request, res: Response) 
   }
 });
 
+// POST /api/tv/probe-all - Probe health & playability across all channels (PRD C Category 5B)
+tvRouter.post('/probe-all', async (_req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const rows = db.prepare('SELECT id FROM tv_channels').all() as { id: number }[];
+    const results: { id: number; is_alive: boolean; latency_ms: number; method?: string | undefined }[] = [];
+
+    for (const r of rows) {
+      try {
+        const probe = await checkChannelHealth(r.id);
+        results.push({ id: r.id, is_alive: probe.isAlive, latency_ms: probe.latencyMs, method: probe.method });
+      } catch {
+        results.push({ id: r.id, is_alive: false, latency_ms: 0 });
+      }
+    }
+
+    const aliveCount = results.filter((r) => r.is_alive).length;
+    res.json({ total: results.length, alive: aliveCount, results });
+  } catch (err: any) {
+    console.error('[TV:ProbeAll] Error:', err);
+    res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
+  }
+});
+
+// OPTIONS /api/tv/proxy
+// CORS preflight support for HLS byte-range streaming requests
+tvRouter.options('/proxy', (_req: Request, res: Response) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, Accept, Origin, User-Agent');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.status(204).end();
+});
+
 // GET /api/tv/proxy?url=<encoded>
-// HLS Stream Proxy with SSRF Protection & M3U8 chunk rewriting (PRD A Category 6)
+// Hardened HLS Stream Proxy with SSRF Protection, Header Forwarding & M3U8 chunk rewriting (PRD C Category 5B)
 tvRouter.get('/proxy', async (req: Request, res: Response) => {
   const targetUrl = req.query['url'];
   if (!targetUrl || typeof targetUrl !== 'string') {
@@ -325,7 +362,7 @@ tvRouter.get('/proxy', async (req: Request, res: Response) => {
     return;
   }
 
-  // 1. SSRF Protection validation
+  // 1. SSRF Protection validation on initial target
   const ssrf = await validateSsrfTarget(targetUrl);
   if (!ssrf.valid) {
     res.status(403).json({
@@ -336,13 +373,45 @@ tvRouter.get('/proxy', async (req: Request, res: Response) => {
   }
 
   try {
+    const forwardHeaders: Record<string, string> = {
+      'User-Agent':
+        (req.headers['user-agent'] as string) ||
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      Accept: (req.headers['accept'] as string) || '*/*',
+    };
+
+    if (req.headers['range']) {
+      forwardHeaders['Range'] = req.headers['range'] as string;
+    }
+    if (req.headers['accept-language']) {
+      forwardHeaders['Accept-Language'] = req.headers['accept-language'] as string;
+    }
+
+    try {
+      const parsed = new URL(targetUrl);
+      forwardHeaders['Referer'] = `${parsed.protocol}//${parsed.host}/`;
+      forwardHeaders['Origin'] = `${parsed.protocol}//${parsed.host}`;
+    } catch {}
+
     const upstreamRes = await fetch(targetUrl, {
-      signal: AbortSignal.timeout(10000),
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AI-World-News-Desk/1.0',
-        Accept: '*/*',
-      },
+      signal: AbortSignal.timeout(12000),
+      redirect: 'follow',
+      headers: forwardHeaders,
     });
+
+    const finalUrl = upstreamRes.url || targetUrl;
+
+    // 2. Secondary SSRF check on post-redirect URL if redirected
+    if (finalUrl !== targetUrl) {
+      const redirectSsrf = await validateSsrfTarget(finalUrl);
+      if (!redirectSsrf.valid) {
+        res.status(403).json({
+          error: `Redirect SSRF validation blocked request: ${redirectSsrf.reason}`,
+          code: 'SSRF_BLOCKED',
+        });
+        return;
+      }
+    }
 
     if (!upstreamRes.ok) {
       res.status(upstreamRes.status).json({
@@ -354,26 +423,39 @@ tvRouter.get('/proxy', async (req: Request, res: Response) => {
 
     const contentType = upstreamRes.headers.get('content-type') || '';
     const isM3u8 =
+      finalUrl.includes('.m3u8') ||
       targetUrl.includes('.m3u8') ||
       contentType.includes('application/vnd.apple.mpegurl') ||
       contentType.includes('application/x-mpegurl');
 
-    // CORS & Cache headers
+    // CORS, Byte-range, and Cache headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type, Accept, Origin, User-Agent');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+    if (upstreamRes.headers.has('accept-ranges')) {
+      res.setHeader('Accept-Ranges', upstreamRes.headers.get('accept-ranges')!);
+    }
+    if (upstreamRes.headers.has('content-range')) {
+      res.setHeader('Content-Range', upstreamRes.headers.get('content-range')!);
+    }
+    if (upstreamRes.headers.has('content-length')) {
+      res.setHeader('Content-Length', upstreamRes.headers.get('content-length')!);
+    }
 
     if (isM3u8) {
       const playlistText = await upstreamRes.text();
-      const rewritten = rewriteM3u8Playlist(playlistText, targetUrl);
+      const rewritten = rewriteM3u8Playlist(playlistText, finalUrl);
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-      res.send(rewritten);
+      res.status(upstreamRes.status).send(rewritten);
     } else {
       // TS segment / video binary data
       const arrayBuffer = await upstreamRes.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       res.setHeader('Content-Type', contentType || 'video/MP2T');
-      res.send(buffer);
+      res.status(upstreamRes.status).send(buffer);
     }
   } catch (err: any) {
     console.error('[TV:Proxy] Proxy fetch error for url:', targetUrl, err.message);

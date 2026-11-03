@@ -161,10 +161,13 @@ export function rewriteM3u8Playlist(m3u8Content: string, parentUrl: string): str
       continue;
     }
 
-    // Rewrite tags containing URI="...", e.g. #EXT-X-MAP:URI="...", #EXT-X-KEY:METHOD=...,URI="..."
+    // Rewrite tags containing URI=..., e.g. #EXT-X-MAP:URI="...", #EXT-X-KEY:METHOD=...,URI="...", #EXT-X-MEDIA:...
     if (trimmed.startsWith('#')) {
-      if (trimmed.includes('URI="')) {
-        const rewrittenTag = trimmed.replace(/URI="([^"]+)"/g, (_, uri) => {
+      if (trimmed.includes('URI=')) {
+        const rewrittenTag = trimmed.replace(/URI=(["']?)([^"'\s,]+)\1/g, (_, _quote, uri) => {
+          if (uri.startsWith('/api/tv/proxy?url=')) {
+            return `URI="${uri}"`;
+          }
           try {
             const absolute = new URL(uri, parentUrl).toString();
             return `URI="/api/tv/proxy?url=${encodeURIComponent(absolute)}"`;
@@ -180,6 +183,11 @@ export function rewriteM3u8Playlist(m3u8Content: string, parentUrl: string): str
     }
 
     // Media chunk or child playlist line
+    if (trimmed.startsWith('/api/tv/proxy?url=')) {
+      rewrittenLines.push(trimmed);
+      continue;
+    }
+
     try {
       const absolute = new URL(trimmed, parentUrl).toString();
       rewrittenLines.push(`/api/tv/proxy?url=${encodeURIComponent(absolute)}`);

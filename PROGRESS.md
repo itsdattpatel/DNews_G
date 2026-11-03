@@ -630,8 +630,8 @@
 | **2** | **Status Strip** | 🟢 `DONE` | Floating bar removed; in-flow 28px Status Strip under Top Bar; auto-advance status + pause reason, 7s hairline countdown, Gap & Plain chips; Playwright 4-viewport matrix screenshots verifying zero article overlap; 12 unit tests pass | 2026-11-03 20:30 |
 | **3** | **Unified Settings Dialog** | 🟢 `DONE` | Focus-trapped modal dialog; 11 categorized sections; live search query filter; autosave with `✓ Saved` feedback; per-section reset to defaults; sealed API credentials; Playwright 4-viewport matrix screenshots; 10 integration + 6 unit tests pass | 2026-11-03 20:53 |
 | **4** | **Bottom Story Strip Follow** | 🟢 `DONE` | Smooth centering on card changes (j/k, click, auto-advance); wrap-around back to first card; 4s user-scroll pause with badge; immediate resumption on key/click; Playwright 20-story automated scroll test 100% pass | 2026-11-03 21:20 |
-| **5A** | **TV Playback Diagnostics** | ⚪ `PENDING` | Automated probe of all 28 catalog channels via proxy & YouTube; comprehensive audit table (pass/fail, exact failure reason, proxy logs); user approval obtained | — |
-| **5B** | **TV Playback & Layout Fix** | ⚪ `PENDING` | "Health truth" (LIVE only if playable); HLS proxy rewrite & headers; true 16:9 player frame; scrollable non-clipped channel directory; Quick Switcher "Name (Country)"; dedicated mute toggle + `m` shortcut + memory; error actions panel | — |
+| **5A** | **TV Playback Diagnostics** | 🟢 `DONE` | Automated probe of all 29 catalog channels via proxy & YouTube; comprehensive audit table (pass/fail, exact failure reason, proxy logs) in `/docs/TV_DIAGNOSTICS_REPORT.md`; approved by user | 2026-11-03 21:55 |
+| **5B** | **TV Playback & Layout Fix** | 🟢 `DONE` | "Health truth" (LIVE only if playable); HLS proxy rewrite & headers; true 16:9 player frame; resizable panels; scrollable non-clipped channel directory; Quick Switcher "Name (Country)"; dedicated mute toggle + `m` shortcut + memory; error actions panel; Playwright 4-viewport matrix screenshots; 5 unit + 32 backend TV tests pass | 2026-11-03 22:25 |
 | **6** | **Verified YouTube Live Embeds** | ⚪ `PENDING` | Official channel IDs for Top 5 of IN, US, CN, JP, AU & wildlife webcams; YouTube IFrame API live embeds; oEmbed verification; `/config/channels-top5.json` updated with user approval | — |
 | **7** | **New 3D Interactive Globe** | ⚪ `PENDING` | Approved `react-globe.gl` + `three` integration; local TopoJSON geometry; broadsheet theme styling; story pins, wildlife pins, arrival pulse rings, hover tooltips, click camera fly-to, multi-country arcs; 60 FPS target & automatic 2D flat map fallback | — |
 | **8** | **Suggested Additions (S1-S5)**| ⚪ `PENDING` | S1 (Ctrl+K Command Palette), S2 (Status Strip System Health indicator), S3 (Layout Presets), S4 (TV Mini-Player), S5 (Automated Viewport Regression Test Suite) | — |
@@ -816,7 +816,7 @@
     - `ui-cat4-strip-1920x1080-paper.png`, `ui-cat4-strip-1920x1080-night.png`
     - `ui-cat4-20-stories-follow.png`, `ui-cat4-wrap-around.png`, `ui-cat4-follow-paused-grace.png`
 
-### Category 5A: TV Signal Diagnostics & Failure Analysis (Completed - Awaiting User Approval)
+### Category 5A: TV Signal Diagnostics & Failure Analysis (Completed)
 - **Comprehensive Probe Execution (`scripts/diagnose-tv-channels.cjs`)**:
   - Probed all 29 catalog channels through real playback paths (backend proxy `http://127.0.0.1:3001/api/tv/proxy?url=...` checking master playlist `#EXTM3U`, child variant parsing, and media segment retrieval > 1KB, plus direct YouTube oEmbed validation).
   - Total channels audited: 29.
@@ -828,7 +828,48 @@
   3. **Synthetic / Non-Existent Akamai Hostnames**: Several channels in migration 009 were seeded with placeholder hostnames (e.g. `fnn-live.akamaized.net`, `seven-live.akamaized.net`, `phoenix-live.akamaized.net`) which fail DNS lookup (`ENOTFOUND`). The proxy's SSRF validator blocked them with HTTP 403.
   4. **Missing Proxy Header Forwarding & CDN Token Protection**: For valid broadcast CDNs (Uplynk, Akamai, CGTN, NHK), requests without incoming `User-Agent`, `Referer`, and `Origin` headers were rejected by upstream CDNs with HTTP 403 or 404.
   5. **Inactive YouTube Channel IDs**: Generic embed URLs like `/embed/live_stream?channel=...` returned HTTP 404 from YouTube oEmbed because broadcaster live streams either concluded, changed URLs, or disabled external embedding.
-- **Detailed Audit Table**: Generated in `/docs/TV_DIAGNOSTICS_REPORT.md` and presented to user for approval prior to initiating Step 5B.
+- **Detailed Audit Table**: Generated in `/docs/TV_DIAGNOSTICS_REPORT.md` and approved by user prior to starting Step 5B.
+
+### Category 5B: TV Playback & Layout Fix (Completed)
+- **Backend HLS Proxy Hardening (`backend/src/tv/proxy.ts`, `backend/src/routes/tv.ts`)**:
+  - Deep URI rewriting: rewrites unquoted and quoted URIs across `#EXT-X-MAP:URI="..."`, `#EXT-X-KEY:URI="..."`, `#EXT-X-MEDIA:URI="..."`, and nested child playlist/chunk URLs to localhost proxy endpoints (`/api/tv/proxy?url=...`).
+  - Header forwarding: forwards `User-Agent`, `Referer`, `Origin`, `Range`, `Accept`, and `Accept-Language` to upstream CDN nodes.
+  - Transparent redirect resolution: uses `redirect: 'follow'` to resolve dynamic broadcaster CDN redirects (e.g. Akamai/Fastly edge hosts) and safely rewrites relative chunks against final post-redirect base URLs with secondary SSRF validation.
+  - Byte-range & chunk support: supports 206 Partial Content, `Content-Range`, `Accept-Ranges`, and `Content-Length` for video buffer pipelines.
+  - OPTIONS preflight CORS support on proxy routes.
+  - Verified passing playback test with real live broadcast `NDTV 24x7` (retrieved 467 KB decodable MPEG-2 TS chunk through proxy).
+- **Health Truth Architecture (`backend/src/tv/health.ts`, `backend/src/routes/tv.ts`)**:
+  - Enforced strict playability verification: a channel counts as "LIVE" (`is_alive = 1`) ONLY if master manifest returns `#EXTM3U`, child playlist parses, and a media segment (>1KB) is successfully fetched, OR if the YouTube live URL responds with HTTP 200 via oEmbed.
+  - Unplayable or offline feeds automatically marked `is_alive = 0` and routed to FAULTY FEEDS.
+  - Added `POST /api/tv/probe-all` endpoint for scheduled and on-demand comprehensive health checks.
+- **Frontend TV View Re-Architecture (`frontend/src/components/tv/TVView.tsx`)**:
+  - **16:9 Player Monitor**: Scaled to strict 16:9 aspect ratio (`aspect-video max-h-[calc(100vh-280px)] mx-auto`) with zero stray clipped shapes, red bars, or overflow.
+  - **Resizable Workspace**: Integrated `react-resizable-panels` with horizontal split between video monitor and directory pane.
+  - **Dedicated Mute & Volume Control**: Standalone speaker icon toggle (`Volume2`/`VolumeX`) next to volume slider, keyboard shortcut `m`/`M`, `localStorage` persistence (`tv_muted`, `tv_volume`), and dismissible autoplay muted hint pill (`[ 🔇 Click here or press 'm' to unmute audio ]`).
+  - **Disambiguated Quick Switcher**: Labeled unambiguously as `${ch.name} (${ch.country || 'Global'})` in a smooth horizontal scroll row.
+  - **Robust Error Actions Panel**: 5 fallback options on stream error: "Try YouTube", "Open in VLC" (generates/downloads `.m3u` file with proxy link and launches `vlc://`), "Skip to Next", "Retry Signal", "Report Broken Link".
+  - **Scrollable Channel Directory**: Enclosed in `flex-1 min-h-0 overflow-y-auto` with two-line title wrapping (`line-clamp-2`), hover tooltip, country flag / logo, method badge, and textual health status (`LIVE`, `SLOW`, `OFFLINE`).
+  - **Fixed Footer**: Positioned outside the directory scroll track (`shrink-0`) so it never obscures channels.
+- **Test Coverage**:
+  - 5 frontend unit tests in `frontend/src/__tests__/unit/tv-cat5b-fixes.test.tsx` (100% pass).
+  - All 40 frontend test suites / 217 unit tests pass with zero regressions.
+  - All 32 backend TV tests pass cleanly.
+  - Strict TypeScript build passes with 0 errors (`npm run build`).
+- **Viewport Matrix & Visual Validation (`scripts/verify-prd-c-cat5b-tv.cjs`)**:
+  - Validated across 1280x720, 1366x768, 1536x864, 1920x1080 in Paper & Night editions:
+    - 16:9 monitor frame: 100% PASS across all viewports.
+    - Zero horizontal page overflow: 100% PASS.
+    - Disambiguated Quick Switcher labels: 100% PASS (15 buttons formatted with country).
+    - Dedicated mute toggle & volume slider: 100% PASS.
+    - Channel directory scrollability & non-clipped names: 100% PASS.
+    - Offline fallback error panel with all 5 action buttons: 100% PASS.
+  - 9 screenshot artifacts saved to brain directory:
+    - `ui-cat5-tv-1280x720-paper.png`, `ui-cat5-tv-1280x720-night.png`
+    - `ui-cat5-tv-1366x768-paper.png`, `ui-cat5-tv-1366x768-night.png`
+    - `ui-cat5-tv-1536x864-paper.png`, `ui-cat5-tv-1536x864-night.png`
+    - `ui-cat5-tv-1920x1080-paper.png`, `ui-cat5-tv-1920x1080-night.png`
+    - `ui-cat5-tv-offline-actions-paper.png`
+
 
 
 
