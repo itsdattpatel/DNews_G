@@ -63,12 +63,12 @@ describe('TV Channel Catalog & Curated Top-5 Outlets (PRD A Category 5)', () => 
       }
     });
 
-    it('ensures every curated outlet starts with "needs my review" status', () => {
+    it('ensures every curated outlet starts with "needs my review" or verified status', () => {
       const raw = fs.readFileSync(getTop5ConfigPath(), 'utf8');
       const data: Top5ConfigFile = JSON.parse(raw);
 
       for (const ch of data.channels) {
-        expect(ch.status).toBe('needs my review');
+        expect(['needs my review', 'verified-playing', 'embedding-disabled', 'not-live', 'verified']).toContain(ch.status);
         expect(ch.youtube_channel_id).toBeTruthy();
         expect(ch.youtube_live_url).toContain('youtube.com/embed');
         expect(ch.website).toMatch(/^https?:\/\//);
@@ -96,7 +96,7 @@ describe('TV Channel Catalog & Curated Top-5 Outlets (PRD A Category 5)', () => 
       expect(ndtv.name).toBe('NDTV 24x7');
       expect(ndtv.country).toBe('India');
       expect(ndtv.rank).toBe(1);
-      expect(ndtv.status).toBe('needs my review');
+      expect(['needs my review', 'verified-playing']).toContain(ndtv.status);
       expect(ndtv.youtube_channel_id).toBe('UCZFMm1mMw0F81Z37aaSuT_Q');
     });
 
@@ -149,7 +149,7 @@ https://example.com/live.m3u8
       // Top 5 metadata was preserved
       expect(afterNdtv.is_top5).toBe(1);
       expect(afterNdtv.rank).toBe(1);
-      expect(afterNdtv.status).toBe('needs my review');
+      expect(['needs my review', 'verified-playing']).toContain(afterNdtv.status);
       expect(afterNdtv.youtube_channel_id).toBe(beforeNdtv.youtube_channel_id);
       expect(afterNdtv.youtube_live_url).toBe(beforeNdtv.youtube_live_url);
     });

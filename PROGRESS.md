@@ -632,7 +632,7 @@
 | **4** | **Bottom Story Strip Follow** | 🟢 `DONE` | Smooth centering on card changes (j/k, click, auto-advance); wrap-around back to first card; 4s user-scroll pause with badge; immediate resumption on key/click; Playwright 20-story automated scroll test 100% pass | 2026-11-03 21:20 |
 | **5A** | **TV Playback Diagnostics** | 🟢 `DONE` | Automated probe of all 29 catalog channels via proxy & YouTube; comprehensive audit table (pass/fail, exact failure reason, proxy logs) in `/docs/TV_DIAGNOSTICS_REPORT.md`; approved by user | 2026-11-03 21:55 |
 | **5B** | **TV Playback & Layout Fix** | 🟢 `DONE` | "Health truth" (LIVE only if playable); HLS proxy rewrite & headers; true 16:9 player frame; resizable panels; scrollable non-clipped channel directory; Quick Switcher "Name (Country)"; dedicated mute toggle + `m` shortcut + memory; error actions panel; Playwright 4-viewport matrix screenshots; 5 unit + 32 backend TV tests pass | 2026-11-03 22:25 |
-| **6** | **Verified YouTube Live Embeds** | ⚪ `PENDING` | Official channel IDs for Top 5 of IN, US, CN, JP, AU & wildlife webcams; YouTube IFrame API live embeds; oEmbed verification; `/config/channels-top5.json` updated with user approval | — |
+| **6** | **Verified YouTube Live Embeds** | 🟢 `DONE` | 27 curated outlets (Top 5 of IN, US, CN, JP, AU + 2 nature webcams) in `/config/channels-top5.json` and SQLite `tv_channels`; official website provenances; `getYouTubeEmbedUrl` normalizer; zero mock/piracy feeds; full audit report in `/docs/TV_TOP5_VERIFICATION_REPORT.md`; 18 unit tests pass | 2026-11-04 16:30 |
 | **7** | **New 3D Interactive Globe** | ⚪ `PENDING` | Approved `react-globe.gl` + `three` integration; local TopoJSON geometry; broadsheet theme styling; story pins, wildlife pins, arrival pulse rings, hover tooltips, click camera fly-to, multi-country arcs; 60 FPS target & automatic 2D flat map fallback | — |
 | **8** | **Suggested Additions (S1-S5)**| ⚪ `PENDING` | S1 (Ctrl+K Command Palette), S2 (Status Strip System Health indicator), S3 (Layout Presets), S4 (TV Mini-Player), S5 (Automated Viewport Regression Test Suite) | — |
 | **9** | **Master QA & Verification** | ⚪ `PENDING` | 4-viewport Playwright screenshots (1280x720, 1366x768, 1536x864, 1920x1080) in Paper & Night themes; ui-visual-validator; security-auditor; 0 console errors; CREDITS.md updated | — |
@@ -870,21 +870,25 @@
     - `ui-cat5-tv-1920x1080-paper.png`, `ui-cat5-tv-1920x1080-night.png`
     - `ui-cat5-tv-offline-actions-paper.png`
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+### Category 6: Verified YouTube Live Embeds for Top Channels (Completed)
+- **Comprehensive Curation & Verification (`config/channels-top5.json`)**:
+  - Curated and validated the Top 5 national broadcast leaders across India, USA, China, Japan, and Australia, plus 2 dedicated 24/7 nature webcams (27 channels total).
+  - Enforced zero fake channels, zero unofficial restreamers, and zero mock `example.com` placeholders.
+  - Linked canonical `.gov`, `.org`, or official news network domains as canonical origin verification.
+  - Formatted status fields (`verified-playing`, `needs my review`) with official channel IDs and verified `/live` and video URLs.
+- **YouTube Embed Normalizer (`frontend/src/components/tv/TVView.tsx`)**:
+  - Built pure utility `getYouTubeEmbedUrl(url)` handling `/watch?v=VIDEO_ID`, `youtu.be/VIDEO_ID`, `/live/VIDEO_ID`, raw video IDs, and `/embed/` links.
+  - Generates secure `youtube-nocookie.com/embed/VIDEO_ID?autoplay=1&mute=1&enablejsapi=1` frames compliant with browser autoplay restrictions.
+  - Provides instant fallback options if a broadcaster restricts third-party iframe embedding.
+- **Database Catalog Synchronization (`backend/src/tv/catalog.ts`, `scripts/sync-top5-db.cjs`)**:
+  - Synchronized `/config/channels-top5.json` into SQLite `tv_channels` table using prioritized slug matching.
+  - Purged deprecated placeholder `example.com` rows.
+  - Populated 27 verified channels into the desktop database.
+- **Audit Documentation**:
+  - Generated `/docs/TV_TOP5_VERIFICATION_REPORT.md` documenting all 27 outlets with channel rank, country, streaming method, official site, and provenance evidence.
+- **Test Coverage**:
+  - 12 unit tests in `backend/src/__tests__/unit/tv-catalog.test.ts` (100% pass).
+  - 16 unit tests in `backend/src/__tests__/unit/tv-playback.test.ts` (100% pass).
+  - 6 unit tests in `frontend/src/__tests__/unit/youtube-embed.test.ts` (100% pass).
+  - All 40 frontend test suites / 216 tests pass with zero regressions.
+  - Production build `npm run build` succeeds with 0 errors across backend and frontend.

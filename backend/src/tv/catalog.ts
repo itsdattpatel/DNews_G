@@ -15,7 +15,7 @@ export interface Top5ChannelConfig {
   country_code: string;
   category: string;
   rank: number;
-  status: 'needs my review' | 'verified' | 'rejected';
+  status: 'needs my review' | 'verified' | 'rejected' | 'verified-playing' | 'embedding-disabled' | 'not-live';
   website: string;
   stream_url: string;
   youtube_live_url: string;
@@ -97,11 +97,20 @@ export function loadTop5Channels(): { loaded: number; updated: number } {
       name = ?, slug = ?, country = ?, country_code = ?, category = ?,
       stream_url = ?, youtube_live_url = ?, youtube_channel_id = ?, website = ?,
       logo_url = COALESCE(?, logo_url), is_top5 = 1, rank = ?, status = ?,
-      evidence = ?, last_checked_at = datetime('now')
+      evidence = ?,
+      is_alive = CASE WHEN ? = 'verified-playing' THEN 1 ELSE is_alive END,
+      last_checked_at = datetime('now')
     WHERE id = ?
   `);
 
   const transaction = db.transaction((channels: Top5ChannelConfig[]) => {
+    // Purge deprecated dummy placeholder rows with example.com
+    db.prepare(`
+      DELETE FROM tv_channels
+      WHERE stream_url LIKE '%example.com%'
+        AND (youtube_live_url IS NULL OR youtube_live_url LIKE '%example.com%')
+    `).run();
+
     for (const ch of channels) {
       const existing = findStmt.get(ch.slug, ch.stream_url, ch.name) as
         | { id: number; is_top5: number }
@@ -122,6 +131,7 @@ export function loadTop5Channels(): { loaded: number; updated: number } {
           ch.rank,
           ch.status,
           ch.evidence,
+          ch.status,
           existing.id
         );
         updated++;

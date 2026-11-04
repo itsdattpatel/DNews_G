@@ -49,6 +49,36 @@ function getCountryFlag(code?: string | null): string {
   return String.fromCodePoint(...chars);
 }
 
+export function getYouTubeEmbedUrl(url?: string | null): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+  // 1. /watch?v=VIDEO_ID
+  const vMatch = trimmed.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+  if (vMatch) {
+    return `https://www.youtube-nocookie.com/embed/${vMatch[1]}?autoplay=1&mute=1&enablejsapi=1`;
+  }
+  // 2. youtu.be/VIDEO_ID
+  const shortMatch = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+  if (shortMatch) {
+    return `https://www.youtube-nocookie.com/embed/${shortMatch[1]}?autoplay=1&mute=1&enablejsapi=1`;
+  }
+  // 3. /live/VIDEO_ID
+  const liveMatch = trimmed.match(/\/live\/([a-zA-Z0-9_-]{11})/);
+  if (liveMatch) {
+    return `https://www.youtube-nocookie.com/embed/${liveMatch[1]}?autoplay=1&mute=1&enablejsapi=1`;
+  }
+  // 4. If already an embed URL
+  if (trimmed.includes('/embed/')) {
+    const sep = trimmed.includes('?') ? '&' : '?';
+    return `${trimmed}${sep}autoplay=1&mute=1&enablejsapi=1`;
+  }
+  // 5. Raw 11-char video ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return `https://www.youtube-nocookie.com/embed/${trimmed}?autoplay=1&mute=1&enablejsapi=1`;
+  }
+  return trimmed;
+}
+
 export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: TvChannel }> = ({
   forcedOpen,
   forcedSelectedChannel,
@@ -640,7 +670,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
               {playbackMethod === 'youtube' && selectedChannel?.youtube_live_url ? (
                 <iframe
                   id="tv-youtube-embed-frame"
-                  src={selectedChannel.youtube_live_url}
+                  src={getYouTubeEmbedUrl(selectedChannel.youtube_live_url)}
                   title={selectedChannel.name}
                   className="w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
