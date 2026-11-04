@@ -223,6 +223,7 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 | 2026-11-04 | `three` | `0.170.0` | MIT | Approved (Globe) | WebGL 3D rendering engine for interactive cartographic globe |
 | 2026-11-04 | `@types/three` | `0.170.0` | MIT | Approved (Globe Dev) | Strict TypeScript definitions for Three.js |
 | 2026-11-04 | `react-globe.gl` | `2.27.3` | MIT | Approved (Globe) | Declarative 3D globe bindings for React |
+| 2026-11-04 | `cmdk` | `1.0.4` | MIT | Approved (Suggestions S1) | Fast, unstyled accessible command palette primitive |
 
 ---
 

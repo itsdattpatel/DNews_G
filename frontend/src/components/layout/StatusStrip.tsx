@@ -13,6 +13,7 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Play, Pause, Clock, ZapOff, Sparkles } from 'lucide-react';
+import { SystemHealthIndicator } from './SystemHealthIndicator';
 
 export interface StatusStripProps {
   forcedPauseReason?: string | null;
@@ -295,6 +296,9 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
             {isPlainMode ? <ZapOff size={10} className="text-accent" /> : <Sparkles size={10} />}
             <span>Plain: {isPlainMode ? 'ON' : 'OFF'}</span>
           </button>
+
+          {/* S2: Operational System Health Indicator */}
+          <SystemHealthIndicator />
         </div>
       </div>
     </div>

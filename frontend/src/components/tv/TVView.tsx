@@ -88,6 +88,8 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
   const setTvViewOpen = useAppStore((s) => s.setTvViewOpen);
   const selectedTvChannelId = useAppStore((s) => s.selectedTvChannelId);
   const setSelectedTvChannelId = useAppStore((s) => s.setSelectedTvChannelId);
+  const setActiveTvStream = useAppStore((s) => s.setActiveTvStream);
+  const setTvMiniPlayerOpen = useAppStore((s) => s.setTvMiniPlayerOpen);
 
   const [channels, setChannels] = useState<TvChannel[]>([]);
   const [allChannels, setAllChannels] = useState<TvChannel[]>([]);
@@ -193,6 +195,12 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
       }
     }
   }, [selectedTvChannelId, channels]);
+
+  useEffect(() => {
+    if (selectedChannel) {
+      setActiveTvStream(selectedChannel);
+    }
+  }, [selectedChannel, setActiveTvStream]);
 
   // Handle stream loading (HLS with Proxy fallback)
   useEffect(() => {
@@ -363,19 +371,34 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
     }
   };
 
-  // Toggle Picture-in-Picture
+  // Toggle Picture-in-Picture / Mini-Player (S4)
   const handleTogglePip = async () => {
-    if (videoRef.current) {
+    if (selectedChannel) {
+      setActiveTvStream(selectedChannel);
+      setTvMiniPlayerOpen(true);
+      setTvViewOpen(false);
+      toast.success(`Docked ${selectedChannel.name} to Mini-Player`);
+      return;
+    }
+    if (videoRef.current && document.pictureInPictureEnabled) {
       try {
         if (document.pictureInPictureElement) {
           await document.exitPictureInPicture();
-        } else if (document.pictureInPictureEnabled) {
+        } else {
           await videoRef.current.requestPictureInPicture();
         }
       } catch (err: any) {
         toast.error('Picture-in-Picture error: ' + err.message);
       }
     }
+  };
+
+  const handleCloseDesk = () => {
+    if (selectedChannel && !streamError) {
+      setActiveTvStream(selectedChannel);
+      setTvMiniPlayerOpen(true);
+    }
+    setTvViewOpen(false);
   };
 
   // Filter channels list
@@ -545,13 +568,13 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
         e.preventDefault();
         handleFullscreen();
       } else if (e.key === 'Escape') {
-        setTvViewOpen(false);
+        handleCloseDesk();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isTvViewOpen, filteredChannels, selectedChannel, handleToggleMute, setTvViewOpen, setSelectedTvChannelId]);
+  }, [isTvViewOpen, filteredChannels, selectedChannel, handleToggleMute, handleCloseDesk, setSelectedTvChannelId]);
 
   if (!isTvViewOpen) return null;
 
@@ -563,7 +586,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
       aria-labelledby="tv-view-heading"
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 lg:p-6 bg-ink/80 backdrop-blur-xs select-none"
       onClick={(e) => {
-        if (e.target === e.currentTarget) setTvViewOpen(false);
+        if (e.target === e.currentTarget) handleCloseDesk();
       }}
     >
       <div
@@ -597,7 +620,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
               <button
                 id="btn-close-tv-view"
                 type="button"
-                onClick={() => setTvViewOpen(false)}
+                onClick={handleCloseDesk}
                 className="p-1.5 border border-paper-border hover:border-ink bg-paper hover:bg-ink hover:text-paper rounded-xs transition-colors shrink-0"
                 title="Close TV Desk (Esc)"
               >

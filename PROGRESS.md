@@ -634,7 +634,7 @@
 | **5B** | **TV Playback & Layout Fix** | 🟢 `DONE` | "Health truth" (LIVE only if playable); HLS proxy rewrite & headers; true 16:9 player frame; resizable panels; scrollable non-clipped channel directory; Quick Switcher "Name (Country)"; dedicated mute toggle + `m` shortcut + memory; error actions panel; Playwright 4-viewport matrix screenshots; 5 unit + 32 backend TV tests pass | 2026-11-03 22:25 |
 | **6** | **Verified YouTube Live Embeds** | 🟢 `DONE` | 27 curated outlets (Top 5 of IN, US, CN, JP, AU + 2 nature webcams) in `/config/channels-top5.json` and SQLite `tv_channels`; official website provenances; `getYouTubeEmbedUrl` normalizer; zero mock/piracy feeds; full audit report in `/docs/TV_TOP5_VERIFICATION_REPORT.md`; 18 unit tests pass | 2026-11-04 16:30 |
 | **7** | **New 3D Interactive Globe** | 🟢 `DONE` | react-globe.gl@2.27.3 & three@0.170.0, local vector GeoJSON, broadsheet themes, density pins, wildlife markers, arcs, rings, 2D projection hub, 10 Playwright screenshots | 2026-11-04 20:05 |
-| **8** | **Suggested Additions (S1-S5)**| ⚪ `PENDING` | S1 (Ctrl+K Command Palette), S2 (Status Strip System Health indicator), S3 (Layout Presets), S4 (TV Mini-Player), S5 (Automated Viewport Regression Test Suite) | — |
+| **8** | **Suggested Additions (S1-S5)**| 🟢 `DONE` | S1 (Ctrl+K Command Palette), S2 (Status Strip System Health indicator), S3 (Layout Presets), S4 (TV Mini-Player), S5 (Master Viewport Matrix Suite: 1280x720, 1366x768, 1536x864, 1920x1080 in Paper & Night, 10 Playwright screenshots); 13 unit tests pass | 2026-11-04 21:55 |
 | **9** | **Master QA & Verification** | ⚪ `PENDING` | 4-viewport Playwright screenshots (1280x720, 1366x768, 1536x864, 1920x1080) in Paper & Night themes; ui-visual-validator; security-auditor; 0 console errors; CREDITS.md updated | — |
 
 ---
@@ -935,3 +935,35 @@
     - `ui-cat7-globe-1536x864-paper.png`, `ui-cat7-globe-1536x864-night.png`
     - `ui-cat7-globe-1920x1080-paper.png`, `ui-cat7-globe-1920x1080-night.png`
     - `ui-cat7-globe-flat-map-fallback.png`, `ui-cat7-globe-wildlife-layer.png`
+
+### Category 8: Suggested Additions S1–S5 (Completed)
+- **S1: Broadsheet Command Palette (`frontend/src/components/common/CommandPalette.tsx`)**:
+  - Integrated pinned `cmdk@1.0.4` (MIT audited license recorded in `CREDITS.md`).
+  - Triggered globally with `Ctrl+K` / `Cmd+K` keyboard shortcut or clicking the search wire input.
+  - Quick action search across all news desks, visual modes (Plain mode, Night edition, Auto-advance, Breaking news filter), layout presets (Balanced, Focus, Split), and utility actions (Refresh feeds, Export settings, Open help, Reconnect SSE).
+  - Broadsheet styling: deckle borders, vintage paper backdrop, inked selection highlights, serif typography.
+- **S2: Broadsheet System Health Indicator (`frontend/src/components/layout/SystemHealthIndicator.tsx`, `frontend/src/components/layout/StatusStrip.tsx`)**:
+  - Tri-color status indicator pill in `StatusStrip`: `● System: OK` (crimson/forest ink), `● System: Degraded` (amber ink), `● System: Error` (crimson ink).
+  - Diagnostic popover on click or hover displaying live operational metrics: RSS wire status (24 active), AI enrichment pipeline (Two-Pass triage active), Ingestion scheduler (5m interval), SQLite database WAL status (healthy), and TV live monitor (27 streams verified).
+- **S3: Broadsheet Layout Presets (`frontend/src/store/useAppStore.ts`, `frontend/src/components/layout/Shell.tsx`)**:
+  - Three instant panel layout configurations:
+    - **Balanced (Default)**: 60% Left Desk / 40% Right Desk / 22% Bottom Wire. Shortcut: `Alt+1`.
+    - **Focus**: 85% Left Desk / 15% Right Desk / 15% Bottom Wire. Shortcut: `Alt+2`.
+    - **Split**: 50% Left Desk / 50% Right Desk / 30% Bottom Wire. Shortcut: `Alt+3`.
+  - Persisted in application store and synchronized dynamically with `react-resizable-panels` API handles.
+- **S4: Floating Broadsheet TV Mini-Player (`frontend/src/components/tv/TVMiniPlayer.tsx`, `frontend/src/components/tv/TVView.tsx`, `frontend/src/components/layout/Shell.tsx`)**:
+  - Seamless background broadcast playback: when navigating away from `TVView` while a stream is playing, automatically docks into a floating Picture-in-Picture window at `#tv-mini-player-dock` (bottom-right 320x180 16:9 monitor).
+  - Uniform dual-engine support: streams HLS video via proxy and YouTube live broadcasts via embedded iframe.
+  - Compact broadcast controls: mute/unmute audio toggle, expand back to full TV Desk, and close stream.
+- **S5: Viewport Matrix Regression Suite (`scripts/verify-prd-c-master-matrix.cjs`)**:
+  - Comprehensive Playwright test suite validating zero horizontal scroll (`scrollWidth === clientWidth`), intact layout, StatusStrip, Command Palette, and TV Mini-Player across 4 viewports (1280x720, 1366x768, 1536x864, 1920x1080) in both Paper and Night editions.
+  - 10 screenshot artifacts captured and verified:
+    - `ui-cat8-s5-matrix-1280x720-paper.png`, `ui-cat8-s5-matrix-1280x720-night.png`
+    - `ui-cat8-s5-matrix-1366x768-paper.png`, `ui-cat8-s5-matrix-1366x768-night.png`
+    - `ui-cat8-s5-matrix-1536x864-paper.png`, `ui-cat8-s5-matrix-1536x864-night.png`
+    - `ui-cat8-s5-matrix-1920x1080-paper.png`, `ui-cat8-s5-matrix-1920x1080-night.png`
+    - `ui-cat8-s1-command-palette.png`, `ui-cat8-s4-tv-mini-player.png`
+- **Test Coverage**:
+  - 13 unit tests in `frontend/src/__tests__/unit/category8-suggestions.test.tsx` (100% pass).
+  - All 43 frontend test suites / 240 unit tests pass cleanly.
+  - Production build: `npm --prefix frontend run build` compiles with 0 errors.

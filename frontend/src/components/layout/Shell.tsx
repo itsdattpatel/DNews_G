@@ -28,6 +28,8 @@ import { TVView } from '../tv/TVView';
 import { WatchlistDesk } from '../watchlist/WatchlistDesk';
 import { CategoryRailView } from '../category/CategoryRailView';
 import { ControlRoomDesk } from '../control-room/ControlRoomDesk';
+import { CommandPalette } from '../common/CommandPalette';
+import { TVMiniPlayer } from '../tv/TVMiniPlayer';
 import { ErrorBoundary } from '../common/ErrorBoundary';
 import { useAppStore } from '../../store/useAppStore';
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle, type ImperativePanelGroupHandle } from 'react-resizable-panels';
@@ -41,6 +43,8 @@ export const Shell: React.FC = () => {
   const prevArticle = useAppStore((s) => s.prevArticle);
   const theme = useAppStore((s) => s.theme);
   const isPlainMode = useAppStore((s) => s.settings.plain_mode_enabled ?? false);
+  const layoutPreset = useAppStore((s) => s.layoutPreset);
+  const setLayoutPreset = useAppStore((s) => s.setLayoutPreset);
 
   // Sync theme attribute on mount
   useEffect(() => {
@@ -56,6 +60,30 @@ export const Shell: React.FC = () => {
           (e.target as HTMLElement)?.tagName || ''
         )
       ) {
+        return;
+      }
+
+      // S1: Command Palette (Ctrl+K or Cmd+K)
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'k' || e.code === 'KeyK')) {
+        e.preventDefault();
+        useAppStore.getState().toggleCommandPalette();
+        return;
+      }
+
+      // S3: Layout Presets (Alt+1, Alt+2, Alt+3)
+      if (e.altKey && e.key === '1') {
+        e.preventDefault();
+        setLayoutPreset('balanced');
+        return;
+      }
+      if (e.altKey && e.key === '2') {
+        e.preventDefault();
+        setLayoutPreset('focus');
+        return;
+      }
+      if (e.altKey && e.key === '3') {
+        e.preventDefault();
+        setLayoutPreset('split');
         return;
       }
 
@@ -159,6 +187,20 @@ export const Shell: React.FC = () => {
     verticalGroupRef.current?.setLayout([78, 22]);
     setPanelSizesV([78, 22]);
   };
+
+  // Synchronize layout preset with imperative panel group handles (S3)
+  useEffect(() => {
+    if (layoutPreset === 'balanced') {
+      horizontalGroupRef.current?.setLayout([60, 40]);
+      verticalGroupRef.current?.setLayout([78, 22]);
+    } else if (layoutPreset === 'focus') {
+      horizontalGroupRef.current?.setLayout([85, 15]);
+      verticalGroupRef.current?.setLayout([85, 15]);
+    } else if (layoutPreset === 'split') {
+      horizontalGroupRef.current?.setLayout([50, 50]);
+      verticalGroupRef.current?.setLayout([70, 30]);
+    }
+  }, [layoutPreset]);
 
   return (
     <div
@@ -357,6 +399,16 @@ export const Shell: React.FC = () => {
 
       <ErrorBoundary panelName="Desk Control Room">
         <ControlRoomDesk />
+      </ErrorBoundary>
+
+      {/* S1: Command Palette Dialog */}
+      <ErrorBoundary panelName="Command Palette">
+        <CommandPalette />
+      </ErrorBoundary>
+
+      {/* S4: TV Floating Mini-Player Dock */}
+      <ErrorBoundary panelName="TV Mini-Player Dock">
+        <TVMiniPlayer />
       </ErrorBoundary>
 
       {/* 7. Broadsheet Toast Notifications */}
