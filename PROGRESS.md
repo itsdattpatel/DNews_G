@@ -633,7 +633,7 @@
 | **5A** | **TV Playback Diagnostics** | 🟢 `DONE` | Automated probe of all 29 catalog channels via proxy & YouTube; comprehensive audit table (pass/fail, exact failure reason, proxy logs) in `/docs/TV_DIAGNOSTICS_REPORT.md`; approved by user | 2026-11-03 21:55 |
 | **5B** | **TV Playback & Layout Fix** | 🟢 `DONE` | "Health truth" (LIVE only if playable); HLS proxy rewrite & headers; true 16:9 player frame; resizable panels; scrollable non-clipped channel directory; Quick Switcher "Name (Country)"; dedicated mute toggle + `m` shortcut + memory; error actions panel; Playwright 4-viewport matrix screenshots; 5 unit + 32 backend TV tests pass | 2026-11-03 22:25 |
 | **6** | **Verified YouTube Live Embeds** | 🟢 `DONE` | 27 curated outlets (Top 5 of IN, US, CN, JP, AU + 2 nature webcams) in `/config/channels-top5.json` and SQLite `tv_channels`; official website provenances; `getYouTubeEmbedUrl` normalizer; zero mock/piracy feeds; full audit report in `/docs/TV_TOP5_VERIFICATION_REPORT.md`; 18 unit tests pass | 2026-11-04 16:30 |
-| **7** | **New 3D Interactive Globe** | ⚪ `PENDING` | Approved `react-globe.gl` + `three` integration; local TopoJSON geometry; broadsheet theme styling; story pins, wildlife pins, arrival pulse rings, hover tooltips, click camera fly-to, multi-country arcs; 60 FPS target & automatic 2D flat map fallback | — |
+| **7** | **New 3D Interactive Globe** | 🟢 `DONE` | react-globe.gl@2.27.3 & three@0.170.0, local vector GeoJSON, broadsheet themes, density pins, wildlife markers, arcs, rings, 2D projection hub, 10 Playwright screenshots | 2026-11-04 20:05 |
 | **8** | **Suggested Additions (S1-S5)**| ⚪ `PENDING` | S1 (Ctrl+K Command Palette), S2 (Status Strip System Health indicator), S3 (Layout Presets), S4 (TV Mini-Player), S5 (Automated Viewport Regression Test Suite) | — |
 | **9** | **Master QA & Verification** | ⚪ `PENDING` | 4-viewport Playwright screenshots (1280x720, 1366x768, 1536x864, 1920x1080) in Paper & Night themes; ui-visual-validator; security-auditor; 0 console errors; CREDITS.md updated | — |
 
@@ -892,3 +892,46 @@
   - 6 unit tests in `frontend/src/__tests__/unit/youtube-embed.test.ts` (100% pass).
   - All 40 frontend test suites / 216 tests pass with zero regressions.
   - Production build `npm run build` succeeds with 0 errors across backend and frontend.
+
+
+### Category 7: New 3D Interactive Globe (Completed)
+- **Dependency & License Governance (Rule G5)**:
+  - Installed pinned dependencies: `react-globe.gl@2.27.3`, `three@0.170.0`, `@types/three@0.170.0`.
+  - Audited licenses: MIT for all packages. Recorded in `CREDITS.md`.
+  - Database backed up to `backups/news_pre_category7_20261104.sqlite`.
+- **Vector-Only Geometry & Broadsheet Styling (`frontend/src/components/map/Globe3D.tsx`)**:
+  - Zero external CDN tile dependencies: renders country polygons directly from local `/countries-110m.json` using `topojson-client`.
+  - Two bespoke broadsheet color palettes:
+    - **Paper Edition**: Parchment sea (`#DDD5C7`), white paper continents (`#FAF7F0`), fine inked borders (`#A89984`).
+    - **Night Edition**: Deep ink oceans (`#0E0C09`), dark continents (`#1C1811`), brass borders (`#73634C`), crimson atmosphere halo (`#E74C3C`).
+  - Dynamic data layers:
+    - Logarithmic news density pins: radius $0.45 + 0.35 \times \ln(1 + N)$ with numeric story badges.
+    - Wildlife Wire markers: distinct crimson triangular icons (▲) for animal and conservation dispatches.
+    - Pulsing arrival rings: concentric expanding rings for breaking news (< 5m arrival or breaking score >= 75).
+    - Comparative coverage arcs: animated great-circle arcs connecting international broadcast hubs.
+  - Broadsheet deckle-edged popover tooltip on hover with lead wire headline and country flags.
+  - Smooth camera navigation: fly-to on country click (1200ms, altitude 1.8), auto-rotation (0.45 deg/s) with 8s idle resumption timer and `prefers-reduced-motion` guard.
+- **Cartographic Projection Hub & Resilience (`frontend/src/components/map/WorldMap.tsx`)**:
+  - Multi-projection switcher: cycles seamlessly between `3D Globe`, `Mercator (2D)`, and `Equal Earth (2D)` without reloading.
+  - Hardware-accelerated WebGL with Three.js compatibility polyfills (`intersectsFrustum`, `determinantAffine`).
+  - Performance watchdog: live FPS counter in bottom radar toolbar with dynamic fallback alert banner when FPS < 30.
+  - Responsive container layout: observed `containerRef` and `footerRef` to subtract toolbar height, guaranteeing zero vertical clipping or obscured controls across all display resolutions.
+  - Code splitting: `Globe3D.tsx` is lazy-loaded via `React.lazy()`, isolating Three.js bundle weight (3,075 KB chunk) from the main bundle.
+- **Test Coverage**:
+  - 5 unit tests in `frontend/src/__tests__/unit/globe-3d.test.tsx` (100% pass).
+  - Frontend test suite: 42 test suites, 227 unit tests pass (100% pass).
+  - Backend test suite: 42 test suites, 217 unit tests pass (100% pass).
+  - Production build: `npm --prefix frontend run build` compiled cleanly with 0 errors.
+- **Viewport Matrix & Visual Validation (`scripts/verify-prd-c-cat7-globe.cjs`)**:
+  - Verified across 1280x720, 1366x768, 1536x864, 1920x1080 in Paper & Night editions:
+    - 3D Globe vector polygons & pins: 100% PASS across all 4 viewports.
+    - Zero horizontal page overflow (`scrollWidth === clientWidth`): 100% PASS.
+    - Docked bottom radar toolbar: 100% PASS (Auto-Rotate, Wildlife Wire, Reset View, Flat 2D Map all visible).
+    - Projection toggle (3D Globe -> 2D Flat Map): 100% PASS.
+    - Wildlife Wire layer toggle: 100% PASS.
+  - 10 screenshot artifacts saved to brain directory:
+    - `ui-cat7-globe-1280x720-paper.png`, `ui-cat7-globe-1280x720-night.png`
+    - `ui-cat7-globe-1366x768-paper.png`, `ui-cat7-globe-1366x768-night.png`
+    - `ui-cat7-globe-1536x864-paper.png`, `ui-cat7-globe-1536x864-night.png`
+    - `ui-cat7-globe-1920x1080-paper.png`, `ui-cat7-globe-1920x1080-night.png`
+    - `ui-cat7-globe-flat-map-fallback.png`, `ui-cat7-globe-wildlife-layer.png`

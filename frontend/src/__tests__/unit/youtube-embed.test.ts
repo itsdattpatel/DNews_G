@@ -38,3 +38,4 @@ describe('YouTube Embed URL Normalizer (PRD C Category 6)', () => {
     expect(getYouTubeEmbedUrl(undefined)).toBe('');
   });
 });
+

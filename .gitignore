@@ -1,4 +1,4 @@
-﻿# Secrets — NEVER commit these
+# Secrets — NEVER commit these
 .env
 
 # Dependencies
@@ -29,3 +29,6 @@ Thumbs.db
 
 # Coverage
 coverage/
+
+# Temporary scratch
+scratch/

@@ -42,7 +42,6 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 11. `react-resizable-panels` (pinned v2.1.7) — Accessible panel splitting with keyboard handles & persistent layout (MIT)
 
 ### 2.2 DEFERRED List (DO NOT install until their respective Step is approved)
-- `react-globe.gl` + `three` (Step 9: Globe / Map)
 - `d3-geo` / `maplibre-gl` (Step 9: only if flat map fallback needed)
 - `hls.js` (Step 10: TV View — already present in package.json)
 - `@lottiefiles/dotlottie-react` (NOT approved — Bat is 100% custom SVG, no Lottie required)
@@ -221,6 +220,9 @@ All packages must be pinned with exact versions (`"package": "1.2.3"`, no `^` or
 | 2026-11-02 | `@fontsource/eb-garamond` | `5.3.0` | OFL-1.1 | Approved (Library) | Classical reading room serif |
 | 2026-11-02 | `@fontsource/cormorant-garamond` | `5.3.0` | OFL-1.1 | Approved (Library) | Display serif for library titles |
 | 2026-11-02 | `@fontsource/lora` | `5.3.0` | OFL-1.1 | Approved (Library) | Screen serif for mind help cards |
+| 2026-11-04 | `three` | `0.170.0` | MIT | Approved (Globe) | WebGL 3D rendering engine for interactive cartographic globe |
+| 2026-11-04 | `@types/three` | `0.170.0` | MIT | Approved (Globe Dev) | Strict TypeScript definitions for Three.js |
+| 2026-11-04 | `react-globe.gl` | `2.27.3` | MIT | Approved (Globe) | Declarative 3D globe bindings for React |
 
 ---
 
