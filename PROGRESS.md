@@ -635,7 +635,7 @@
 | **6** | **Verified YouTube Live Embeds** | 🟢 `DONE` | 27 curated outlets (Top 5 of IN, US, CN, JP, AU + 2 nature webcams) in `/config/channels-top5.json` and SQLite `tv_channels`; official website provenances; `getYouTubeEmbedUrl` normalizer; zero mock/piracy feeds; full audit report in `/docs/TV_TOP5_VERIFICATION_REPORT.md`; 18 unit tests pass | 2026-11-04 16:30 |
 | **7** | **New 3D Interactive Globe** | 🟢 `DONE` | react-globe.gl@2.27.3 & three@0.170.0, local vector GeoJSON, broadsheet themes, density pins, wildlife markers, arcs, rings, 2D projection hub, 10 Playwright screenshots | 2026-11-04 20:05 |
 | **8** | **Suggested Additions (S1-S5)**| 🟢 `DONE` | S1 (Ctrl+K Command Palette), S2 (Status Strip System Health indicator), S3 (Layout Presets), S4 (TV Mini-Player), S5 (Master Viewport Matrix Suite: 1280x720, 1366x768, 1536x864, 1920x1080 in Paper & Night, 10 Playwright screenshots); 13 unit tests pass | 2026-11-04 21:55 |
-| **9** | **Master QA & Verification** | ⚪ `PENDING` | 4-viewport Playwright screenshots (1280x720, 1366x768, 1536x864, 1920x1080) in Paper & Night themes; ui-visual-validator; security-auditor; 0 console errors; CREDITS.md updated | — |
+| **9** | **Master QA & Verification** | 🟢 `DONE` | 4-viewport Playwright screenshots (1280x720, 1366x768, 1536x864, 1920x1080) in Paper & Night themes; ui-visual-validator; security-auditor (19/19 pass); 0 console errors; CREDITS.md updated; 457 tests pass | 2026-11-11 20:30 |
 
 ---
 
@@ -967,3 +967,32 @@
   - 13 unit tests in `frontend/src/__tests__/unit/category8-suggestions.test.tsx` (100% pass).
   - All 43 frontend test suites / 240 unit tests pass cleanly.
   - Production build: `npm --prefix frontend run build` compiles with 0 errors.
+
+### Category 9: Master QA & Verification (Completed)
+- **Comprehensive Test Suite**:
+  - Backend: 42 test suites, 217 unit and integration tests pass (100%).
+  - Frontend: 43 test suites, 240 unit and component tests pass (100%).
+  - Total test suite: 457 tests pass with zero errors and zero regressions.
+- **Security Audit (`scripts/security-audit.cjs`)**:
+  - 19/19 checks passed cleanly.
+  - Client bundle secrets scan: 0 API keys or credential patterns found in compiled production JavaScript bundle.
+  - Settings export sanitization: 0 API keys or provider secrets leaked in `GET /api/settings/export`.
+  - Stream proxy SSRF defenses: 100% blocked for loopback (127.0.0.1, localhost), private subnets (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), link-local metadata (169.254.169.254), zero-host (0.0.0.0), and internal domains (*.local).
+  - Test-Data Guard: actively prevents tests from connecting to production SQLite database `news.sqlite`.
+  - SQLite database integrity: size (18.70 MB) safely within the 1.5 GB warning threshold and 2.0 GB hard limit.
+- **Master QA Stability Suite (`scripts/verify-prd-c-master-qa.cjs`)**:
+  - Zero console errors detected across all tested desks.
+  - Zero horizontal overflow across all 4 target viewports (1280x720, 1366x768, 1536x864, 1920x1080) in both Paper Edition and Night Edition.
+  - All critical layout invariants verified: TopBar contains only 6 core controls, StatusStrip in document flow with auto-advance countdown and system health indicator, Right Icon Rail docked in layout flow (44px collapsed, 180px pinned), bottom story strip auto-centers active articles.
+  - 8 master sign-off screenshots captured:
+    - `ui-cat9-master-frontpage-paper.png`
+    - `ui-cat9-master-frontpage-night.png`
+    - `ui-cat9-master-directory-paper.png`
+    - `ui-cat9-master-tv-desk.png`
+    - `ui-cat9-master-3d-globe.png`
+    - `ui-cat9-master-settings-dialog.png`
+    - `ui-cat9-master-command-palette.png`
+    - `ui-cat9-master-library-desk.png`
+- **Documentation & Release Sign-off**:
+  - Generated `/docs/PRD_C_MASTER_QA_REPORT.md` documenting all 9 categories, verification gates, and screenshot evidence.
+  - `docs/CREDITS.md` vetted with exact versions and licenses for all dependencies.
