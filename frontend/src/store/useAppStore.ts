@@ -7,6 +7,54 @@ import type { Article, AlertItem, QuotaData, AppSettings, StartupStatus, Backfil
 import type { FeedCounterMetrics } from '../types/feedCounter';
 import { playButtonSound, playAlertChime } from '../utils/sound';
 
+function buildOverlayViewPatch(
+  state: AppState,
+  openKey: keyof AppState,
+  open: boolean,
+  associatedView: AppView,
+): Partial<AppState> {
+  return {
+    [openKey]: open,
+    ...(!open && state.currentView === associatedView ? { currentView: 'reader' as AppView } : {}),
+  } as Partial<AppState>;
+}
+
+function navigateArticleStep(
+  state: AppState,
+  direction: 1 | -1,
+): { target: Article | null; refreshedQueueIds?: number[] } {
+  const { articles, autoAdvanceQueueIds, selectedArticleId } = state;
+  if (!articles.length) return { target: null };
+
+  const queue =
+    state.settings.auto_advance_enabled && autoAdvanceQueueIds.length > 0
+      ? autoAdvanceQueueIds
+          .map((id) => articles.find((a) => a.id === id))
+          .filter((a): a is Article => Boolean(a))
+      : articles;
+
+  const activeList = queue.length > 0 ? queue : articles;
+  const idx = activeList.findIndex((a) => a.id === selectedArticleId);
+
+  if (direction === 1) {
+    if (idx !== -1 && idx < activeList.length - 1) {
+      return { target: activeList[idx + 1] ?? null };
+    }
+    return {
+      target: articles[0] ?? activeList[0] ?? null,
+      refreshedQueueIds: articles.map((a) => a.id),
+    };
+  }
+
+  if (idx > 0) {
+    return { target: activeList[idx - 1] ?? null };
+  }
+  return {
+    target: articles[articles.length - 1] ?? activeList[activeList.length - 1] ?? null,
+    refreshedQueueIds: articles.map((a) => a.id),
+  };
+}
+
 interface AppState {
   // Navigation & Shell (Step 2)
   currentView: AppView;
@@ -15,10 +63,11 @@ interface AppState {
   setTheme: (theme: ThemeMode) => void;
   isBatMenuOpen: boolean;
   setBatMenuOpen: (open: boolean) => void;
-  nextArticle: () => void;
-  prevArticle: () => void;
+  nextArticle: (options?: { isAutoAdvance?: boolean }) => void;
+  prevArticle: (options?: { isAutoAdvance?: boolean }) => void;
   // Articles
   articles: Article[];
+  autoAdvanceQueueIds: number[];
   selectedArticleId: number | null;
   selectedArticle: Article | null;
   activeSentenceIndex: number | null;
@@ -26,7 +75,7 @@ interface AppState {
   totalArticles: number;
   isLoading: boolean;
   setArticles: (articles: Article[], total: number) => void;
-  setSelectedArticle: (article: Article | null) => void;
+  setSelectedArticle: (article: Article | null, options?: { isAutoAdvance?: boolean }) => void;
   setActiveSentenceIndex: (index: number | null) => void;
   setReadingModeActive: (active: boolean) => void;
   toggleReadingMode: () => void;
@@ -121,10 +170,11 @@ interface AppState {
   setPanelSizesV: (sizes: [number, number]) => void;
   resetPanelSizes: () => void;
 
-  // Auto-Advance Reader (PRD A Category 2)
+  // Auto-Advance Reader (PRD A Category 2 / PRD D Category 2)
   isAutoAdvanceManualPaused: boolean;
   setIsAutoAdvanceManualPaused: (paused: boolean) => void;
   toggleAutoAdvanceManualPaused: () => void;
+  toggleStatusStripPlayPause: () => Promise<void>;
   isArticlePanelHovered: boolean;
   setIsArticlePanelHovered: (hovered: boolean) => void;
   autoAdvanceResetToken: number;
@@ -229,37 +279,38 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ panelSizesH: [60, 40], panelSizesV: [78, 22] });
   },
 
-  nextArticle: () => {
-    const { articles, selectedArticleId } = get();
-    if (!articles.length) return;
-    const idx = articles.findIndex((a) => a.id === selectedArticleId);
-    if (idx !== -1 && idx < articles.length - 1) {
-      get().setSelectedArticle(articles[idx + 1]);
-    } else {
-      // Seamless wrap-around to beginning (PRD A 2.2)
-      get().setSelectedArticle(articles[0]);
+  nextArticle: (options) => {
+    const { target, refreshedQueueIds } = navigateArticleStep(get(), 1);
+    if (!target) return;
+    if (refreshedQueueIds) {
+      set({ autoAdvanceQueueIds: refreshedQueueIds });
     }
-    get().triggerAutoAdvanceReset();
+    get().setSelectedArticle(target, options);
   },
 
-  prevArticle: () => {
-    const { articles, selectedArticleId } = get();
-    if (!articles.length) return;
-    const idx = articles.findIndex((a) => a.id === selectedArticleId);
-    if (idx > 0) {
-      get().setSelectedArticle(articles[idx - 1]);
-    } else {
-      // Wrap-around to end
-      get().setSelectedArticle(articles[articles.length - 1]);
+  prevArticle: (options) => {
+    const { target, refreshedQueueIds } = navigateArticleStep(get(), -1);
+    if (!target) return;
+    if (refreshedQueueIds) {
+      set({ autoAdvanceQueueIds: refreshedQueueIds });
     }
-    get().triggerAutoAdvanceReset();
+    get().setSelectedArticle(target, options);
   },
 
   // Auto-Advance State & Handlers
+  autoAdvanceQueueIds: [],
   isAutoAdvanceManualPaused: false,
   setIsAutoAdvanceManualPaused: (paused) => set({ isAutoAdvanceManualPaused: paused }),
   toggleAutoAdvanceManualPaused: () =>
     set((state) => ({ isAutoAdvanceManualPaused: !state.isAutoAdvanceManualPaused })),
+  toggleStatusStripPlayPause: async () => {
+    const { settings, isAutoAdvanceManualPaused, updateSettings } = get();
+    if (!settings.auto_advance_enabled) {
+      await updateSettings({ auto_advance_enabled: true });
+      return;
+    }
+    set({ isAutoAdvanceManualPaused: !isAutoAdvanceManualPaused });
+  },
   isArticlePanelHovered: false,
   setIsArticlePanelHovered: (hovered) => set({ isArticlePanelHovered: hovered }),
   autoAdvanceResetToken: 0,
@@ -289,20 +340,26 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (match) nextSelected = match;
     }
 
-    set({
+    set((state) => ({
       articles,
       totalArticles: total,
       selectedArticle: nextSelected,
       selectedArticleId: nextSelected?.id ?? null,
       isLoading: false,
-    });
+      // Keep active Auto-Advance queue order stable during background refetches;
+      // initialize or update freely when Auto-Advance is off or queue was reset on filter change.
+      autoAdvanceQueueIds:
+        state.settings.auto_advance_enabled && state.autoAdvanceQueueIds.length > 0
+          ? state.autoAdvanceQueueIds
+          : articles.map((a) => a.id),
+    }));
 
     if (nextSelected && !nextSelected.body_english) {
       get().selectArticleById(nextSelected.id);
     }
   },
 
-  setSelectedArticle: (article) => {
+  setSelectedArticle: (article, options) => {
     playButtonSound(get().settings.sound_enabled);
     set({
       selectedArticle: article,
@@ -313,7 +370,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (article && !article.body_english) {
       get().selectArticleById(article.id);
     }
-    get().triggerAutoAdvanceReset();
+    if (!options?.isAutoAdvance) {
+      get().triggerAutoAdvanceReset();
+    }
   },
 
   selectArticleById: async (id: number) => {
@@ -399,21 +458,21 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSelectedCountry: (country) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ selectedCountry: country });
+    set({ selectedCountry: country, autoAdvanceQueueIds: [] });
   },
 
   setSelectedCategory: (category) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ selectedCategory: category });
+    set({ selectedCategory: category, autoAdvanceQueueIds: [] });
   },
 
   setSearchQuery: (searchQuery) => {
-    set({ searchQuery });
+    set({ searchQuery, autoAdvanceQueueIds: [] });
   },
 
   toggleBreakingOnly: () => {
     playButtonSound(get().settings.sound_enabled);
-    set((state) => ({ isBreakingOnly: !state.isBreakingOnly }));
+    set((state) => ({ isBreakingOnly: !state.isBreakingOnly, autoAdvanceQueueIds: [] }));
   },
 
   // Settings
@@ -482,7 +541,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSettingsOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ isSettingsOpen: open });
+    set((state) => buildOverlayViewPatch(state, 'isSettingsOpen', open, 'settings'));
   },
 
   fetchSettings: async () => {
@@ -490,7 +549,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       const res = await fetch('/api/settings');
       if (res.ok) {
         const data = (await res.json()) as AppSettings;
-        set({ settings: data });
+        set((state) => ({
+          settings: data,
+          isAutoAdvanceManualPaused: false,
+          autoAdvanceQueueIds:
+            data.auto_advance_enabled && state.autoAdvanceQueueIds.length === 0
+              ? state.articles.map((a) => a.id)
+              : state.autoAdvanceQueueIds,
+        }));
       }
     } catch {
       // use default
@@ -499,8 +565,19 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateSettings: async (updates) => {
     playButtonSound(get().settings.sound_enabled);
-    // Optimistically update store so UI and timers react instantaneously
-    set((state) => ({ settings: { ...state.settings, ...updates } }));
+    // Optimistically update store so UI and timers react instantaneously.
+    // Toggling auto_advance_enabled always clears any stale manual pause and refreshes queue order.
+    set((state) => ({
+      settings: { ...state.settings, ...updates },
+      ...('auto_advance_enabled' in updates
+        ? {
+            isAutoAdvanceManualPaused: false,
+            autoAdvanceQueueIds: updates.auto_advance_enabled
+              ? state.articles.map((a) => a.id)
+              : [],
+          }
+        : {}),
+    }));
     try {
       const res = await fetch('/api/settings', {
         method: 'PATCH',
@@ -626,47 +703,53 @@ export const useAppStore = create<AppState>((set, get) => ({
   compareClusterId: null,
   setCompareClusterId: (id) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ compareClusterId: id });
+    set((state) => ({
+      compareClusterId: id,
+      ...(!id && state.currentView === 'compare' ? { currentView: 'reader' as AppView } : {}),
+    }));
   },
   timelineClusterId: null,
   setTimelineClusterId: (id) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ timelineClusterId: id });
+    set((state) => ({
+      timelineClusterId: id,
+      ...(!id && state.currentView === 'timeline' ? { currentView: 'reader' as AppView } : {}),
+    }));
   },
 
   // Archive Chat (Phase 8)
   isArchiveChatOpen: false,
   setArchiveChatOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ isArchiveChatOpen: open });
+    set((state) => buildOverlayViewPatch(state, 'isArchiveChatOpen', open, 'archive'));
   },
 
   // Globe & Wildlife Map (Phase 9)
   isGlobeOpen: false,
   setGlobeOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ isGlobeOpen: open });
+    set((state) => buildOverlayViewPatch(state, 'isGlobeOpen', open, 'globe'));
   },
 
   // Morning Briefing & Read-Aloud (Phase 10)
   isBriefingOpen: false,
   setBriefingOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ isBriefingOpen: open });
+    set((state) => buildOverlayViewPatch(state, 'isBriefingOpen', open, 'briefing'));
   },
 
   // Daily Newspaper PDF Desk (Step 12)
   isPdfOpen: false,
   setPdfOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ isPdfOpen: open });
+    set((state) => buildOverlayViewPatch(state, 'isPdfOpen', open, 'pdf'));
   },
 
   // TV View (Phase 11)
   isTvViewOpen: false,
   setTvViewOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ isTvViewOpen: open });
+    set((state) => buildOverlayViewPatch(state, 'isTvViewOpen', open, 'tv'));
   },
   selectedTvChannelId: null,
   setSelectedTvChannelId: (id) => {
@@ -678,28 +761,28 @@ export const useAppStore = create<AppState>((set, get) => ({
   isWatchlistOpen: false,
   setWatchlistOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ isWatchlistOpen: open });
+    set((state) => buildOverlayViewPatch(state, 'isWatchlistOpen', open, 'watchlist'));
   },
 
   // Alerts Center Desk (Step 13)
   isAlertsOpen: false,
   setAlertsOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ isAlertsOpen: open });
+    set((state) => buildOverlayViewPatch(state, 'isAlertsOpen', open, 'alerts'));
   },
 
   // API & Sources Settings Desk (Step 14)
   isSourcesOpen: false,
   setSourcesOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ isSourcesOpen: open });
+    set((state) => buildOverlayViewPatch(state, 'isSourcesOpen', open, 'sources-settings'));
   },
 
   // Control Room Desk (PRD A Category 11)
   isControlRoomOpen: false,
   setControlRoomOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ isControlRoomOpen: open });
+    set((state) => buildOverlayViewPatch(state, 'isControlRoomOpen', open, 'control-room'));
   },
 
   // Live Feed Counter & Telemetry (PRD A Category 8)

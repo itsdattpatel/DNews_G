@@ -61,9 +61,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ forcedOpen }) =>
   const isBreakingOnly = useAppStore((s) => s.isBreakingOnly);
   const toggleBreakingOnly = useAppStore((s) => s.toggleBreakingOnly);
 
-  // Global Ctrl+K / Cmd+K trigger
+  // Global Ctrl+K / Cmd+K trigger + Escape close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isOpen && e.key === 'Escape') {
+        e.preventDefault();
+        setIsOpen(false);
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'k' || e.code === 'KeyK')) {
         e.preventDefault();
         setIsOpen(!isOpen);

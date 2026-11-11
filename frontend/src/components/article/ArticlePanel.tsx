@@ -78,6 +78,13 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
     setShowOriginal(false);
   }, [article?.id]);
 
+  // Ensure unmount (e.g. Plain/Dual switch or Category view) never strands hover pause
+  useEffect(() => {
+    return () => {
+      setIsArticlePanelHovered(false);
+    };
+  }, [setIsArticlePanelHovered]);
+
   // Scroll to active anchor when activeSentenceIndex changes (respecting reduced-motion)
   useEffect(() => {
     if (activeSentenceIndex !== null && scrollContainerRef.current) {

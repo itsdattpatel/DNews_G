@@ -123,8 +123,8 @@ export const TopBar: React.FC = () => {
           }}
           title={
             settings.auto_advance_enabled
-              ? 'Disable Auto-Advance (7s interval)'
-              : 'Enable Auto-Advance (7s ambient reading)'
+              ? `Disable Auto-Advance (${settings.auto_advance_interval_sec ?? 7}s interval)`
+              : `Enable Auto-Advance (${settings.auto_advance_interval_sec ?? 7}s ambient reading)`
           }
           className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xs border text-xs font-bold transition-all cursor-pointer ${
             settings.auto_advance_enabled

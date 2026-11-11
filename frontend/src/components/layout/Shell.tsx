@@ -63,13 +63,6 @@ export const Shell: React.FC = () => {
         return;
       }
 
-      // S1: Command Palette (Ctrl+K or Cmd+K)
-      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'k' || e.code === 'KeyK')) {
-        e.preventDefault();
-        useAppStore.getState().toggleCommandPalette();
-        return;
-      }
-
       // S3: Layout Presets (Alt+1, Alt+2, Alt+3)
       if (e.altKey && e.key === '1') {
         e.preventDefault();
@@ -131,7 +124,9 @@ export const Shell: React.FC = () => {
           break;
         case ' ':
           e.preventDefault();
-          useAppStore.getState().toggleAutoAdvanceManualPaused();
+          if (useAppStore.getState().settings.auto_advance_enabled) {
+            useAppStore.getState().toggleAutoAdvanceManualPaused();
+          }
           break;
         case 'arrowright':
           e.preventDefault();

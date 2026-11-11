@@ -10,11 +10,28 @@
  * 5. Plain-mode chip ("Plain: ON/OFF").
  * Nothing else.
  */
-import { useState, useEffect, useRef, memo } from 'react';
+import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Play, Pause, Clock, ZapOff, Sparkles } from 'lucide-react';
 import { SystemHealthIndicator } from './SystemHealthIndicator';
 import { AutoAdvanceDebugHud, isAutoAdvanceDebugEnabled } from '../dev/AutoAdvanceDebugHud';
+import {
+  clampIntervalSec,
+  createAutoAdvanceState,
+  reconcileAutoAdvanceState,
+  resetAutoAdvanceInterval,
+  tickAutoAdvanceState,
+  type AutoAdvanceFlags,
+  type AutoAdvanceMachineState,
+} from '../../utils/autoAdvanceMachine';
+
+function isElementEditable(el: Element | null): boolean {
+  if (!el) return false;
+  const tag = el.tagName?.toUpperCase();
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (el.getAttribute?.('contenteditable') === 'true') return true;
+  return typeof HTMLElement !== 'undefined' && el instanceof HTMLElement && el.isContentEditable;
+}
 
 export interface StatusStripProps {
   forcedPauseReason?: string | null;
@@ -33,7 +50,7 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
   const updateSettings = useAppStore((s) => s.updateSettings);
   const nextArticle = useAppStore((s) => s.nextArticle);
   const isAutoAdvanceManualPaused = useAppStore((s) => s.isAutoAdvanceManualPaused);
-  const toggleAutoAdvanceManualPaused = useAppStore((s) => s.toggleAutoAdvanceManualPaused);
+  const toggleStatusStripPlayPause = useAppStore((s) => s.toggleStatusStripPlayPause);
   const isArticlePanelHovered = useAppStore((s) => s.isArticlePanelHovered);
   const autoAdvanceResetToken = useAppStore((s) => s.autoAdvanceResetToken);
 
@@ -49,40 +66,51 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
   const isGlobeOpen = useAppStore((s) => s.isGlobeOpen);
   const isWatchlistOpen = useAppStore((s) => s.isWatchlistOpen);
   const isBriefingOpen = useAppStore((s) => s.isBriefingOpen);
+  const isCommandPaletteOpen = useAppStore((s) => s.isCommandPaletteOpen);
   const isMissedNewsModalOpen = useAppStore((s) => s.isMissedNewsModalOpen);
   const setMissedNewsModalOpen = useAppStore((s) => s.setMissedNewsModalOpen);
   const storeStartupStatus = useAppStore((s) => s.startupStatus);
   const startupStatus = forcedStartupStatus !== undefined ? forcedStartupStatus : storeStartupStatus;
 
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [isTabHidden, setIsTabHidden] = useState(false);
-  const [progressPercent, setProgressPercent] = useState(0);
-  const [remainingSeconds, setRemainingSeconds] = useState(settings.auto_advance_interval_sec ?? 7);
+  const [isTabHidden, setIsTabHidden] = useState(() =>
+    typeof document !== 'undefined' ? document.visibilityState === 'hidden' : false,
+  );
 
-  // Monitor input focus globally
+  // Monitor input focus globally without leaving stale flags when focused nodes unmount
   useEffect(() => {
-    const handleFocusIn = () => {
-      const active = document.activeElement;
-      if (
-        active &&
-        (['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) ||
-          active.getAttribute('contenteditable') === 'true')
-      ) {
-        setIsInputFocused(true);
-      }
+    const syncFocusState = () => {
+      setIsInputFocused(isElementEditable(document.activeElement));
     };
 
     const handleFocusOut = () => {
-      setIsInputFocused(false);
+      queueMicrotask(syncFocusState);
     };
 
-    window.addEventListener('focusin', handleFocusIn);
+    window.addEventListener('focusin', syncFocusState);
     window.addEventListener('focusout', handleFocusOut);
     return () => {
-      window.removeEventListener('focusin', handleFocusIn);
+      window.removeEventListener('focusin', syncFocusState);
       window.removeEventListener('focusout', handleFocusOut);
     };
   }, []);
+
+  // Re-verify document.activeElement whenever modals or views close/switch
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    setIsInputFocused(isElementEditable(document.activeElement));
+  }, [
+    currentView,
+    isSettingsOpen,
+    isArchiveChatOpen,
+    isAlertsOpen,
+    isSourcesOpen,
+    isWatchlistOpen,
+    isControlRoomOpen,
+    isGlobeOpen,
+    isCommandPaletteOpen,
+    isMissedNewsModalOpen,
+  ]);
 
   // Monitor tab visibility
   useEffect(() => {
@@ -94,108 +122,113 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  // Determine current pause reason (if any) per PRD A 2.2
   const isEnabled =
     forcedAutoAdvanceEnabled !== undefined
       ? forcedAutoAdvanceEnabled
       : Boolean(settings.auto_advance_enabled);
-  const intervalSec = settings.auto_advance_interval_sec ?? 7;
+  const intervalSec = clampIntervalSec(settings.auto_advance_interval_sec);
   const pauseOnHover = settings.auto_advance_pause_on_hover ?? true;
   const isPlainMode =
     forcedPlainMode !== undefined ? forcedPlainMode : Boolean(settings.plain_mode_enabled);
 
-  let calculatedPauseReason: string | null = null;
-  if (!isEnabled) {
-    calculatedPauseReason = null;
-  } else if (isAutoAdvanceManualPaused) {
-    calculatedPauseReason = 'Manual pause';
-  } else if (isTabHidden) {
-    calculatedPauseReason = 'Background tab';
-  } else if (isSettingsOpen) {
-    calculatedPauseReason = 'Settings open';
-  } else if (currentView !== 'reader') {
-    calculatedPauseReason = 'Directory view';
-  } else if (isTvViewOpen) {
-    calculatedPauseReason = 'TV desk open';
-  } else if (isPdfOpen) {
-    calculatedPauseReason = 'PDF desk open';
-  } else if (isArchiveChatOpen) {
-    calculatedPauseReason = 'Archive open';
-  } else if (isAlertsOpen) {
-    calculatedPauseReason = 'Alerts open';
-  } else if (isSourcesOpen) {
-    calculatedPauseReason = 'Sources open';
-  } else if (isControlRoomOpen) {
-    calculatedPauseReason = 'Control Room open';
-  } else if (isGlobeOpen) {
-    calculatedPauseReason = 'Globe open';
-  } else if (isWatchlistOpen) {
-    calculatedPauseReason = 'Watchlist open';
-  } else if (isBriefingOpen) {
-    calculatedPauseReason = 'Briefing open';
-  } else if (isMissedNewsModalOpen) {
-    calculatedPauseReason = 'Catch-up open';
-  } else if (isInputFocused) {
-    calculatedPauseReason = 'Input focused';
-  } else if (pauseOnHover && isArticlePanelHovered) {
-    calculatedPauseReason = 'Reading (hover)';
-  }
+  const flags = useMemo<AutoAdvanceFlags>(
+    () => ({
+      enabled: isEnabled,
+      intervalSec,
+      manualPaused: isAutoAdvanceManualPaused,
+      isTabHidden,
+      isSettingsOpen,
+      currentView,
+      isTvViewOpen,
+      isPdfOpen,
+      isArchiveChatOpen,
+      isAlertsOpen,
+      isSourcesOpen,
+      isControlRoomOpen,
+      isGlobeOpen,
+      isWatchlistOpen,
+      isBriefingOpen,
+      isCommandPaletteOpen,
+      isMissedNewsModalOpen,
+      isInputFocused,
+      pauseOnHover,
+      isArticlePanelHovered,
+    }),
+    [
+      isEnabled,
+      intervalSec,
+      isAutoAdvanceManualPaused,
+      isTabHidden,
+      isSettingsOpen,
+      currentView,
+      isTvViewOpen,
+      isPdfOpen,
+      isArchiveChatOpen,
+      isAlertsOpen,
+      isSourcesOpen,
+      isControlRoomOpen,
+      isGlobeOpen,
+      isWatchlistOpen,
+      isBriefingOpen,
+      isCommandPaletteOpen,
+      isMissedNewsModalOpen,
+      isInputFocused,
+      pauseOnHover,
+      isArticlePanelHovered,
+    ],
+  );
 
-  const pauseReason = forcedPauseReason !== undefined ? forcedPauseReason : calculatedPauseReason;
-  const isPaused = Boolean(pauseReason);
+  const flagsRef = useRef<AutoAdvanceFlags>(flags);
+  flagsRef.current = flags;
 
-  // Timer loop with full restart on resume
-  const elapsedMsRef = useRef(0);
-  const wasPausedRef = useRef(isPaused);
+  const [machineState, setMachineState] = useState<AutoAdvanceMachineState>(() =>
+    createAutoAdvanceState(flags, Date.now()),
+  );
+  const machineRef = useRef<AutoAdvanceMachineState>(machineState);
+  const prevResetTokenRef = useRef<number>(autoAdvanceResetToken);
 
+  // Reconcile state machine when flags/visibility/interval change
   useEffect(() => {
-    if (!isEnabled) {
-      setProgressPercent(0);
-      setRemainingSeconds(intervalSec);
-      elapsedMsRef.current = 0;
-      return;
-    }
+    const next = reconcileAutoAdvanceState(machineRef.current, flags, Date.now(), 4000);
+    machineRef.current = next;
+    setMachineState(next);
+  }, [flags]);
 
-    // On resume from paused state, restart with a FULL interval per PRD A 2.2
-    if (wasPausedRef.current && !isPaused) {
-      elapsedMsRef.current = 0;
-      setProgressPercent(0);
-      setRemainingSeconds(intervalSec);
-    }
-    wasPausedRef.current = isPaused;
+  // Restart full interval on manual navigation (j / k / card click)
+  useEffect(() => {
+    if (autoAdvanceResetToken === prevResetTokenRef.current) return;
+    prevResetTokenRef.current = autoAdvanceResetToken;
+    const next = resetAutoAdvanceInterval(machineRef.current, flagsRef.current, Date.now());
+    machineRef.current = next;
+    setMachineState(next);
+  }, [autoAdvanceResetToken]);
 
-    if (isPaused) {
-      return;
-    }
-
-    const totalMs = intervalSec * 1000;
-    const tickMs = 50;
+  // Real-clock ticker active only while state machine is running
+  const isRunning = machineState.mode === 'running' && forcedPauseReason === undefined;
+  useEffect(() => {
+    if (!isRunning) return;
 
     const timer = setInterval(() => {
-      elapsedMsRef.current += tickMs;
-      const progress = Math.min(100, (elapsedMsRef.current / totalMs) * 100);
-      setProgressPercent(progress);
+      const result = tickAutoAdvanceState(machineRef.current, flagsRef.current, Date.now(), {
+        maxTickGapMs: 4000,
+        sleepOverdueGraceMs: 2500,
+      });
+      machineRef.current = result.state;
+      setMachineState(result.state);
 
-      const remSec = Math.max(1, Math.ceil((totalMs - elapsedMsRef.current) / 1000));
-      setRemainingSeconds(remSec);
-
-      if (elapsedMsRef.current >= totalMs) {
-        elapsedMsRef.current = 0;
-        setProgressPercent(0);
-        setRemainingSeconds(intervalSec);
-        nextArticle();
+      if (result.shouldAdvance) {
+        nextArticle({ isAutoAdvance: true });
       }
-    }, tickMs);
+    }, 100);
 
     return () => clearInterval(timer);
-  }, [isEnabled, isPaused, intervalSec, nextArticle]);
+  }, [isRunning, nextArticle]);
 
-  // Reset countdown whenever an article is manually selected
-  useEffect(() => {
-    elapsedMsRef.current = 0;
-    setProgressPercent(0);
-    setRemainingSeconds(intervalSec);
-  }, [autoAdvanceResetToken, intervalSec]);
+  const calculatedPauseReason = machineState.winningPauseReason;
+  const pauseReason = forcedPauseReason !== undefined ? forcedPauseReason : calculatedPauseReason;
+  const isPaused = isEnabled && Boolean(pauseReason);
+  const progressPercent = isEnabled && !isPaused ? machineState.progressPercent : 0;
+  const remainingSeconds = isEnabled ? machineState.remainingSeconds : intervalSec;
 
   return (
     <div
@@ -222,12 +255,24 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
           <button
             type="button"
             id="btn-status-strip-play-pause"
-            onClick={toggleAutoAdvanceManualPaused}
-            title={isAutoAdvanceManualPaused ? 'Resume auto-advance (Space)' : 'Pause auto-advance (Space)'}
-            aria-label={isAutoAdvanceManualPaused ? 'Resume auto-advance' : 'Pause auto-advance'}
+            onClick={() => void toggleStatusStripPlayPause()}
+            title={
+              !isEnabled
+                ? 'Start auto-advance'
+                : isAutoAdvanceManualPaused
+                  ? 'Resume auto-advance (Space)'
+                  : 'Pause auto-advance (Space)'
+            }
+            aria-label={
+              !isEnabled
+                ? 'Start auto-advance'
+                : isAutoAdvanceManualPaused
+                  ? 'Resume auto-advance'
+                  : 'Pause auto-advance'
+            }
             className="p-1 rounded-2xs border border-paper-border hover:border-ink bg-paper text-ink hover:text-accent transition-colors shrink-0 cursor-pointer"
           >
-            {isAutoAdvanceManualPaused || !isEnabled ? <Play size={10} /> : <Pause size={10} />}
+            {!isEnabled || isAutoAdvanceManualPaused ? <Play size={10} /> : <Pause size={10} />}
           </button>
 
           {/* Auto-Advance State & Reason */}
@@ -252,7 +297,7 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
             ) : (
               <span id="status-strip-state-running" className="text-positive font-bold flex items-center gap-1 shrink-0">
                 <span>▶ Advancing in</span>
-                <span className="font-bold text-ink">{remainingSeconds}s</span>
+                <span className="font-bold text-ink tabular-nums inline-block min-w-[2.4ch]">{remainingSeconds}s</span>
               </span>
             )}
 

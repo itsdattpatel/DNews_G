@@ -7,6 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../../store/useAppStore';
+import { collectPauseReasons } from '../../utils/autoAdvanceMachine';
 
 export type AutoAdvanceStateLabel = 'OFF' | 'RUNNING' | 'PAUSED';
 
@@ -44,25 +45,29 @@ export interface PauseFlagSnapshot {
 }
 
 export function collectActivePauseReasons(flags: PauseFlagSnapshot): string[] {
-  const reasons: string[] = [];
-  if (flags.isAutoAdvanceManualPaused) reasons.push('Manual pause');
-  if (flags.isTabHidden) reasons.push('Background tab');
-  if (flags.isSettingsOpen) reasons.push('Settings open');
-  if (flags.currentView !== 'reader') reasons.push(`View: ${flags.currentView}`);
-  if (flags.isTvViewOpen) reasons.push('TV desk open');
-  if (flags.isPdfOpen) reasons.push('PDF desk open');
-  if (flags.isArchiveChatOpen) reasons.push('Archive chat open');
-  if (flags.isAlertsOpen) reasons.push('Alerts open');
-  if (flags.isSourcesOpen) reasons.push('Sources open');
-  if (flags.isControlRoomOpen) reasons.push('Control room open');
-  if (flags.isGlobeOpen) reasons.push('Globe open');
-  if (flags.isWatchlistOpen) reasons.push('Watchlist open');
-  if (flags.isBriefingOpen) reasons.push('Briefing open');
-  if (flags.isCommandPaletteOpen) reasons.push('Command palette open');
-  if (flags.isMissedNewsModalOpen) reasons.push('Catch-up open');
-  if (flags.isInputFocused) reasons.push('Input focused');
-  if (flags.pauseOnHover && flags.isArticlePanelHovered) reasons.push('Reading (hover)');
-  return reasons;
+  return collectPauseReasons(
+    {
+      manualPaused: flags.isAutoAdvanceManualPaused,
+      isTabHidden: flags.isTabHidden,
+      isSettingsOpen: flags.isSettingsOpen,
+      currentView: flags.currentView,
+      isTvViewOpen: flags.isTvViewOpen,
+      isPdfOpen: flags.isPdfOpen,
+      isArchiveChatOpen: flags.isArchiveChatOpen,
+      isAlertsOpen: flags.isAlertsOpen,
+      isSourcesOpen: flags.isSourcesOpen,
+      isControlRoomOpen: flags.isControlRoomOpen,
+      isGlobeOpen: flags.isGlobeOpen,
+      isWatchlistOpen: flags.isWatchlistOpen,
+      isBriefingOpen: flags.isBriefingOpen,
+      isCommandPaletteOpen: flags.isCommandPaletteOpen,
+      isMissedNewsModalOpen: flags.isMissedNewsModalOpen,
+      isInputFocused: flags.isInputFocused,
+      pauseOnHover: flags.pauseOnHover,
+      isArticlePanelHovered: flags.isArticlePanelHovered,
+    },
+    (view) => `View: ${view}`,
+  );
 }
 
 export function isAutoAdvanceDebugEnabled(debugLoggingSetting?: boolean): boolean {
