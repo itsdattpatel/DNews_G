@@ -138,4 +138,24 @@
   - In Step 5A, we will run the automated probe script and output a complete audit table of all 28 channels (pass/fail, status, exact reason, proxy logs) and wait for your approval before touching playback code.
   - In Category 6, we will verify the Top 5 outlets of IN, US, CN, JP, AU and animal cams, output `/config/channels-top5.json`, and present the table for your approval before updating the database.
 
+---
+
+## PRD D: Auto-Advance Fix, Live-Update Audit & Theme System
+
+### Active Open Questions & Decisions Needed
+
+#### 1. [Category 11 / Print] Print & PDF Export Theme Independence
+- **Confirmation needed**: Confirm that the newspaper Daily Briefing PDF export (`/api/export/briefing-pdf`) ALWAYS renders using a print-safe high-contrast light ink-on-paper palette regardless of which UI theme (e.g. Night Edition, Amber Terminal, Wine & Rose, or Custom) is currently selected by the user.
+
+#### 2. [Category 7 & 8] Classic Paper & Night Edition Exact Anchor Hexes
+- **Observation**: Category 7 mandates that "Classic Paper" and "Night Edition" remain pixel-identical to their current PRD C appearance (`#FAF7F0` background / `#1A1208` ink for Paper; `#0E0C09` background / `#E8E4DA` ink for Night). Meanwhile, Category 8 lists starting values `#F5F0E6` / `#1A1A1A` and `#121110` / `#EDE6D6`.
+- **Question**: To preserve 0.00% pixel-diff invariance as required by Category 7 & Category 11 acceptance criteria ("the two original themes are pixel-identical to before"), should Classic Paper use exact PRD C `#FAF7F0` / `#1A1208` and Night Edition use exact PRD C `#0E0C09` / `#E8E4DA`, with the other 10 new themes using the PRD D hex tables?
+
+#### 3. [Category 4] Live Refresh Interval Placement & Telemetry Behavior
+- **Confirmation needed**: Confirm placing the `"Live refresh interval"` control (default `5s`, slider `2s–30s`) under **Settings > News & Sources**, while letting zero-layout-shift counters (Feed Counter badge and Gap chip) update instantaneously upon SSE arrival.
+
+#### 4. [Category 10] Category Tags Non-Color Accessibility Cues
+- **Proposal**: Render each of the 11 category stamps with both a WCAG-compliant semantic color pair (`--cat-<name>-bg`/`-fg`) and a crisp non-color cue (e.g. distinct micro-icon or 2-character typographic bureau stamp alongside the label) so color-vision deficiency never obscures category distinction.
+- **Confirmation needed**: Do you approve pairing tiny broadsheet glyphs/stamps alongside category names?
+
 

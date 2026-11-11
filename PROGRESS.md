@@ -996,3 +996,46 @@
 - **Documentation & Release Sign-off**:
   - Generated `/docs/PRD_C_MASTER_QA_REPORT.md` documenting all 9 categories, verification gates, and screenshot evidence.
   - `docs/CREDITS.md` vetted with exact versions and licenses for all dependencies.
+
+---
+
+# Progress Tracker — PRD D: Auto-Advance Fix, Live-Update Audit & Theme System
+*Version 1.0 · 2026-11-11 · AI World News Desk*
+
+---
+
+## Overall Status
+
+| Step | Category | Status | Proof / Evidence Required | Timestamp |
+| :--- | :--- | :---: | :--- | :--- |
+| **0** | **Documentation & Prerequisites** | 🟢 `DONE` | `/docs/PRD_D.md`, `/docs/AUTO_ADVANCE_DEBUG.md`, `/docs/LIVE_UPDATE_AUDIT.md`, `/docs/THEME_SPEC.md`, `/docs/OPEN_QUESTIONS.md`, `PROGRESS.md`, clean git commit & DB backup | 2026-11-11 21:00 |
+| **1** | **Auto-Advance Diagnose** | ⚪ `PENDING` | Trace stored keys, button handler, pause reasons, SSE interference; temporary `?debug_auto=1` HUD; update `AUTO_ADVANCE_DEBUG.md` | — |
+| **2** | **Auto-Advance Fix** | ⚪ `PENDING` | Timestamp-driven state machine (`off`, `running`, `paused(reasons[])`); hover switch; sleep/wake recovery; Vitest 20-advance & wrap-around tests | — |
+| **3** | **Live-Update Audit** | ⚪ `PENDING` | Automated TEST-DB Playwright probe across all 21 Main Desk + 7 Library surfaces; latency & SSE/polling audit in `LIVE_UPDATE_AUDIT.md` | — |
+| **4** | **Live-Update Fixes (Main Desk)** | ⚪ `PENDING` | Single typed SSE event bus, Last-Event-ID replay, client dedupe, Reconnecting chip, batching (2–30s), virtualization & 30m memory stability | — |
+| **5** | **UI Stability (No Jumping)** | ⚪ `PENDING` | Snapshot reading queue + "N new stories" pill; zero scroll jump; tabular nums; zero remounts; 0px layout shift test | — |
+| **6** | **Live-Update Fixes (Library)** | ⚪ `PENDING` | Unified real-time updates for History, Wisdom, Mind Helps, cross-tab bookmarks; strict PRD B isolation; pixel-diff invariance check | — |
+| **7** | **Theme Architecture + Color Purge** | ⚪ `PENDING` | Semantic CSS variables; codebase purge of all literal colors; anti-FOUC inline boot script; Classic Paper & Night Edition pixel-diff proof | — |
+| **8** | **The 12 Themes + Theme Picker** | ⚪ `PENDING` | 12 manual themes (5 Light, 6 Dark, High Contrast AAA 7:1); automated WCAG contrast gate; Settings gallery + Rail popover + Cmd palette | — |
+| **9** | **Custom Accent Color** | ⚪ `PENDING` | Native picker + hex + HSL sliders; live contrast scorecard & auto-correction; auto-derived hover/text/link/selection; reset button | — |
+| **10** | **Category Tags & Map Colors** | ⚪ `PENDING` | Distinct 11 category pairs per theme + non-color cues; WebGL Globe & flat-map dynamic token recolor without camera reset | — |
+| **11** | **Master QA & Verification** | ⚪ `PENDING` | Screenshots across all 12 + 1 custom themes (1366×768 & 1920×1080); contrast script; hardcoded color scan; live-update & auto-advance suites; ui-visual-validator; security-auditor | — |
+
+---
+
+## Prerequisite Verification — PRD D
+- [x] **PRD C Completed & Approved**: All 9 categories finished (`eea2544`), 457 tests passed, Security Audit 19/19 passed, Viewport Matrix 8/8 passed, explicitly approved by user.
+- [x] **Pre-PRD D Database Backup**: Created at `backups/news_pre_prd_d_step0_20261111.sqlite` (20.06 MB) and `backups/news_pre_prd_d_root_20261111.sqlite`.
+- [x] **Pre-PRD D Git Checkpoint**: Clean tree committed prior to implementation.
+
+---
+
+## Detailed Category Logs — PRD D
+
+### Step 0: Documentation & Prerequisites (Completed)
+- Authored refined master specification `/docs/PRD_D.md` detailing Categories 0–11.
+- Authored diagnostic blueprint `/docs/AUTO_ADVANCE_DEBUG.md` mapping the 8 auto-advance failure domains, debug HUD design, and clock-driven state machine blueprint.
+- Authored real-time inventory `/docs/LIVE_UPDATE_AUDIT.md` enumerating all 21 Main Desk and 7 Library data surfaces and TEST-DB Playwright testing protocols.
+- Authored design token architecture `/docs/THEME_SPEC.md` specifying all semantic CSS variables, 12 preset starting palettes, WCAG 2.1 contrast equations, custom accent auto-correction math, and first-paint anti-FOUC boot script.
+- Appended ambiguity clarifications for user direction in `/docs/OPEN_QUESTIONS.md`.
+- Backed up live SQLite database into `backups/`.
