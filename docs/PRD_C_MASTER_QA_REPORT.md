@@ -70,3 +70,4 @@ The following visual artifacts were generated during Category 9 verification:
 - `ui-cat9-master-settings-dialog.png`: Unified Settings & Preferences Dialog (11 sections, search, autosave).
 - `ui-cat9-master-command-palette.png`: Broadsheet Command Palette (`Ctrl+K`).
 - `ui-cat9-master-library-desk.png`: The Library Shell (Historical News, Timeless Wisdom, Mind Helps).
+
