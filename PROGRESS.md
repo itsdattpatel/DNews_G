@@ -1009,7 +1009,7 @@
 | Step | Category | Status | Proof / Evidence Required | Timestamp |
 | :--- | :--- | :---: | :--- | :--- |
 | **0** | **Documentation & Prerequisites** | 🟢 `DONE` | `/docs/PRD_D.md`, `/docs/AUTO_ADVANCE_DEBUG.md`, `/docs/LIVE_UPDATE_AUDIT.md`, `/docs/THEME_SPEC.md`, `/docs/OPEN_QUESTIONS.md`, `PROGRESS.md`, clean git commit & DB backup | 2026-11-11 21:00 |
-| **1** | **Auto-Advance Diagnose** | ⚪ `PENDING` | Trace stored keys, button handler, pause reasons, SSE interference; temporary `?debug_auto=1` HUD; update `AUTO_ADVANCE_DEBUG.md` | — |
+| **1** | **Auto-Advance Diagnose** | 🟢 `DONE` | Root causes (`RC-1` ManualPause deadlock on StatusStrip Play button, `RC-2` modal closes leaving `currentView` stuck out of `'reader'`, `RC-3` Plain Mode full-width hover + unmount hover leak, `RC-4` tick-counted timer, `RC-5` startup catch-up blocker & SSE queue mutation); temporary `?debug_auto=1` HUD built & screenshot-verified; updated `AUTO_ADVANCE_DEBUG.md`; **NO FIXES APPLIED** | 2026-11-11 22:15 |
 | **2** | **Auto-Advance Fix** | ⚪ `PENDING` | Timestamp-driven state machine (`off`, `running`, `paused(reasons[])`); hover switch; sleep/wake recovery; Vitest 20-advance & wrap-around tests | — |
 | **3** | **Live-Update Audit** | ⚪ `PENDING` | Automated TEST-DB Playwright probe across all 21 Main Desk + 7 Library surfaces; latency & SSE/polling audit in `LIVE_UPDATE_AUDIT.md` | — |
 | **4** | **Live-Update Fixes (Main Desk)** | ⚪ `PENDING` | Single typed SSE event bus, Last-Event-ID replay, client dedupe, Reconnecting chip, batching (2–30s), virtualization & 30m memory stability | — |
@@ -1034,8 +1034,19 @@
 
 ### Step 0: Documentation & Prerequisites (Completed)
 - Authored refined master specification `/docs/PRD_D.md` detailing Categories 0–11.
+- Created baseline diagnostic specs `/docs/AUTO_ADVANCE_DEBUG.md`, `/docs/LIVE_UPDATE_AUDIT.md`, `/docs/THEME_SPEC.md`, and clarified open architectural points in `/docs/OPEN_QUESTIONS.md`.
 - Authored diagnostic blueprint `/docs/AUTO_ADVANCE_DEBUG.md` mapping the 8 auto-advance failure domains, debug HUD design, and clock-driven state machine blueprint.
 - Authored real-time inventory `/docs/LIVE_UPDATE_AUDIT.md` enumerating all 21 Main Desk and 7 Library data surfaces and TEST-DB Playwright testing protocols.
 - Authored design token architecture `/docs/THEME_SPEC.md` specifying all semantic CSS variables, 12 preset starting palettes, WCAG 2.1 contrast equations, custom accent auto-correction math, and first-paint anti-FOUC boot script.
 - Appended ambiguity clarifications for user direction in `/docs/OPEN_QUESTIONS.md`.
-- Backed up live SQLite database into `backups/`.
+- Backed up live SQLite databases (`backups/news_pre_prd_d_step0_20261111.sqlite` & `backups/news_pre_prd_d_root_20261111.sqlite`) and established pre-PRD D git commit checkpoint.
+
+### Step 1: Auto-Advance Diagnose (Completed — Stopped for Approval Before Fixes)
+- **Empirical Investigation**: Ran automated Playwright diagnostic probes (`diagnose-auto-advance.cjs`, `diagnose-edge-cases-2.cjs`, `verify-debug-hud.cjs`) and full source inspection across settings schema, `TopBar.tsx`, `StatusStrip.tsx`, `Shell.tsx`, `ArticlePanel.tsx`, `UnifiedSettingsDialog.tsx`, `BatMenuOverlay.tsx`, `RightIconRail.tsx`, `useAppStore.ts`, `useSSE.ts`, and `CardStrip.tsx`.
+- **Confirmed Root Causes**:
+  - **RC-1**: `#btn-status-strip-play-pause` toggles `isAutoAdvanceManualPaused` even when `auto_advance_enabled === false`, deadlocking subsequent TopBar Auto clicks in `Paused: Manual pause`.
+  - **RC-2**: Opening overlays (`TVView`, `WorldMap`, `ControlRoomDesk`, `AlertsCenter`, etc.) via Rail / Bat Menu / Command Palette sets `currentView` to `'tv' | 'globe' | ...`, and closing them never resets `currentView` back to `'reader'`, permanently locking `StatusStrip` in `Paused: Directory view`.
+  - **RC-3**: `plain_mode_enabled: true` expands `ArticlePanel` to full width (`1492×578 px`), and unmounting `ArticlePanel` while hovered fails to fire `onMouseLeave`, stranding `isArticlePanelHovered: true`.
+  - **RC-4 / RC-5**: `setInterval(..., 100)` uses tick-counting rather than wall-clock timestamps; `nextArticle()` double-increments `autoAdvanceResetToken`; startup `MissedNewsModal` blocks initial UI on downtime `>= 5`m; `frontend/index.html` `<html class="dark">` affects un-themed `document.body` portals.
+- **Temporary Debug HUD**: Added `?debug_auto=1` readout (`frontend/src/components/dev/AutoAdvanceDebugHud.tsx`) mounted conditionally in `StatusStrip.tsx`, verified zero leaks (`0` DOM nodes without flag), inspected screenshots (`off`, `running`, `stuck-view`), and added HUD unit tests (`auto-advance-debug-hud.test.tsx`).
+- **Status**: Documented full evidence & Cat 2 blueprint in `/docs/AUTO_ADVANCE_DEBUG.md`; **waiting for user approval before Category 2 fixes**.

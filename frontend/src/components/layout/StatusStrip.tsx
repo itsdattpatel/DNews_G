@@ -14,6 +14,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Play, Pause, Clock, ZapOff, Sparkles } from 'lucide-react';
 import { SystemHealthIndicator } from './SystemHealthIndicator';
+import { AutoAdvanceDebugHud, isAutoAdvanceDebugEnabled } from '../dev/AutoAdvanceDebugHud';
 
 export interface StatusStripProps {
   forcedPauseReason?: string | null;
@@ -301,6 +302,20 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
           <SystemHealthIndicator />
         </div>
       </div>
+
+      {/* TEMPORARY Category 1 Diagnostic HUD (dev flag ?debug_auto=1) */}
+      {isAutoAdvanceDebugEnabled(settings.debug_logging) && (
+        <AutoAdvanceDebugHud
+          isEnabled={isEnabled}
+          isPaused={isPaused}
+          winningPauseReason={calculatedPauseReason}
+          intervalSec={intervalSec}
+          isInputFocused={isInputFocused}
+          isTabHidden={isTabHidden}
+          progressPercent={progressPercent}
+          remainingSeconds={remainingSeconds}
+        />
+      )}
     </div>
   );
 });
