@@ -50,19 +50,19 @@ Every theme implements this unified schema in `:root` / `[data-theme="<id>"]`:
 
 ### 2.3 Category Tag Token Pairs (All 11 Editorial Categories)
 Every theme provides dedicated pairs guaranteeing $\ge 4.5:1$ readability while maintaining consistent hue identity across light/dark modes:
-- `--cat-world-bg` / `--cat-world-fg` (Slate Blue family)
-- `--cat-politics-bg` / `--cat-politics-fg` (Royal Purple-Indigo family)
-- `--cat-business-bg` / `--cat-business-fg` (Amber / Ochre Gold family)
-- `--cat-tech-bg` / `--cat-tech-fg` (Cyan / Teal family)
-- `--cat-science-bg` / `--cat-science-fg` (Cobalt / Azure family)
-- `--cat-health-bg` / `--cat-health-fg` (Rose / Coral family)
-- `--cat-sports-bg` / `--cat-sports-fg` (Tangerine / Burnt Orange family)
-- `--cat-entertainment-bg` / `--cat-entertainment-fg` (Plum / Magenta family)
-- `--cat-environment-bg` / `--cat-environment-fg` (Forest Green family)
-- `--cat-crime-bg` / `--cat-crime-fg` (Brick Red / Crimson family)
-- `--cat-animals-bg` / `--cat-animals-fg` (Sage / Emerald Moss family)
+- `WO` — `--cat-world-bg` / `--cat-world-fg` (Slate Blue family)
+- `PO` — `--cat-politics-bg` / `--cat-politics-fg` (Royal Purple-Indigo family)
+- `BU` — `--cat-business-bg` / `--cat-business-fg` (Amber / Ochre Gold family)
+- `TE` — `--cat-tech-bg` / `--cat-tech-fg` (Cyan / Teal family)
+- `SC` — `--cat-science-bg` / `--cat-science-fg` (Cobalt / Azure family)
+- `HE` — `--cat-health-bg` / `--cat-health-fg` (Rose / Coral family)
+- `SP` — `--cat-sports-bg` / `--cat-sports-fg` (Tangerine / Burnt Orange family)
+- `EN` — `--cat-entertainment-bg` / `--cat-entertainment-fg` (Plum / Magenta family)
+- `EV` — `--cat-environment-bg` / `--cat-environment-fg` (Forest Green family)
+- `CR` — `--cat-crime-bg` / `--cat-crime-fg` (Brick Red / Crimson family)
+- `AN` — `--cat-animals-bg` / `--cat-animals-fg` (Sage / Emerald Moss family)
 
-*Accessibility Invariant*: All category tags combine color with a non-color text cue or vector emblem so color is never the sole carrier of meaning.
+*Accessibility Invariant*: All category tags combine semantic color with their unique 2-character typographic stamp (`WO`..`AN`), `aria-label`, and tooltip displaying the full category name. Small icons appear only where layout width allows, never as the sole differentiator.
 
 ### 2.4 Cartographic Globe & Flat Map Tokens
 Consumed dynamically by `Globe3D.tsx` (Three.js materials) and `WorldMap.tsx` (SVG fills):
@@ -95,7 +95,7 @@ Each theme starts from three canonical anchor colors (Background / Primary Text 
 ### Light Group (5 Themes)
 | # | ID | Name | Starting `--bg` | Starting `--text` | Starting `--accent` | Character |
 | :-: | :--- | :--- | :---: | :---: | :---: | :--- |
-| **1** | `paper` | **Classic Paper** | `#F5F0E6` *(or PRD C `#FAF7F0` — see Open Q)* | `#1A1A1A` | `#C0392B` | Traditional warm newsprint broadsheet |
+| **1** | `paper` | **Classic Paper** | `#FAF7F0` *(exact PRD C value)* | `#1A1208` *(exact PRD C value)* | `#C0392B` | Traditional warm newsprint broadsheet (0.00% pixel-diff invariant) |
 | **2** | `nordic-frost` | **Nordic Frost** | `#EEF2F5` | `#1B2733` | `#2F6FED` | Crisp slate-blue Scandinavian editorial |
 | **3** | `mint-paper` | **Mint Paper** | `#EDF4EE` | `#16251B` | `#2F8F5B` | Botanical sage broadsheet |
 | **4** | `desert-sand` | **Desert Sand** | `#F3E5D0` | `#2E2118` | `#B5541C` | Terracotta ochre & aged parchment |
@@ -104,7 +104,7 @@ Each theme starts from three canonical anchor colors (Background / Primary Text 
 ### Dark Group (6 Themes)
 | # | ID | Name | Starting `--bg` | Starting `--text` | Starting `--accent` | Character |
 | :-: | :--- | :--- | :---: | :---: | :---: | :--- |
-| **6** | `night` | **Night Edition** | `#121110` *(or PRD C `#0E0C09` — see Open Q)* | `#EDE6D6` | `#E5533D` | Nocturnal obsidian desk & warm cream |
+| **6** | `night` | **Night Edition** | `#0E0C09` *(exact PRD C value)* | `#E8E4DA` *(exact PRD C value)* | `#E5533D` | Nocturnal obsidian desk & warm cream (0.00% pixel-diff invariant) |
 | **7** | `midnight-blue` | **Midnight Blue** | `#0E1726` | `#E6ECF5` | `#4DA3FF` | Deep maritime navy wire room |
 | **8** | `forest-wildlife` | **Forest Wildlife** | `#0F1E17` | `#E4EFE6` | `#6FCF97` | Pine canopy night watch |
 | **9** | `ocean-teal` | **Ocean Teal** | `#0B1F2A` | `#DDEFF2` | `#2EC4B6` | Abyssal teal teleprinter |
@@ -137,6 +137,7 @@ $$CR = \frac{\max(L_1, L_2) + 0.05}{\min(L_1, L_2) + 0.05}$$
 3. Foreground on Accent (`--text-on-accent`): Automatically evaluates $CR(\text{white}, \text{accent})$ vs $CR(\text{black}, \text{accent})$ and picks the winner.
 4. Category Tag Text (`--cat-*-fg`) vs Category Tag Surface (`--cat-*-bg`): **$\ge 4.5:1$**.
 5. Focus Ring (`--focus`) and UI Borders (`--border`): **$\ge 3.0:1$** against neighboring backgrounds.
+6. **Classic Paper & Night Edition Preservation**: Automated contrast checks also run against Classic Paper and Night Edition. If any shipped pair falls below threshold, it MUST NOT be silently modified; instead, each failing pair + measured ratio is recorded in this specification alongside an opt-in proposal for explicit user decision.
 
 ---
 
@@ -164,7 +165,14 @@ All source files matching the patterns below will be systematically refactored d
 
 ## 7. Print & PDF Export Behavior
 
-Newspaper briefing PDF generation (`/api/export/briefing-pdf`) operates independently of the UI dark/colorful theme, rendering cleanly in high-contrast ink-on-white paper safe for physical printers *(see `/docs/OPEN_QUESTIONS.md`)*.
+Newspaper briefing PDF generation (`/api/export/briefing-pdf`) operates completely independently of UI dark/colorful themes or custom accents, using an isolated print-safe token set (`--print-*`):
+- `--print-paper`: `#FFFFFF` (Clean white stock)
+- `--print-ink`: `#111111` ($\ge 18.8:1$ AAA text contrast)
+- `--print-ink-muted`: `#444444` ($\ge 9.7:1$ AAA metadata contrast)
+- `--print-rule`: `#CCCCCC` (Column rules)
+- `--print-accent`: `#8B0000` (Fixed print breaking crimson, unaffected by custom accent)
+
+All print tokens are verified against $\ge 4.5:1$ contrast on `#FFFFFF`.
 
 ---
 
@@ -189,3 +197,4 @@ Newspaper briefing PDF generation (`/api/export/briefing-pdf`) operates independ
 </script>
 ```
 Once the React app mounts and fetches `/api/settings`, the backend database state reconciles and updates `localStorage` if differences exist.
+

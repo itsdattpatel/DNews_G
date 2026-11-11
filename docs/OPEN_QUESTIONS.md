@@ -142,20 +142,36 @@
 
 ## PRD D: Auto-Advance Fix, Live-Update Audit & Theme System
 
-### Active Open Questions & Decisions Needed
+### Resolved Decisions & Clarifications — PRD D
 
 #### 1. [Category 11 / Print] Print & PDF Export Theme Independence
-- **Confirmation needed**: Confirm that the newspaper Daily Briefing PDF export (`/api/export/briefing-pdf`) ALWAYS renders using a print-safe high-contrast light ink-on-paper palette regardless of which UI theme (e.g. Night Edition, Amber Terminal, Wine & Rose, or Custom) is currently selected by the user.
+- **Decision**: **CONFIRMED (2026-11-11)**.
+- **Specifications Agreed**:
+  - Daily Briefing PDF (`/api/export/briefing-pdf`) ALWAYS uses a print-safe light ink-on-paper palette regardless of active UI theme or custom accent.
+  - Maintain a separate small `--print-*` token set strictly isolated from UI themes; custom accent is never applied to PDF exports.
+  - Ensure all PDF text meets $\ge 4.5:1$ contrast against its print paper background.
 
 #### 2. [Category 7 & 8] Classic Paper & Night Edition Exact Anchor Hexes
-- **Observation**: Category 7 mandates that "Classic Paper" and "Night Edition" remain pixel-identical to their current PRD C appearance (`#FAF7F0` background / `#1A1208` ink for Paper; `#0E0C09` background / `#E8E4DA` ink for Night). Meanwhile, Category 8 lists starting values `#F5F0E6` / `#1A1A1A` and `#121110` / `#EDE6D6`.
-- **Question**: To preserve 0.00% pixel-diff invariance as required by Category 7 & Category 11 acceptance criteria ("the two original themes are pixel-identical to before"), should Classic Paper use exact PRD C `#FAF7F0` / `#1A1208` and Night Edition use exact PRD C `#0E0C09` / `#E8E4DA`, with the other 10 new themes using the PRD D hex tables?
+- **Decision**: **CONFIRMED: KEEP EXACT PRD C HEXES (2026-11-11)**.
+- **Specifications Agreed**:
+  - Classic Paper retains exact `#FAF7F0` background / `#1A1208` ink and Night Edition retains exact `#0E0C09` background / `#E8E4DA` ink alongside every token value already shipped in PRD C.
+  - Strict `0.00%` pixel-diff invariance preserved for Classic Paper and Night Edition.
+  - Automated contrast script checks these two themes as well: if any shipped pair fails 4.5:1/3.0:1, DO NOT alter shipped colors silently — log each failing pair with its measured ratio in `THEME_SPEC.md` and propose a minimal fix as an opt-in change for user decision.
+  - The other 10 themes use the PRD D starting values, tuned minimally where needed to guarantee contrast compliance.
 
 #### 3. [Category 4] Live Refresh Interval Placement & Telemetry Behavior
-- **Confirmation needed**: Confirm placing the `"Live refresh interval"` control (default `5s`, slider `2s–30s`) under **Settings > News & Sources**, while letting zero-layout-shift counters (Feed Counter badge and Gap chip) update instantaneously upon SSE arrival.
+- **Decision**: **CONFIRMED (2026-11-11)**.
+- **Specifications Agreed**:
+  - Place `"Live refresh interval"` slider (`2s` to `30s`, default `5s`) in **Settings > News & Sources**, displaying current value next to the slider plus a `"Reset to default"` button.
+  - Fixed-width counters (`LiveFeedCounter` and `Gap` chip) update immediately on SSE arrival since they cause zero layout shift.
+  - All other data arrivals are applied smoothly in batches at the user's chosen interval.
 
 #### 4. [Category 10] Category Tags Non-Color Accessibility Cues
-- **Proposal**: Render each of the 11 category stamps with both a WCAG-compliant semantic color pair (`--cat-<name>-bg`/`-fg`) and a crisp non-color cue (e.g. distinct micro-icon or 2-character typographic bureau stamp alongside the label) so color-vision deficiency never obscures category distinction.
-- **Confirmation needed**: Do you approve pairing tiny broadsheet glyphs/stamps alongside category names?
+- **Decision**: **CONFIRMED (2026-11-11)**.
+- **Specifications Agreed**:
+  - Render unique 2-character typographic bureau stamps (`WO`, `PO`, `BU`, `TE`, `SC`, `HE`, `SP`, `EN`, `EV`, `CR`, `AN`) inside each of the 11 category tags.
+  - Add a small icon only where space permits (never as the sole cue).
+  - Include accessible names (`aria-label`) and tooltip containing the full category name.
+  - Tag text must maintain $\ge 4.5:1$ contrast on its tag background.
 
 
