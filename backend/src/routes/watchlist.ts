@@ -5,6 +5,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 import { getDb } from '../db/db';
+import { emitSseEvent } from './sse';
 
 export const watchlistRouter = Router();
 
@@ -79,14 +80,18 @@ watchlistRouter.post('/', (req: Request, res: Response) => {
     const newId = Number(insertRes.lastInsertRowid);
     const created = db.prepare('SELECT id, topic, keywords, priority, enabled, created_at FROM watchlist WHERE id = ?').get(newId) as WatchlistDbRow;
 
-    res.status(201).json({
+    const itemPayload = {
       id: created.id,
       topic: created.topic,
       keywords: JSON.parse(created.keywords),
       priority: created.priority,
       enabled: Boolean(created.enabled),
       created_at: created.created_at,
-    });
+    };
+
+    emitSseEvent('watchlist_update', { action: 'created', item: itemPayload });
+
+    res.status(201).json(itemPayload);
   } catch (err) {
     res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
   }
@@ -146,14 +151,18 @@ watchlistRouter.patch('/:id', (req: Request, res: Response) => {
 
     const updated = db.prepare('SELECT id, topic, keywords, priority, enabled, created_at FROM watchlist WHERE id = ?').get(id) as WatchlistDbRow;
 
-    res.json({
+    const itemPayload = {
       id: updated.id,
       topic: updated.topic,
       keywords: JSON.parse(updated.keywords),
       priority: updated.priority,
       enabled: Boolean(updated.enabled),
       created_at: updated.created_at,
-    });
+    };
+
+    emitSseEvent('watchlist_update', { action: 'updated', item: itemPayload });
+
+    res.json(itemPayload);
   } catch (err) {
     res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
   }
@@ -175,6 +184,8 @@ watchlistRouter.delete('/:id', (req: Request, res: Response) => {
       res.status(404).json({ error: 'Watchlist topic not found', code: 'NOT_FOUND' });
       return;
     }
+
+    emitSseEvent('watchlist_update', { action: 'deleted', deleted_id: id });
 
     res.json({ deleted: true });
   } catch (err) {

@@ -4,9 +4,12 @@
  * Master telegraph dispatch monitor for breaking news, quota limits, provider switches, and wire errors.
  * Features ink-stamp category filters, batch acknowledgement, deeplink to story clusters, and broadsheet typography.
  */
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { api } from '../../lib/api';
+import { sseBus, postCrossTabSync } from '../../lib/sseBus';
+import { useWindowedList } from '../../hooks/useWindowedList';
+import { MAX_IN_MEMORY_ALERTS, capList } from '../../utils/liveDesk';
 import type { Alert } from '../../types';
 import {
   filterAlerts,
@@ -43,26 +46,38 @@ export const AlertsCenter: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AlertFilterTab>('all');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isMarkingAll, setIsMarkingAll] = useState<boolean>(false);
+  const listScrollRef = useRef<HTMLElement | null>(null);
 
   // Fetch alerts from API
-  const fetchAlerts = async () => {
-    setIsLoading(true);
+  const fetchAlerts = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setIsLoading(true);
     try {
-      const items = await api.getAlerts({ limit: 50 });
+      const items = capList(await api.getAlerts({ limit: MAX_IN_MEMORY_ALERTS }), MAX_IN_MEMORY_ALERTS);
       setAlerts(items);
+      useAppStore.getState().setUnreadAlertsCount(countUnreadAlerts(items));
     } catch (err) {
       console.error('[AlertsCenter] Failed to fetch alerts:', err);
-      toast.error('Failed to load alert wire dispatches.');
+      if (!opts?.silent) toast.error('Failed to load alert wire dispatches.');
     } finally {
-      setIsLoading(false);
+      if (!opts?.silent) setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (isAlertsOpen) {
       fetchAlerts();
     }
-  }, [isAlertsOpen]);
+  }, [isAlertsOpen, fetchAlerts]);
+
+  // Live SSE updates when Alerts Center is open
+  useEffect(() => {
+    const unsub = sseBus.subscribeMany(['alert', 'alert_acknowledged', 'resync'], () => {
+      if (useAppStore.getState().isAlertsOpen) {
+        fetchAlerts({ silent: true });
+      }
+    });
+    return unsub;
+  }, [fetchAlerts]);
 
   // Keyboard navigation: Close on Escape
   useEffect(() => {
@@ -83,13 +98,27 @@ export const AlertsCenter: React.FC = () => {
     [alerts, activeTab]
   );
 
+  const { endIndex, showMore, hasMore } = useWindowedList({
+    totalCount: filteredAlerts.length,
+    estimateItemHeight: 72,
+    minRenderCount: 40,
+    containerRef: listScrollRef,
+  });
+  const visibleAlerts = useMemo(
+    () => filteredAlerts.slice(0, endIndex),
+    [filteredAlerts, endIndex]
+  );
+
   // Acknowledge a single alert
   const handleAcknowledge = async (id: number) => {
     try {
       await api.acknowledgeAlert(id);
-      setAlerts((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, acknowledged: true } : a))
-      );
+      setAlerts((prev) => {
+        const next = prev.map((a) => (a.id === id ? { ...a, acknowledged: true } : a));
+        useAppStore.getState().setUnreadAlertsCount(countUnreadAlerts(next));
+        return next;
+      });
+      postCrossTabSync({ type: 'alert_acknowledged', id });
       toast.success('Alert dispatch acknowledged.');
     } catch (err) {
       console.error('[AlertsCenter] Failed to acknowledge alert:', err);
@@ -104,6 +133,8 @@ export const AlertsCenter: React.FC = () => {
     try {
       await api.acknowledgeAllAlerts();
       setAlerts((prev) => prev.map((a) => ({ ...a, acknowledged: true })));
+      useAppStore.getState().setUnreadAlertsCount(0);
+      postCrossTabSync({ type: 'alert_acknowledged', all: true });
       toast.success('All telegraph alerts marked as acknowledged.');
     } catch (err) {
       console.error('[AlertsCenter] Failed to mark all read:', err);
@@ -232,6 +263,7 @@ export const AlertsCenter: React.FC = () => {
 
         {/* Main Alerts Log Stage */}
         <main
+          ref={listScrollRef}
           data-lenis-prevent="true"
           className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-paper p-4 sm:p-6 select-text"
         >
@@ -273,7 +305,7 @@ export const AlertsCenter: React.FC = () => {
 
           {!isLoading && filteredAlerts.length > 0 && (
             <div id="alerts-list" className="space-y-2.5">
-              {filteredAlerts.map((alert) => {
+              {visibleAlerts.map((alert) => {
                 const badge = getAlertBadgeStyle(alert.type);
                 const isUnread = !alert.acknowledged;
 
@@ -370,6 +402,18 @@ export const AlertsCenter: React.FC = () => {
                   </div>
                 );
               })}
+              {hasMore && (
+                <div className="pt-2 text-center">
+                  <button
+                    id="btn-alerts-show-more"
+                    type="button"
+                    onClick={showMore}
+                    className="px-4 py-1.5 border border-ink bg-paper hover:bg-ink hover:text-paper text-ink font-mono text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  >
+                    Show more alerts ({visibleAlerts.length} / {filteredAlerts.length})
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </main>

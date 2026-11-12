@@ -4,9 +4,12 @@
  * Displays live source freshness, scheduler metrics, AI quotas & fallback status,
  * queue throughput, SQLite storage limits, system operating modes, and a filterable error ledger.
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../../store/useAppStore';
+import { sseBus } from '../../lib/sseBus';
+import { useWindowedList } from '../../hooks/useWindowedList';
+import { MAX_IN_MEMORY_ERRORS, capList } from '../../utils/liveDesk';
 import type {
   ControlRoomTelemetry,
   SystemErrorRecord,
@@ -62,13 +65,23 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
   const [isErrorsLoading, setIsErrorsLoading] = useState(false);
   const [isTriggeringCycle, setIsTriggeringCycle] = useState(false);
   const [expandedErrorId, setExpandedErrorId] = useState<number | null>(null);
+  const sseStatus = useAppStore((s) => s.sseStatus);
+  const errorsContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const { endIndex: errorsEndIndex, showMore: showMoreErrors, hasMore: hasMoreErrors } = useWindowedList({
+    totalCount: errors.length,
+    estimateItemHeight: 48,
+    minRenderCount: 40,
+    containerRef: errorsContainerRef,
+  });
+  const visibleErrors = useMemo(() => errors.slice(0, errorsEndIndex), [errors, errorsEndIndex]);
 
   // Source Freshness filter
   const [sourceFilterTier, setSourceFilterTier] = useState<string>('all');
 
-  const fetchTelemetry = useCallback(async () => {
+  const fetchTelemetry = useCallback(async (opts?: { silent?: boolean }) => {
     try {
-      setIsLoading(true);
+      if (!opts?.silent) setIsLoading(true);
       setError(null);
       const res = await fetch('/api/control-room/telemetry');
       if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load telemetry`);
@@ -76,45 +89,64 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
       setTelemetry(data);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
+      if (!opts?.silent) setError(msg);
     } finally {
-      setIsLoading(false);
+      if (!opts?.silent) setIsLoading(false);
     }
   }, []);
 
-  const fetchErrors = useCallback(async () => {
+  const fetchErrors = useCallback(async (opts?: { silent?: boolean }) => {
     try {
-      setIsErrorsLoading(true);
+      if (!opts?.silent) setIsErrorsLoading(true);
       const params = new URLSearchParams();
       if (selectedSubsystem !== 'all') params.set('subsystem', selectedSubsystem);
       if (selectedLevel !== 'all') params.set('level', selectedLevel);
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
-      params.set('limit', '50');
+      params.set('limit', String(MAX_IN_MEMORY_ERRORS));
 
       const res = await fetch(`/api/control-room/errors?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load errors`);
       const data = await res.json();
-      setErrors(data.items ?? []);
+      setErrors(capList(data.items ?? [], MAX_IN_MEMORY_ERRORS));
       setErrorsTotal(data.total ?? 0);
     } catch (err) {
       console.warn('[ControlRoom] Fetch errors failed:', err);
     } finally {
-      setIsErrorsLoading(false);
+      if (!opts?.silent) setIsErrorsLoading(false);
     }
   }, [selectedSubsystem, selectedLevel, searchQuery]);
 
-  // Initial fetch and auto-refresh interval when desk is open
+  // Initial fetch + live SSE push subscription when desk is open (fallback poll only if disconnected)
   useEffect(() => {
-    if (isControlRoomOpen) {
-      fetchTelemetry();
-      fetchErrors();
-      const interval = setInterval(() => {
-        fetchTelemetry();
-        fetchErrors();
-      }, 15000);
-      return () => clearInterval(interval);
+    if (!isControlRoomOpen) return;
+
+    fetchTelemetry();
+    fetchErrors();
+
+    const unsub = sseBus.subscribeMany(
+      ['control_room_update', 'system_error', 'quota_update', 'provider_switch', 'connected', 'resync'],
+      (event) => {
+        if (!useAppStore.getState().isControlRoomOpen) return;
+        fetchTelemetry({ silent: true });
+        if (event === 'system_error' || event === 'control_room_update' || event === 'resync') {
+          fetchErrors({ silent: true });
+        }
+      },
+    );
+
+    let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+    if (sseStatus !== 'connected') {
+      fallbackTimer = setInterval(() => {
+        fetchTelemetry({ silent: true });
+        fetchErrors({ silent: true });
+      }, 30_000);
     }
-  }, [isControlRoomOpen, fetchTelemetry, fetchErrors]);
+
+    return () => {
+      unsub();
+      if (fallbackTimer) clearInterval(fallbackTimer);
+    };
+  }, [isControlRoomOpen, sseStatus, fetchTelemetry, fetchErrors]);
 
   // Close on Escape key
   useEffect(() => {
@@ -295,7 +327,7 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
                 </div>
                 <p className="font-mono text-xs">{error}</p>
                 <button
-                  onClick={fetchTelemetry}
+                  onClick={() => fetchTelemetry()}
                   className="mt-3 px-3 py-1.5 border border-accent bg-paper font-semibold text-xs rounded-xs"
                 >
                   Retry Connection
@@ -929,7 +961,7 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
                     </div>
 
                     {/* Errors List / Table */}
-                    <div className="border border-paper-border bg-paper rounded-xs overflow-hidden">
+                    <div ref={errorsContainerRef} className="border border-paper-border bg-paper rounded-xs overflow-hidden">
                       {isErrorsLoading ? (
                         <div className="p-8 text-center text-ink-muted font-ui text-xs">
                           Querying system event ledger...
@@ -943,7 +975,8 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
                           </p>
                         </div>
                       ) : (
-                        <table className="w-full text-left border-collapse text-xs">
+                        <>
+                          <table className="w-full text-left border-collapse text-xs">
                           <thead>
                             <tr className="border-b-2 border-ink bg-paper-alt font-headline text-ink">
                               <th className="p-2.5">Timestamp (UTC)</th>
@@ -953,7 +986,7 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-paper-border font-ui">
-                            {errors.map((err) => {
+                            {visibleErrors.map((err) => {
                               const isExpanded = expandedErrorId === err.id;
                               return (
                                 <React.Fragment key={err.id}>
@@ -1001,6 +1034,18 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
                             })}
                           </tbody>
                         </table>
+                        {hasMoreErrors && (
+                          <div className="p-2.5 text-center border-t border-paper-border bg-paper-alt">
+                            <button
+                              type="button"
+                              onClick={showMoreErrors}
+                              className="px-3 py-1 border border-ink bg-paper hover:bg-ink hover:text-paper rounded-xs font-mono text-xs font-bold transition-colors cursor-pointer"
+                            >
+                              Show more error entries ({visibleErrors.length} / {errors.length})
+                            </button>
+                          </div>
+                        )}
+                        </>
                       )}
                     </div>
                   </div>

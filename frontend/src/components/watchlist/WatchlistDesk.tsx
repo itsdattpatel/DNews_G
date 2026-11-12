@@ -4,8 +4,9 @@
  * Broadsheet newspaper styling, priority ink stamps, keyword chips, live match counter,
  * inline topic editor/creator, and full empty/loading/error states.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { sseBus, postCrossTabSync } from '../../lib/sseBus';
 import type { WatchlistItem } from '../../types';
 import {
   calculateWatchlistMatches,
@@ -47,9 +48,11 @@ export const WatchlistDesk: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch watchlist from API
-  const fetchWatchlist = async () => {
-    setIsLoading(true);
-    setError(null);
+  const fetchWatchlist = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setIsLoading(true);
+      setError(null);
+    }
     try {
       const res = await fetch('/api/watchlist');
       if (!res.ok) {
@@ -58,17 +61,35 @@ export const WatchlistDesk: React.FC = () => {
       const data = await res.json();
       setItems(data.items || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (!opts?.silent) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
-      setIsLoading(false);
+      if (!opts?.silent) {
+        setIsLoading(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (isWatchlistOpen) {
       fetchWatchlist();
     }
-  }, [isWatchlistOpen]);
+  }, [isWatchlistOpen, fetchWatchlist]);
+
+  // Live SSE updates when Watchlist Desk is open
+  useEffect(() => {
+    const unsub = sseBus.subscribeMany(
+      ['watchlist_update', 'new_article', 'article_updated', 'resync'],
+      (event) => {
+        if (!useAppStore.getState().isWatchlistOpen) return;
+        if (event === 'watchlist_update' || event === 'resync') {
+          fetchWatchlist({ silent: true });
+        }
+      },
+    );
+    return unsub;
+  }, [fetchWatchlist]);
 
   // Close on Escape
   useEffect(() => {
@@ -178,6 +199,7 @@ export const WatchlistDesk: React.FC = () => {
       setItems((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, enabled: !item.enabled } : i)),
       );
+      postCrossTabSync({ type: 'watchlist_update', action: 'updated' });
       toast.success(`${item.topic} is now ${!item.enabled ? 'active' : 'paused'}`);
     } catch (err) {
       toast.error(String(err));
@@ -194,6 +216,7 @@ export const WatchlistDesk: React.FC = () => {
       });
       if (!res.ok) throw new Error('Failed to remove topic');
       setItems((prev) => prev.filter((i) => i.id !== id));
+      postCrossTabSync({ type: 'watchlist_update', action: 'deleted', deleted_id: id });
       toast.success(`Removed monitor: ${topic}`);
     } catch (err) {
       toast.error(String(err));
@@ -341,7 +364,7 @@ export const WatchlistDesk: React.FC = () => {
               <p className="font-body text-xs text-ink-secondary max-w-md mx-auto">{error}</p>
               <button
                 type="button"
-                onClick={fetchWatchlist}
+                onClick={() => fetchWatchlist()}
                 className="px-3.5 py-1.5 border border-accent bg-paper text-accent font-ui font-bold text-xs uppercase tracking-wider rounded-xs hover:bg-accent hover:text-paper inline-flex items-center gap-1.5 transition-colors"
               >
                 <RotateCcw size={12} />

@@ -1,9 +1,10 @@
-﻿/**
+/**
  * backend/src/ai/quota.ts
  * Per-provider request/token counter. Writes to quota_log and maintains
  * an in-memory cache for fast SSE pushes.
  */
 import { getDb } from '../db/db';
+import { emitSseEvent } from '../routes/sse';
 
 export interface ProviderStats {
   callsToday: number;
@@ -35,6 +36,33 @@ export function recordCall(
   stats.callsToday++;
   stats.tokensToday += inputTokens + outputTokens;
   if (!success) stats.errorsToday++;
+
+  const all = getAllProviderStats();
+  emitSseEvent('quota_update', {
+    provider,
+    providers: {
+      gemini: {
+        calls_today: all['gemini']?.callsToday ?? 0,
+        tokens_today: all['gemini']?.tokensToday ?? 0,
+        errors_today: all['gemini']?.errorsToday ?? 0,
+      },
+      groq: {
+        calls_today: all['groq']?.callsToday ?? 0,
+        tokens_today: all['groq']?.tokensToday ?? 0,
+        errors_today: all['groq']?.errorsToday ?? 0,
+      },
+      mistral: {
+        calls_today: all['mistral']?.callsToday ?? 0,
+        tokens_today: all['mistral']?.tokensToday ?? 0,
+        errors_today: all['mistral']?.errorsToday ?? 0,
+      },
+      cerebras: {
+        calls_today: all['cerebras']?.callsToday ?? 0,
+        tokens_today: all['cerebras']?.tokensToday ?? 0,
+        errors_today: all['cerebras']?.errorsToday ?? 0,
+      },
+    },
+  });
 }
 
 export function getTodayStats(provider: string): ProviderStats {

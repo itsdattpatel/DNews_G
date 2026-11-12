@@ -36,6 +36,7 @@ export function useArticles(): void {
           const data = (await res.json()) as { total: number; items: Article[] };
           setArticles(data.items, data.total);
         }
+        useAppStore.getState().fetchCategoryCounts();
       } catch (err) {
         console.warn('[useArticles] Failed to fetch articles:', err);
       }

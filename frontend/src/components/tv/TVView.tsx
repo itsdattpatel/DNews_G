@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AddYouTubeChannelModal } from './AddYouTubeChannelModal';
+import { sseBus } from '../../lib/sseBus';
 
 function getCountryFlag(code?: string | null): string {
   if (!code || code.length !== 2) return '🌐';
@@ -147,7 +148,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
   };
 
   // Fetch channels list with subpage filtering
-  const fetchChannels = async () => {
+  const fetchChannels = useCallback(async (opts?: { silent?: boolean }) => {
     try {
       const res = await fetch(`/api/tv/channels?subpage=${subpage}&include_dead=true`);
       if (res.ok) {
@@ -155,12 +156,19 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
         const items: TvChannel[] = data.items || [];
         setChannels(items);
 
-        // Auto select first channel if current is missing from view
-        if (items.length > 0 && (!selectedChannel || !items.some((c) => c.id === selectedChannel.id))) {
-          const defaultChannel = items.find((c) => c.is_alive) || items[0]!;
-          setSelectedChannel(defaultChannel);
-          setSelectedTvChannelId(defaultChannel.id);
-        }
+        // Keep active channel metadata in sync without replacing active playback unless removed/unset
+        // Never invoke external store setters inside a React state updater!
+        setSelectedChannel((prev) => {
+          if (!prev) {
+            return items.length > 0 ? items.find((c) => c.is_alive) || items[0]! : null;
+          }
+          const updatedMatch = items.find((c) => c.id === prev.id);
+          if (updatedMatch) return { ...prev, ...updatedMatch };
+          if (!opts?.silent && items.length > 0) {
+            return items.find((c) => c.is_alive) || items[0]!;
+          }
+          return prev;
+        });
       }
 
       // Fetch all channels for quick switcher
@@ -172,14 +180,38 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
     } catch (err) {
       console.error('Failed to fetch TV channels:', err);
     }
-  };
+  }, [subpage, setSelectedTvChannelId]);
 
   useEffect(() => {
     if (isTvViewOpen) {
       fetchChannels();
       fetchSubpageCounts();
     }
-  }, [isTvViewOpen, subpage]);
+  }, [isTvViewOpen, subpage, fetchChannels]);
+
+  // Live SSE updates for TV health/favorites/catalog changes without remounting active stream
+  useEffect(() => {
+    const unsub = sseBus.subscribeMany(['tv_health_update', 'resync'], (event, payload) => {
+      if (!useAppStore.getState().isTvViewOpen) return;
+      if (event === 'tv_health_update' && payload && typeof payload === 'object') {
+        const p = payload as { channel_id?: number; is_alive?: boolean; channel?: TvChannel };
+        if (typeof p.channel_id === 'number' && typeof p.is_alive === 'boolean') {
+          setChannels((prev) =>
+            prev.map((c) => (c.id === p.channel_id ? { ...c, is_alive: p.is_alive! } : c)),
+          );
+          setAllChannels((prev) =>
+            prev.map((c) => (c.id === p.channel_id ? { ...c, is_alive: p.is_alive! } : c)),
+          );
+          setSelectedChannel((prev) =>
+            prev && prev.id === p.channel_id ? { ...prev, is_alive: p.is_alive! } : prev,
+          );
+        }
+      }
+      fetchSubpageCounts();
+      fetchChannels({ silent: true });
+    });
+    return unsub;
+  }, [fetchChannels]);
 
   // Sync selectedChannel with store
   useEffect(() => {
@@ -199,12 +231,20 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
   useEffect(() => {
     if (selectedChannel) {
       setActiveTvStream(selectedChannel);
+      if (selectedChannel.id !== selectedTvChannelId) {
+        setSelectedTvChannelId(selectedChannel.id);
+      }
     }
-  }, [selectedChannel, setActiveTvStream]);
+  }, [selectedChannel, selectedTvChannelId, setActiveTvStream, setSelectedTvChannelId]);
+
+  const selectedChannelRef = useRef<TvChannel | null>(selectedChannel);
+  selectedChannelRef.current = selectedChannel;
 
   // Handle stream loading (HLS with Proxy fallback)
+  // Keyed ONLY on stream identity/URLs so live health/favorite metadata updates NEVER remount active stream
   useEffect(() => {
-    if (!selectedChannel || !isTvViewOpen) return;
+    const activeChannel = selectedChannelRef.current;
+    if (!activeChannel || !isTvViewOpen) return;
 
     setStreamError(null);
     setProbeResult(null);
@@ -218,9 +258,9 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
     if (playbackMethod !== 'hls' || !videoRef.current) return;
 
     const video = videoRef.current;
-    const rawStreamUrl = selectedChannel.stream_url;
+    const rawStreamUrl = activeChannel.stream_url;
     if (!rawStreamUrl) {
-      if (selectedChannel.youtube_live_url) {
+      if (activeChannel.youtube_live_url) {
         setPlaybackMethod('youtube');
       } else {
         setStreamError('No streaming URL configured for this broadcast feed.');
@@ -254,7 +294,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (data.fatal) {
           console.warn('[HLS] Fatal stream error:', data.type, data.details);
-          if (selectedChannel.youtube_live_url) {
+          if (selectedChannelRef.current?.youtube_live_url) {
             setStreamError('HLS signal unreachable. Official YouTube Live broadcast available.');
           } else {
             setStreamError('Broadcast stream offline or restricted by upstream CDN policy.');
@@ -279,7 +319,13 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
         hlsRef.current = null;
       }
     };
-  }, [selectedChannel, isTvViewOpen, playbackMethod]);
+  }, [
+    selectedChannel?.id,
+    selectedChannel?.stream_url,
+    selectedChannel?.youtube_live_url,
+    isTvViewOpen,
+    playbackMethod,
+  ]);
 
   // Audio Mute toggle handler with state persistence
   const handleToggleMute = useCallback(() => {

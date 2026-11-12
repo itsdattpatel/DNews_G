@@ -4,8 +4,9 @@
  * Broadsheet newspaper styling, FTS5 full-text queries, AI synthesis with interactive citations,
  * instant query chips, and full empty/loading/error states.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { sseBus } from '../../lib/sseBus';
 import type { SearchResponse, SearchResultItem } from '../../types';
 import {
   parseCitations,
@@ -23,8 +24,11 @@ import {
 import { DualTimestamp } from '../common/DualTimestamp';
 
 export const ArchiveChat: React.FC = () => {
-  const { isArchiveChatOpen, setArchiveChatOpen, selectArticleById, settings } = useAppStore();
-  const isPlainMode = settings.plain_mode_enabled ?? false;
+  const isArchiveChatOpen = useAppStore((s) => s.isArchiveChatOpen);
+  const setArchiveChatOpen = useAppStore((s) => s.setArchiveChatOpen);
+  const selectArticleById = useAppStore((s) => s.selectArticleById);
+  const plainModeEnabled = useAppStore((s) => s.settings.plain_mode_enabled);
+  const isPlainMode = plainModeEnabled ?? false;
   const [query, setQuery] = useState('');
   const [useAi, setUseAi] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,18 +50,14 @@ export const ArchiveChat: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isArchiveChatOpen, setArchiveChatOpen]);
 
-  // Execute archive search
-  const handleSearch = async (overrideQuery?: string) => {
-    const targetQuery = (overrideQuery ?? query).trim();
-    if (!targetQuery || isLoading) return;
-
-    if (overrideQuery) {
-      setQuery(overrideQuery);
+  // Execute archive search (supports silent live refresh without resetting input or highlighting)
+  const executeSearch = useCallback(async (targetQuery: string, opts?: { silent?: boolean }) => {
+    if (!targetQuery) return;
+    if (!opts?.silent) {
+      setIsLoading(true);
+      setError(null);
+      setHighlightedIndex(null);
     }
-
-    setIsLoading(true);
-    setError(null);
-    setHighlightedIndex(null);
 
     try {
       const res = await fetch('/api/search', {
@@ -78,11 +78,39 @@ export const ArchiveChat: React.FC = () => {
       const data: SearchResponse = await res.json();
       setSearchResponse(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (!opts?.silent) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
-      setIsLoading(false);
+      if (!opts?.silent) {
+        setIsLoading(false);
+      }
     }
+  }, [isPlainMode, useAi]);
+
+  const handleSearch = async (overrideQuery?: string) => {
+    const targetQuery = (overrideQuery ?? query).trim();
+    if (!targetQuery || isLoading) return;
+
+    if (overrideQuery) {
+      setQuery(overrideQuery);
+    }
+
+    await executeSearch(targetQuery);
   };
+
+  // Live background refresh when new articles arrive while an Archive query is displayed
+  const activeSearchQueryRef = useRef<string | null>(null);
+  activeSearchQueryRef.current = searchResponse?.query ?? null;
+
+  useEffect(() => {
+    const unsub = sseBus.subscribeMany(['new_article', 'article_updated', 'resync'], () => {
+      if (useAppStore.getState().isArchiveChatOpen && activeSearchQueryRef.current) {
+        executeSearch(activeSearchQueryRef.current, { silent: true });
+      }
+    });
+    return unsub;
+  }, [executeSearch]);
 
   // Open cited article in the main news desk
   const handleSelectArticle = (articleId: number) => {

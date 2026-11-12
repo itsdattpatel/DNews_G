@@ -7,6 +7,7 @@ import { Router, type Request, type Response } from 'express';
 import { getDb, getSetting, setSetting } from '../db/db';
 import { refreshInterval } from '../fetch/scheduler';
 import { getUnenrichedCount, summarizeUnenrichedBatch } from '../pipeline/enricher';
+import { emitSseEvent } from './sse';
 
 export const settingsRouter = Router();
 
@@ -30,6 +31,7 @@ const SETTINGS_SCHEMA: Record<string, { type: 'int' | 'bool' | 'str' | 'float'; 
 
   // News & Sources
   refresh_interval_minutes: { type: 'int', min: 1, max: 60 },
+  live_refresh_interval_sec: { type: 'int', min: 2, max: 30 },
   default_country_filter: { type: 'str' },
   category_filter_list: { type: 'str' },
   enrich_batch_size: { type: 'int', min: 5, max: 50 },
@@ -118,7 +120,13 @@ settingsRouter.patch('/', (req: Request, res: Response) => {
     refreshInterval();
   }
 
-  res.json(getAllSettings());
+  const allSettings = getAllSettings();
+  emitSseEvent('settings_update', {
+    updatedKeys: Object.keys(updates),
+    settings: allSettings,
+  });
+
+  res.json(allSettings);
 });
 
 /**
@@ -302,10 +310,16 @@ settingsRouter.post('/import', (req: Request, res: Response) => {
     refreshInterval();
   }
 
+  const allSettings = getAllSettings();
+  emitSseEvent('settings_update', {
+    updatedKeys: Object.keys(validUpdates),
+    settings: allSettings,
+  });
+
   res.json({
     success: true,
     applied_keys: Object.keys(validUpdates),
-    settings: getAllSettings(),
+    settings: allSettings,
   });
 });
 
@@ -329,6 +343,7 @@ const SETTINGS_DEFAULTS: Record<string, string> = {
 
   // News & Sources
   refresh_interval_minutes: '15',
+  live_refresh_interval_sec: '5',
   default_country_filter: '',
   category_filter_list: 'all',
   enrich_batch_size: '20',

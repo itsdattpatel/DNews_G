@@ -11,6 +11,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { sseBus } from '../../lib/sseBus';
 import { Activity, ArrowUpRight, Database, Cpu, Radio } from 'lucide-react';
 
 export interface SystemHealthIndicatorProps {
@@ -29,17 +30,28 @@ export const SystemHealthIndicator: React.FC<SystemHealthIndicatorProps> = ({
   const storeHealth = useAppStore((s) => s.systemHealth);
   const systemHealth = forcedHealth !== undefined ? forcedHealth : storeHealth;
   const fetchSystemHealth = useAppStore((s) => s.fetchSystemHealth);
+  const sseStatus = useAppStore((s) => s.sseStatus);
   const setControlRoomOpen = useAppStore((s) => s.setControlRoomOpen);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
 
-  // Poll health on mount and periodically every 30s
+  // Fetch on mount & push-driven via SSE; only poll slow 60s fallback while disconnected
   useEffect(() => {
     fetchSystemHealth();
-    const interval = setInterval(() => {
-      fetchSystemHealth();
-    }, 30000);
-    return () => clearInterval(interval);
+    return sseBus.subscribeMany(
+      ['system_error', 'control_room_update', 'provider_switch', 'connected', 'resync'],
+      () => {
+        fetchSystemHealth();
+      },
+    );
   }, [fetchSystemHealth]);
+
+  useEffect(() => {
+    if (sseStatus === 'connected') return;
+    const fallbackTimer = setInterval(() => {
+      fetchSystemHealth();
+    }, 60_000);
+    return () => clearInterval(fallbackTimer);
+  }, [fetchSystemHealth, sseStatus]);
 
   // Click outside listener
   useEffect(() => {

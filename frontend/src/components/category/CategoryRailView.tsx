@@ -4,9 +4,10 @@
  * Pure Tailwind design tokens, ink-and-paper contrast, newspaper top-rules,
  * authentic ink-stamp category tags, 5-dot breaking rating scale, and full loading/empty/error states.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useArticles } from '../../hooks/useArticles';
+import { useWindowedList } from '../../hooks/useWindowedList';
 import { Badge } from '@/components/ui/badge';
 import { getBreakingScoreDots, formatArticleByline } from '../../utils/category';
 import { DualTimestamp } from '../common/DualTimestamp';
@@ -62,8 +63,11 @@ export const CategoryRailView: React.FC = () => {
   const selectArticleById = useAppStore((s) => s.selectArticleById);
   const toggleBookmark = useAppStore((s) => s.toggleBookmark);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
+  const categoryCounts = useAppStore((s) => s.categoryCounts);
+  const categoryCountsTotal = useAppStore((s) => s.categoryCountsTotal);
 
   const [sortBy, setSortBy] = useState<'latest' | 'breaking'>('latest');
+  const gridContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Trigger reactive article fetching based on active filters
   useArticles();
@@ -80,6 +84,18 @@ export const CategoryRailView: React.FC = () => {
       return timeB - timeA;
     });
   }, [articles, sortBy]);
+
+  const { endIndex, showMore, hasMore } = useWindowedList({
+    totalCount: sortedArticles.length,
+    estimateItemHeight: 220,
+    minRenderCount: 48,
+    containerRef: gridContainerRef,
+  });
+
+  const visibleArticles = useMemo(
+    () => sortedArticles.slice(0, endIndex),
+    [sortedArticles, endIndex],
+  );
 
   const handleOpenArticle = (id: number) => {
     selectArticleById(id);
@@ -100,7 +116,7 @@ export const CategoryRailView: React.FC = () => {
       className="flex-1 w-full h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain bg-paper text-ink p-6 sm:p-8 lg:p-10 select-none flex flex-col gap-6"
     >
       {/* 1. Header Section: Masthead Kicker & Category Title */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b-2 border-ink">
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b-2 border-ink">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <span className="font-ui text-[0.6875rem] font-bold uppercase tracking-widest text-ink-secondary">
@@ -132,30 +148,43 @@ export const CategoryRailView: React.FC = () => {
         data-lenis-prevent="true"
         role="tablist"
         aria-label="Category Desks"
-        className="flex items-center gap-2 overflow-x-auto overscroll-x-contain no-scrollbar py-1"
+        className="shrink-0 flex items-center gap-2 overflow-x-auto overscroll-x-contain no-scrollbar py-1.5"
       >
         {CATEGORIES.map((cat) => {
           const isActive = cat === 'All' ? selectedCategory === null : selectedCategory === cat;
+          const catCount = cat === 'All' ? (categoryCountsTotal || totalArticles) : (categoryCounts[cat] ?? null);
           return (
             <button
               key={cat}
               role="tab"
               aria-selected={isActive}
               onClick={() => setSelectedCategory(cat === 'All' ? null : cat)}
-              className={`shrink-0 px-3 py-1 rounded-xs font-ui text-xs font-bold uppercase tracking-wider transition-all focus:outline-none ${
+              className={`shrink-0 px-3 py-1 rounded-xs font-ui text-xs font-bold uppercase tracking-wider transition-all focus:outline-none inline-flex items-center gap-1.5 cursor-pointer ${
                 isActive
-                  ? 'border-2 border-ink bg-ink text-paper shadow-xs scale-102 font-extrabold'
+                  ? 'border-2 border-ink bg-ink text-paper shadow-xs font-extrabold'
                   : 'border border-paper-border bg-paper-alt hover:border-ink hover:bg-paper text-ink-secondary hover:text-ink'
               }`}
             >
-              {cat === 'All' ? '─ All Wire ─' : cat}
+              <span>{cat === 'All' ? '─ All Wire ─' : cat}</span>
+              {typeof catCount === 'number' && catCount > 0 && (
+                <span
+                  data-testid={`category-count-${cat.toLowerCase()}`}
+                  className={`font-mono text-[10px] tabular-nums px-1 py-0.2 rounded-2xs ${
+                    isActive
+                      ? 'bg-paper/20 text-paper'
+                      : 'bg-paper border border-paper-border text-ink-muted'
+                  }`}
+                >
+                  {catCount}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
       {/* 3. Filter Controls Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 border border-paper-border bg-paper-alt rounded-xs shadow-xs">
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 p-3.5 border border-paper-border bg-paper-alt rounded-xs shadow-xs">
         <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
           {/* Search Input */}
           <div className="relative flex-1 max-w-md">
@@ -317,9 +346,10 @@ export const CategoryRailView: React.FC = () => {
         /* Populated Grid of Broadsheet Cards */
         <div
           id="category-grid"
+          ref={gridContainerRef}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
         >
-          {sortedArticles.map((article) => {
+          {visibleArticles.map((article) => {
             const isBreaking = (article.breaking_score ?? 0) >= 75;
             const primaryCategory = article.categories?.[0] || 'General';
             const byline = formatArticleByline(article);
@@ -415,6 +445,18 @@ export const CategoryRailView: React.FC = () => {
               </article>
             );
           })}
+          {hasMore && (
+            <div className="col-span-full pt-2 flex justify-center">
+              <button
+                id="btn-category-show-more"
+                type="button"
+                onClick={showMore}
+                className="px-4 py-1.5 border border-ink bg-paper hover:bg-ink hover:text-paper text-ink font-mono text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Show more dispatches ({visibleArticles.length} / {sortedArticles.length})
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -8,6 +8,7 @@ import { Router, type Request, type Response } from 'express';
 import { getDb } from '../db/db';
 import { computeConfirmationStatus } from '../utils/confirmation';
 import { enrichArticlePass2 } from '../pipeline/enricher';
+import { emitSseEvent } from './sse';
 
 export const articlesRouter = Router();
 
@@ -115,6 +116,64 @@ articlesRouter.get('/', (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/articles/categories/counts
+ * Returns live per-category article counts respecting optional country/q/breaking filters.
+ */
+articlesRouter.get('/categories/counts', (req: Request, res: Response) => {
+  try {
+    const db = getDb();
+    const country = req.query['country'] as string | undefined;
+    const status = (req.query['status'] as string) ?? 'done';
+    const q = req.query['q'] as string | undefined;
+    const breaking = req.query['breaking'] === 'true';
+
+    const params: unknown[] = [];
+    let whereSql = 'a.status = ?';
+    params.push(status);
+
+    if (country) {
+      whereSql += ' AND s.country = ?';
+      params.push(country);
+    }
+    if (breaking) {
+      whereSql += " AND a.breaking_score >= CAST((SELECT value FROM settings WHERE key='alert_threshold') AS INTEGER)";
+    }
+
+    const fromSql = q
+      ? 'FROM articles_fts JOIN articles a ON articles_fts.rowid = a.id JOIN sources s ON a.source_id = s.id'
+      : 'FROM articles a JOIN sources s ON a.source_id = s.id';
+    if (q) {
+      whereSql = `articles_fts MATCH ? AND ${whereSql}`;
+      params.unshift(q);
+    }
+
+    const totalRow = db
+      .prepare(`SELECT COUNT(DISTINCT a.id) AS total ${fromSql} WHERE ${whereSql}`)
+      .get(...params) as { total: number };
+
+    const categoryRows = db
+      .prepare(`
+        SELECT ac.category AS category, COUNT(DISTINCT a.id) AS cnt
+        ${fromSql}
+        JOIN article_categories ac ON a.id = ac.article_id
+        WHERE ${whereSql}
+        GROUP BY ac.category
+      `)
+      .all(...params) as Array<{ category: string; cnt: number }>;
+
+    const categories: Record<string, number> = {};
+    for (const r of categoryRows) {
+      categories[r.category] = r.cnt;
+    }
+
+    return res.json({ total: totalRow?.total ?? 0, categories });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: msg, code: 'INTERNAL_ERROR' });
+  }
+});
+
 export function getDetailedArticle(id: number) {
   const db = getDb();
   const row = db.prepare(`
@@ -200,7 +259,61 @@ articlesRouter.patch('/:id/bookmark', (req: Request, res: Response) => {
   }
 
   db.prepare('UPDATE articles SET bookmarked = ? WHERE id = ?').run(nextValue ? 1 : 0, id);
+  emitSseEvent('bookmark_update', { article_id: id, bookmarked: nextValue });
   return res.json({ bookmarked: nextValue });
+});
+
+articlesRouter.patch('/:id', (req: Request, res: Response) => {
+  const db = getDb();
+  const id = parseInt(req.params['id']!, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid id', code: 'VALIDATION_ERROR' });
+
+  const existing = db.prepare('SELECT id, status FROM articles WHERE id = ?').get(id) as
+    | { id: number; status: string }
+    | undefined;
+  if (!existing) return res.status(404).json({ error: 'Article not found', code: 'NOT_FOUND' });
+
+  const { title_english, summary, breaking_score, status } = req.body as {
+    title_english?: string;
+    summary?: string;
+    breaking_score?: number;
+    status?: string;
+  };
+
+  const updates: string[] = [];
+  const params: unknown[] = [];
+
+  if (typeof title_english === 'string') {
+    updates.push('title_english = ?');
+    params.push(title_english);
+  }
+  if (typeof summary === 'string') {
+    updates.push('summary = ?');
+    params.push(summary);
+  }
+  if (typeof breaking_score === 'number' && !Number.isNaN(breaking_score)) {
+    updates.push('breaking_score = ?');
+    params.push(breaking_score);
+  }
+  if (typeof status === 'string') {
+    updates.push('status = ?');
+    params.push(status);
+  }
+
+  if (updates.length > 0) {
+    params.push(id);
+    db.prepare(`UPDATE articles SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+  }
+
+  const updated = getDetailedArticle(id);
+  if (!updated) return res.status(404).json({ error: 'Article not found', code: 'NOT_FOUND' });
+
+  emitSseEvent('article_updated', { article_id: id });
+  if (existing.status !== 'done' && status === 'done') {
+    emitSseEvent('new_article', { article_id: id });
+  }
+
+  return res.json(updated);
 });
 
 interface RawRow {

@@ -7,6 +7,7 @@
  */
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { sseBus } from '../../lib/sseBus';
 import { Badge } from '@/components/ui/badge';
 import {
   X,
@@ -99,7 +100,7 @@ export const CompareCoverage: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [compareClusterId, setCompareClusterId]);
 
-  // Fetch cluster details
+  // Fetch cluster details & subscribe to live updates
   useEffect(() => {
     if (!compareClusterId) {
       setClusterData(null);
@@ -107,29 +108,46 @@ export const CompareCoverage: React.FC = () => {
     }
 
     let isMounted = true;
-    setLoading(true);
-    setError(null);
+    const loadCluster = (silent = false) => {
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
 
-    fetch(`/api/clusters/${compareClusterId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load cluster`);
-        return res.json();
-      })
-      .then((data: ClusterData) => {
-        if (isMounted) {
-          setClusterData(data);
-          setLoading(false);
+      fetch(`/api/clusters/${compareClusterId}`)
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load cluster`);
+          return res.json();
+        })
+        .then((data: ClusterData) => {
+          if (isMounted) {
+            setClusterData(data);
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            if (!silent) setError(err instanceof Error ? err.message : 'Failed to fetch cluster');
+            setLoading(false);
+          }
+        });
+    };
+
+    loadCluster(false);
+
+    const unsub = sseBus.subscribeMany(
+      ['cluster_update', 'article_updated', 'article_enriched_pass2', 'resync'],
+      (event, payload) => {
+        if (event === 'cluster_update' && payload?.cluster_id && payload.cluster_id !== compareClusterId) {
+          return;
         }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch cluster');
-          setLoading(false);
-        }
-      });
+        loadCluster(true);
+      },
+    );
 
     return () => {
       isMounted = false;
+      unsub();
     };
   }, [compareClusterId]);
 

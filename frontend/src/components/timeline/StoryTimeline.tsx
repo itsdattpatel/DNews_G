@@ -7,6 +7,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { sseBus } from '../../lib/sseBus';
 import {
   X,
   Flame,
@@ -68,7 +69,7 @@ export const StoryTimeline: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [timelineClusterId, setTimelineClusterId]);
 
-  // Fetch cluster details
+  // Fetch cluster details & subscribe to live updates
   useEffect(() => {
     if (!timelineClusterId) {
       setCluster(null);
@@ -76,36 +77,53 @@ export const StoryTimeline: React.FC = () => {
     }
 
     let isMounted = true;
-    setLoading(true);
-    setError(null);
-    setSelectedEventIndex(0);
+    const loadTimeline = (silent = false) => {
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+        setSelectedEventIndex(0);
+      }
 
-    fetch(`/api/clusters/${timelineClusterId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load story timeline`);
-        return res.json();
-      })
-      .then((data: TimelineClusterData) => {
-        if (isMounted) {
-          // Sort articles chronologically (oldest to newest for event timeline)
-          const sorted = [...(data.articles || [])].sort((a, b) => {
-            const timeA = a.published_at ? new Date(a.published_at).getTime() : 0;
-            const timeB = b.published_at ? new Date(b.published_at).getTime() : 0;
-            return timeA - timeB;
-          });
-          setCluster({ ...data, articles: sorted });
-          setLoading(false);
+      fetch(`/api/clusters/${timelineClusterId}`)
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load story timeline`);
+          return res.json();
+        })
+        .then((data: TimelineClusterData) => {
+          if (isMounted) {
+            // Sort articles chronologically (oldest to newest for event timeline)
+            const sorted = [...(data.articles || [])].sort((a, b) => {
+              const timeA = a.published_at ? new Date(a.published_at).getTime() : 0;
+              const timeB = b.published_at ? new Date(b.published_at).getTime() : 0;
+              return timeA - timeB;
+            });
+            setCluster({ ...data, articles: sorted });
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            if (!silent) setError(err instanceof Error ? err.message : 'Failed to fetch timeline');
+            setLoading(false);
+          }
+        });
+    };
+
+    loadTimeline(false);
+
+    const unsub = sseBus.subscribeMany(
+      ['cluster_update', 'article_updated', 'article_enriched_pass2', 'resync'],
+      (event, payload) => {
+        if (event === 'cluster_update' && payload?.cluster_id && payload.cluster_id !== timelineClusterId) {
+          return;
         }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch timeline');
-          setLoading(false);
-        }
-      });
+        loadTimeline(true);
+      },
+    );
 
     return () => {
       isMounted = false;
+      unsub();
     };
   }, [timelineClusterId]);
 

@@ -138,9 +138,13 @@ RailItem.displayName = 'RailItem';
 
 export interface RightIconRailProps {
   pinned?: boolean;
+  forcedUnreadAlertsCount?: number;
 }
 
-export const RightIconRail: React.FC<RightIconRailProps> = ({ pinned: propPinned }) => {
+export const RightIconRail: React.FC<RightIconRailProps> = ({
+  pinned: propPinned,
+  forcedUnreadAlertsCount,
+}) => {
   const storePinned = useAppStore((s) => s.isRailPinned);
   const isRailPinned = propPinned !== undefined ? propPinned : storePinned;
   const toggleRailPinned = useAppStore((s) => s.toggleRailPinned);
@@ -167,6 +171,8 @@ export const RightIconRail: React.FC<RightIconRailProps> = ({ pinned: propPinned
   const feedCounter = useAppStore((s) => s.feedCounter);
   const isFeedCounterOpen = useAppStore((s) => s.isFeedCounterOpen);
   const setFeedCounterOpen = useAppStore((s) => s.setFeedCounterOpen);
+  const storeUnreadAlertsCount = useAppStore((s) => s.unreadAlertsCount);
+  const unreadAlertsCount = forcedUnreadAlertsCount ?? storeUnreadAlertsCount;
 
   // Formatter for 24h count badge
   const rolling24Total = feedCounter?.rolling24h.total ?? 0;
@@ -220,12 +226,24 @@ export const RightIconRail: React.FC<RightIconRailProps> = ({ pinned: propPinned
             id="btn-rail-alerts"
             icon={<Bell size={16} />}
             label="Alerts Center"
-            sublabel="Breaking, Quota & Errors"
+            sublabel={
+              unreadAlertsCount > 0
+                ? `${unreadAlertsCount} unread · Breaking, Quota & Errors`
+                : 'All Clear · Breaking, Quota & Errors'
+            }
             isActive={isAlertsOpen}
             isPinned={isRailPinned}
             onClick={() => setAlertsOpen(true)}
             badge={
-              <span className="w-2 h-2 rounded-full bg-accent animate-ping absolute -top-0.5 -right-0.5" />
+              unreadAlertsCount > 0 ? (
+                <span
+                  id="badge-rail-unread-alerts"
+                  data-testid="unread-alerts-badge"
+                  className="min-w-[16px] h-4 px-1 flex items-center justify-center rounded-2xs bg-accent text-paper font-mono text-[9px] font-extrabold tabular-nums border border-paper-border leading-none"
+                >
+                  {unreadAlertsCount > 99 ? '99+' : unreadAlertsCount}
+                </span>
+              ) : undefined
             }
           />
         </div>

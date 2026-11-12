@@ -8,6 +8,7 @@ import { SOURCES } from '../../../config/sources';
 import { fetchGdelt } from './gdelt';
 import { insertPendingArticles } from '../pipeline/dedup';
 import { getStartupGap, resetStartupGap, type MissedWindow } from './scheduler';
+import { emitSseEvent } from '../routes/sse';
 import type { ArticleRaw } from './rss';
 
 export interface BackfillResult {
@@ -108,6 +109,11 @@ export async function backfillMissedWindow(
 
   // Mark startup gap as handled
   resetStartupGap();
+  emitSseEvent('session_gap_update', {
+    detected: false,
+    missed_minutes: 0,
+    can_backfill: false,
+  });
 
   return {
     coveredMinutes,

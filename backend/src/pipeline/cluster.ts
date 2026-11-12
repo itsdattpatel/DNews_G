@@ -1,5 +1,6 @@
 import natural from 'natural';
 import { getDb } from '../db/db';
+import { emitSseEvent } from '../routes/sse';
 
 const SIMILARITY_THRESHOLD = 0.50; // threshold for grouping articles into the same story cluster
 
@@ -152,6 +153,15 @@ export function clusterArticle(articleId: number): number {
       WHERE id = ?
     `).run(repHeadline, stats.outlet_count, stats.country_count, stats.is_breaking, bestClusterId);
 
+    emitSseEvent('cluster_update', {
+      cluster_id: bestClusterId,
+      outlet_count: stats.outlet_count,
+      country_count: stats.country_count,
+      is_breaking: Boolean(stats.is_breaking),
+      headline: repHeadline,
+      article_id: articleId,
+    });
+
     return bestClusterId;
   } else {
     // Create new cluster
@@ -165,6 +175,16 @@ export function clusterArticle(articleId: number): number {
 
     const newClusterId = Number(insertResult.lastInsertRowid);
     db.prepare('UPDATE articles SET cluster_id = ? WHERE id = ?').run(newClusterId, articleId);
+
+    emitSseEvent('cluster_update', {
+      cluster_id: newClusterId,
+      outlet_count: 1,
+      country_count: 1,
+      is_breaking: Boolean(isBreaking),
+      headline,
+      article_id: articleId,
+    });
+
     return newClusterId;
   }
 }

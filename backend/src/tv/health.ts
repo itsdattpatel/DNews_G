@@ -4,6 +4,7 @@
  * media chunks, and YouTube oEmbed feeds (PRD C Category 5B Health Truth).
  */
 import { getDb } from '../db/db';
+import { emitSseEvent } from '../routes/sse';
 import { validateSsrfTarget } from './proxy';
 
 export interface HealthProbeResult {
@@ -234,6 +235,14 @@ export async function checkChannelHealth(channelId: number): Promise<HealthProbe
     SET is_alive = ?, last_checked_at = datetime('now')
     WHERE id = ?
   `).run(result.isAlive ? 1 : 0, channelId);
+
+  emitSseEvent('tv_health_update', {
+    channel_id: channelId,
+    is_alive: result.isAlive,
+    latency_ms: result.latencyMs,
+    method: result.method,
+    last_checked_at: new Date().toISOString(),
+  });
 
   return result;
 }

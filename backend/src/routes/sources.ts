@@ -6,6 +6,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 import { getDb } from '../db/db';
+import { emitSseEvent } from './sse';
 
 export const sourcesRouter = Router();
 
@@ -15,7 +16,7 @@ sourcesRouter.get('/', (_req: Request, res: Response) => {
     const db = getDb();
     const rows = db
       .prepare(`
-        SELECT id, name, slug, url, country, language, enabled, last_fetched_at
+        SELECT id, name, slug, url, country, fetch_type, enabled, last_fetched_at
         FROM sources
         ORDER BY country ASC, name ASC
       `)
@@ -25,7 +26,7 @@ sourcesRouter.get('/', (_req: Request, res: Response) => {
         slug: string;
         url: string;
         country: string;
-        language: string;
+        fetch_type: string;
         enabled: number;
         last_fetched_at: string | null;
       }>;
@@ -57,13 +58,13 @@ sourcesRouter.patch('/:id', (req: Request, res: Response) => {
       db.prepare('UPDATE sources SET enabled = ? WHERE id = ?').run(isEnabled, id);
     }
 
-    const updated = db.prepare('SELECT id, name, slug, url, country, language, enabled, last_fetched_at FROM sources WHERE id = ?').get(id) as {
+    const updated = db.prepare('SELECT id, name, slug, url, country, fetch_type, enabled, last_fetched_at FROM sources WHERE id = ?').get(id) as {
       id: number;
       name: string;
       slug: string;
       url: string;
       country: string;
-      language: string;
+      fetch_type: string;
       enabled: number;
       last_fetched_at: string | null;
     } | undefined;
@@ -73,10 +74,17 @@ sourcesRouter.patch('/:id', (req: Request, res: Response) => {
       return;
     }
 
-    res.json({
+    const payload = {
       ...updated,
       enabled: Boolean(updated.enabled),
+    };
+
+    emitSseEvent('control_room_update', {
+      type: 'source_toggled',
+      source: payload,
     });
+
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
   }

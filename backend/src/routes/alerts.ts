@@ -7,6 +7,7 @@
 import { Router, type Request, type Response } from 'express';
 import { getDb } from '../db/db';
 import { computeConfirmationStatus } from '../utils/confirmation';
+import { emitSseEvent } from './sse';
 
 export const alertsRouter = Router();
 
@@ -92,6 +93,8 @@ alertsRouter.patch('/:id/acknowledge', (req: Request, res: Response) => {
 
     db.prepare('UPDATE alerts SET acknowledged = 1 WHERE id = ?').run(id);
 
+    emitSseEvent('alert_acknowledged', { id });
+
     res.json({ acknowledged: true });
   } catch (err) {
     res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
@@ -102,6 +105,7 @@ alertsRouter.post('/acknowledge-all', (_req: Request, res: Response) => {
   try {
     const db = getDb();
     db.prepare('UPDATE alerts SET acknowledged = 1 WHERE acknowledged = 0').run();
+    emitSseEvent('alert_acknowledged', { all: true });
     res.json({ acknowledged: true });
   } catch (err) {
     res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });

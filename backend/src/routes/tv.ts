@@ -8,6 +8,7 @@ import { checkChannelHealth } from '../tv/health';
 import { syncIptvCatalog } from '../tv/catalog';
 import { validateSsrfTarget, rewriteM3u8Playlist } from '../tv/proxy';
 import { previewYouTubeSource, createCustomChannel } from '../tv/youtube';
+import { emitSseEvent } from './sse';
 
 export const tvRouter = Router();
 
@@ -195,7 +196,9 @@ tvRouter.put('/channels/:id', (req: Request, res: Response) => {
     );
 
     const updated = db.prepare('SELECT * FROM tv_channels WHERE id = ?').get(id) as TvChannelDbRow;
-    res.json(mapChannelRow(updated));
+    const mapped = mapChannelRow(updated);
+    emitSseEvent('tv_health_update', { action: 'updated', channel_id: id, channel: mapped });
+    res.json(mapped);
   } catch (err: any) {
     console.error('[TV:UpdateChannel] Error:', err);
     res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
@@ -218,6 +221,7 @@ tvRouter.delete('/channels/:id', (req: Request, res: Response) => {
       return;
     }
 
+    emitSseEvent('tv_health_update', { action: 'deleted', channel_id: id });
     res.json({ success: true, deleted_id: id });
   } catch (err: any) {
     console.error('[TV:DeleteChannel] Error:', err);
@@ -257,6 +261,7 @@ tvRouter.post('/sync', async (req: Request, res: Response) => {
   try {
     const forceRefresh = req.body?.force_refresh === true;
     const result = await syncIptvCatalog({ forceRefresh });
+    emitSseEvent('tv_health_update', { action: 'catalog_synced', ...result });
     res.json({
       success: true,
       ...result,
@@ -289,7 +294,9 @@ tvRouter.patch('/channels/:id/favorite', (req: Request, res: Response) => {
     }
 
     const updated = db.prepare('SELECT * FROM tv_channels WHERE id = ?').get(id) as TvChannelDbRow;
-    res.json(mapChannelRow(updated));
+    const mapped = mapChannelRow(updated);
+    emitSseEvent('tv_health_update', { action: 'updated', channel_id: id, channel: mapped });
+    res.json(mapped);
   } catch (err) {
     console.error('[TV:Favorite] Error toggling favorite:', err);
     res.status(500).json({ error: String(err), code: 'INTERNAL_ERROR' });
@@ -487,7 +494,9 @@ tvRouter.post('/preview-youtube', async (req: Request, res: Response) => {
 tvRouter.post('/custom-channel', (req: Request, res: Response) => {
   try {
     const channel = createCustomChannel(req.body || {});
-    res.status(201).json(mapChannelRow(channel));
+    const mapped = mapChannelRow(channel);
+    emitSseEvent('tv_health_update', { action: 'created', channel_id: mapped.id, channel: mapped });
+    res.status(201).json(mapped);
   } catch (err: any) {
     console.error('[TV:CustomChannel] Error creating channel:', err);
     res.status(400).json({ error: err.message, code: 'CHANNEL_CREATE_ERROR' });
@@ -565,6 +574,14 @@ tvRouter.post('/health/:channelId/record', (req: Request, res: Response) => {
         latency_ms || null
       );
     }
+
+    emitSseEvent('tv_health_update', {
+      action: 'method_health_recorded',
+      channel_id: channelId,
+      method,
+      success: Boolean(success),
+      latency_ms: latency_ms ?? null,
+    });
 
     res.json({ success: true, channel_id: channelId, method });
   } catch (err: any) {

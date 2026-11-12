@@ -12,6 +12,7 @@ import { initCleanupScheduler } from './pipeline/cleanup';
 import { initAppSession, closeAppSession } from './services/sessionManager';
 import { initBackupScheduler, stopBackupScheduler } from './services/backupManager';
 import { loadTop5Channels } from './tv/catalog';
+import { closeAllSseConnections } from './routes/sse';
 
 const startTime = Date.now();
 const PORT = parseInt(process.env['PORT'] ?? '3001', 10);
@@ -62,6 +63,7 @@ function shutdown(): void {
   closeAppSession('clean');
   stopScheduler();
   stopBackupScheduler();
+  closeAllSseConnections();
   server.close(() => {
     try {
       getDb().close();

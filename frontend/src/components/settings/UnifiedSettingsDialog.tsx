@@ -163,6 +163,7 @@ const SECTION_DEFAULTS: Record<SettingsSectionId, Partial<AppSettings>> = {
   },
   news_sources: {
     refresh_interval_minutes: 15,
+    live_refresh_interval_sec: 5,
     default_country_filter: '',
     category_filter_list: 'all',
     pass2_threshold: 75,
@@ -210,7 +211,10 @@ const SECTION_DEFAULTS: Record<SettingsSectionId, Partial<AppSettings>> = {
   },
 };
 
-export const UnifiedSettingsDialog: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) => {
+export const UnifiedSettingsDialog: React.FC<{
+  forceOpen?: boolean;
+  initialSection?: SettingsSectionId;
+}> = ({ forceOpen, initialSection }) => {
   const storeSettingsOpen = useAppStore((s) => s.isSettingsOpen);
   const isSettingsOpen = forceOpen ?? storeSettingsOpen;
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
@@ -220,7 +224,7 @@ export const UnifiedSettingsDialog: React.FC<{ forceOpen?: boolean }> = ({ force
   const setTheme = useAppStore((s) => s.setTheme);
 
   // Active section & search
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>('general');
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>(initialSection ?? 'general');
   const [searchQuery, setSearchQuery] = useState('');
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -828,6 +832,45 @@ export const UnifiedSettingsDialog: React.FC<{ forceOpen?: boolean }> = ({ force
                       step={1}
                       value={storeSettings.refresh_interval_minutes || 15}
                       onChange={(e) => saveSetting({ refresh_interval_minutes: parseInt(e.target.value, 10) })}
+                      className="w-full accent-[var(--color-ink,#111827)] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Live Refresh Batch Interval */}
+                  <div className="py-2 border-b border-[var(--color-ink-border,#e5e7eb)]">
+                    <div className="flex justify-between items-center mb-1 gap-2">
+                      <div>
+                        <div className="font-semibold text-sm font-serif">Live refresh interval</div>
+                        <div className="text-[var(--color-ink-muted,#6b7280)] text-[11px]">
+                          Batches incoming live wire updates (2s to 30s, default 5s). Feed counter &amp; gap chip update instantly.
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span
+                          id="value-live-refresh-interval"
+                          className="font-mono text-sm font-bold tabular-nums px-2 py-0.5 bg-[var(--color-paper-card,#f4efe6)] border border-[var(--color-ink-border,#d1d5db)] rounded-xs"
+                        >
+                          {storeSettings.live_refresh_interval_sec ?? 5}s
+                        </span>
+                        <button
+                          id="btn-reset-live-refresh"
+                          type="button"
+                          onClick={() => saveSetting({ live_refresh_interval_sec: 5 })}
+                          disabled={(storeSettings.live_refresh_interval_sec ?? 5) === 5}
+                          className="px-2 py-0.5 text-[11px] font-mono border border-[var(--color-ink-border,#d1d5db)] rounded-xs bg-[var(--color-paper,#fff)] hover:border-ink disabled:opacity-45 cursor-pointer disabled:cursor-default transition-colors"
+                        >
+                          Reset to default
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      id="slider-live-refresh-interval"
+                      type="range"
+                      min={2}
+                      max={30}
+                      step={1}
+                      value={storeSettings.live_refresh_interval_sec ?? 5}
+                      onChange={(e) => saveSetting({ live_refresh_interval_sec: parseInt(e.target.value, 10) })}
                       className="w-full accent-[var(--color-ink,#111827)] cursor-pointer"
                     />
                   </div>

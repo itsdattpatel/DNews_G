@@ -38,6 +38,8 @@ export interface StatusStripProps {
   forcedAutoAdvanceEnabled?: boolean;
   forcedStartupStatus?: { detected: boolean; missed_minutes: number } | null;
   forcedPlainMode?: boolean;
+  forcedSseStatus?: 'connecting' | 'connected' | 'reconnecting';
+  forcedSseReconnectAttempts?: number;
 }
 
 export const StatusStrip: React.FC<StatusStripProps> = memo(({
@@ -45,10 +47,16 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
   forcedAutoAdvanceEnabled,
   forcedStartupStatus,
   forcedPlainMode,
+  forcedSseStatus,
+  forcedSseReconnectAttempts,
 }) => {
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const nextArticle = useAppStore((s) => s.nextArticle);
+  const storeSseStatus = useAppStore((s) => s.sseStatus);
+  const storeSseReconnectAttempts = useAppStore((s) => s.sseReconnectAttempts);
+  const sseStatus = forcedSseStatus ?? storeSseStatus;
+  const sseReconnectAttempts = forcedSseReconnectAttempts ?? storeSseReconnectAttempts;
   const isAutoAdvanceManualPaused = useAppStore((s) => s.isAutoAdvanceManualPaused);
   const toggleStatusStripPlayPause = useAppStore((s) => s.toggleStatusStripPlayPause);
   const isArticlePanelHovered = useAppStore((s) => s.isArticlePanelHovered);
@@ -307,8 +315,24 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
           </div>
         </div>
 
-        {/* Right: Gap & Plain-mode chips */}
+        {/* Right: Reconnecting, Gap & Plain-mode chips */}
         <div className="flex items-center gap-2 shrink-0 font-ui text-[0.625rem]">
+          {/* Non-blocking SSE Reconnecting Chip (PRD D Cat 4) */}
+          {sseStatus === 'reconnecting' && (
+            <span
+              id="status-strip-reconnecting-chip"
+              role="status"
+              aria-live="polite"
+              className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-2xs border border-amber-600/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 font-mono text-[0.625rem] font-bold tabular-nums shrink-0"
+              title="Live wire stream interrupted — automatically reconnecting with cursor replay"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+              <span>
+                Reconnecting...{sseReconnectAttempts > 1 ? ` (#${sseReconnectAttempts})` : ''}
+              </span>
+            </span>
+          )}
+
           {/* Gap Status Chip */}
           {startupStatus?.detected && startupStatus.missed_minutes > 0 && (
             <button

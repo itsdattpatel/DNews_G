@@ -38,12 +38,16 @@ export const App: React.FC = () => {
   const fetchSettings = useAppStore((s) => s.fetchSettings);
   const fetchQuota = useAppStore((s) => s.fetchQuota);
   const checkStartupStatus = useAppStore((s) => s.checkStartupStatus);
+  const fetchUnreadAlertsCount = useAppStore((s) => s.fetchUnreadAlertsCount);
+  const fetchCategoryCounts = useAppStore((s) => s.fetchCategoryCounts);
 
   useEffect(() => {
     fetchSettings();
     fetchQuota();
     checkStartupStatus();
-  }, [fetchSettings, fetchQuota, checkStartupStatus]);
+    fetchUnreadAlertsCount();
+    fetchCategoryCounts();
+  }, [fetchSettings, fetchQuota, checkStartupStatus, fetchUnreadAlertsCount, fetchCategoryCounts]);
 
   if (isShowcase) {
     return <DesignSystemShowcase />;

@@ -6,6 +6,13 @@ import { create } from 'zustand';
 import type { Article, AlertItem, QuotaData, AppSettings, StartupStatus, BackfillResponse, AppView, ThemeMode, TvChannel } from '../types';
 import type { FeedCounterMetrics } from '../types/feedCounter';
 import { playButtonSound, playAlertChime } from '../utils/sound';
+import { sseBus, postCrossTabSync } from '../lib/sseBus';
+import {
+  MAX_IN_MEMORY_ARTICLES,
+  capList,
+  mergeLiveArticleList,
+  type ActiveArticleFilters,
+} from '../utils/liveDesk';
 
 function buildOverlayViewPatch(
   state: AppState,
@@ -220,6 +227,28 @@ interface AppState {
     };
   };
   fetchSystemHealth: () => Promise<void>;
+
+  // Real-time SSE State, Unread Alerts, Category Counts & Resync (PRD D Cat 4)
+  sseStatus: 'connecting' | 'connected' | 'reconnecting';
+  sseReconnectAttempts: number;
+  sseLastEventId: number;
+  setSseConnectionState: (patch: {
+    status?: 'connecting' | 'connected' | 'reconnecting';
+    reconnectAttempts?: number;
+    lastEventId?: number;
+  }) => void;
+  unreadAlertsCount: number;
+  setUnreadAlertsCount: (count: number) => void;
+  incrementUnreadAlerts: (delta?: number) => void;
+  fetchUnreadAlertsCount: () => Promise<void>;
+  categoryCounts: Record<string, number>;
+  categoryCountsTotal: number;
+  fetchCategoryCounts: () => Promise<void>;
+  applyLiveArticlesBatch: (incomingArticles: Article[]) => void;
+  applyBookmarkUpdate: (articleId: number, bookmarked: boolean) => void;
+  applySettingsFromRemote: (remoteSettings: Partial<AppSettings>) => void;
+  applySessionGapUpdate: (patch: Partial<StartupStatus>) => void;
+  performFullResync: (reason?: string) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -330,18 +359,25 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleReadingMode: () => set((state) => ({ isReadingModeActive: !state.isReadingModeActive })),
 
   setArticles: (articles, total) => {
+    const bounded = capList(articles, MAX_IN_MEMORY_ARTICLES);
     const currentSelected = get().selectedArticleId;
     let nextSelected = get().selectedArticle;
 
-    if (!nextSelected && articles.length > 0) {
-      nextSelected = articles[0] ?? null;
+    if (!nextSelected && bounded.length > 0) {
+      nextSelected = bounded[0] ?? null;
     } else if (currentSelected) {
-      const match = articles.find((a) => a.id === currentSelected);
-      if (match) nextSelected = match;
+      const match = bounded.find((a) => a.id === currentSelected);
+      if (match) {
+        nextSelected = {
+          ...nextSelected,
+          ...match,
+          body_english: match.body_english ?? nextSelected?.body_english,
+        } as Article;
+      }
     }
 
     set((state) => ({
-      articles,
+      articles: bounded,
       totalArticles: total,
       selectedArticle: nextSelected,
       selectedArticleId: nextSelected?.id ?? null,
@@ -351,7 +387,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       autoAdvanceQueueIds:
         state.settings.auto_advance_enabled && state.autoAdvanceQueueIds.length > 0
           ? state.autoAdvanceQueueIds
-          : articles.map((a) => a.id),
+          : bounded.map((a) => a.id),
     }));
 
     if (nextSelected && !nextSelected.body_english) {
@@ -412,18 +448,59 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addOrPrependArticle: (article) => {
+    get().applyLiveArticlesBatch([article]);
+  },
+
+  applyLiveArticlesBatch: (incomingArticles) => {
+    if (!incomingArticles.length) return;
     set((state) => {
-      const exists = state.articles.some((a) => a.id === article.id);
-      if (exists) {
-        return {
-          articles: state.articles.map((a) => (a.id === article.id ? article : a)),
-        };
+      const filters: ActiveArticleFilters = {
+        selectedCategory: state.selectedCategory,
+        selectedCountry: state.selectedCountry,
+        searchQuery: state.searchQuery,
+        isBreakingOnly: state.isBreakingOnly,
+        alertThreshold: state.settings.alert_threshold,
+      };
+
+      let nextArticles = state.articles;
+      let nextTotal = state.totalArticles;
+      let nextSelected = state.selectedArticle;
+
+      for (const incoming of incomingArticles) {
+        if (nextSelected && nextSelected.id === incoming.id) {
+          nextSelected = {
+            ...nextSelected,
+            ...incoming,
+            body_english: incoming.body_english ?? nextSelected.body_english,
+          };
+        }
+        const merged = mergeLiveArticleList(nextArticles, incoming, filters, MAX_IN_MEMORY_ARTICLES);
+        nextArticles = merged.items;
+        nextTotal = Math.max(0, nextTotal + merged.deltaTotal);
       }
+
+      if (nextArticles === state.articles && nextSelected === state.selectedArticle && nextTotal === state.totalArticles) {
+        return {};
+      }
+
       return {
-        articles: [article, ...state.articles],
-        totalArticles: state.totalArticles + 1,
+        articles: nextArticles,
+        totalArticles: nextTotal,
+        selectedArticle: nextSelected,
       };
     });
+  },
+
+  applyBookmarkUpdate: (articleId, bookmarked) => {
+    set((state) => ({
+      articles: state.articles.map((a) =>
+        a.id === articleId ? { ...a, bookmarked } : a,
+      ),
+      selectedArticle:
+        state.selectedArticle?.id === articleId
+          ? { ...state.selectedArticle, bookmarked }
+          : state.selectedArticle,
+    }));
   },
 
   toggleBookmark: async (articleId: number) => {
@@ -435,15 +512,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
       if (res.ok) {
         const data = (await res.json()) as { bookmarked: boolean };
-        set((state) => ({
-          articles: state.articles.map((a) =>
-            a.id === articleId ? { ...a, bookmarked: data.bookmarked } : a,
-          ),
-          selectedArticle:
-            state.selectedArticle?.id === articleId
-              ? { ...state.selectedArticle, bookmarked: data.bookmarked }
-              : state.selectedArticle,
-        }));
+        get().applyBookmarkUpdate(articleId, data.bookmarked);
+        postCrossTabSync({
+          type: 'bookmark_update',
+          article_id: articleId,
+          bookmarked: data.bookmarked,
+        });
       }
     } catch (err) {
       console.error('Failed to toggle bookmark:', err);
@@ -497,6 +571,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // News & Sources
     refresh_interval_minutes: 15,
+    live_refresh_interval_sec: 5,
     default_country_filter: '',
     category_filter_list: 'all',
     enrich_batch_size: 20,
@@ -587,6 +662,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (res.ok) {
         const data = (await res.json()) as AppSettings;
         set({ settings: data });
+        postCrossTabSync({
+          type: 'settings_update',
+          settings: data,
+          updatedKeys: Object.keys(updates),
+        });
       }
     } catch (err) {
       console.error('Failed to update settings:', err);
@@ -919,6 +999,168 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     } catch {
       // Keep optimistic fallback
+    }
+  },
+
+  // Real-time SSE State, Unread Alerts, Category Counts & Resync (PRD D Cat 4)
+  sseStatus: 'connecting',
+  sseReconnectAttempts: 0,
+  sseLastEventId: 0,
+  setSseConnectionState: (patch) => {
+    set((state) => ({
+      sseStatus: patch.status ?? state.sseStatus,
+      sseReconnectAttempts: patch.reconnectAttempts ?? state.sseReconnectAttempts,
+      sseLastEventId: patch.lastEventId ?? state.sseLastEventId,
+    }));
+  },
+
+  unreadAlertsCount: 0,
+  setUnreadAlertsCount: (count) => {
+    set({ unreadAlertsCount: Math.max(0, count) });
+  },
+  incrementUnreadAlerts: (delta = 1) => {
+    set((state) => ({ unreadAlertsCount: Math.max(0, state.unreadAlertsCount + delta) }));
+  },
+  fetchUnreadAlertsCount: async () => {
+    try {
+      const res = await fetch('/api/alerts?acknowledged=false&limit=100');
+      if (res.ok) {
+        const data = (await res.json()) as { items?: unknown[] };
+        set({ unreadAlertsCount: Array.isArray(data.items) ? data.items.length : 0 });
+      }
+    } catch {
+      // ignore offline transient error
+    }
+  },
+
+  categoryCounts: {},
+  categoryCountsTotal: 0,
+  fetchCategoryCounts: async () => {
+    try {
+      const { selectedCountry, isBreakingOnly, searchQuery } = get();
+      const params = new URLSearchParams();
+      params.set('status', 'done');
+      if (selectedCountry) params.set('country', selectedCountry);
+      if (isBreakingOnly) params.set('breaking', 'true');
+      if (searchQuery.trim()) params.set('q', searchQuery.trim());
+
+      const res = await fetch(`/api/articles/categories/counts?${params.toString()}`);
+      if (res.ok) {
+        const data = (await res.json()) as { total?: number; categories?: Record<string, number> };
+        set({
+          categoryCountsTotal: data.total ?? 0,
+          categoryCounts: data.categories ?? {},
+        });
+      }
+    } catch {
+      // ignore transient error
+    }
+  },
+
+  applySettingsFromRemote: (remoteSettings) => {
+    set((state) => {
+      const merged = { ...state.settings, ...remoteSettings };
+      const themePatch: Partial<AppState> = {};
+      if (remoteSettings.theme === 'paper' || remoteSettings.theme === 'night') {
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('news_desk_theme', remoteSettings.theme);
+            document.documentElement.setAttribute('data-theme', remoteSettings.theme);
+          } catch {
+            // ignore
+          }
+        }
+        themePatch.theme = remoteSettings.theme;
+      }
+      if (typeof remoteSettings.rail_pinned === 'boolean') {
+        themePatch.isRailPinned = remoteSettings.rail_pinned;
+      }
+      return {
+        settings: merged,
+        ...themePatch,
+      };
+    });
+  },
+
+  applySessionGapUpdate: (patch) => {
+    set((state) => ({
+      startupStatus: state.startupStatus
+        ? { ...state.startupStatus, ...patch }
+        : {
+            status: 'ok',
+            uptime_ms: 0,
+            missed_minutes: patch.missed_minutes ?? 0,
+            last_fetched_at: patch.last_fetched_at ?? null,
+            detected: Boolean(patch.detected),
+            can_backfill: Boolean(patch.can_backfill),
+            window_start: patch.window_start ?? null,
+            window_end: patch.window_end ?? null,
+          },
+    }));
+  },
+
+  performFullResync: async (reason = 'manual') => {
+    const {
+      selectedCategory,
+      selectedCountry,
+      searchQuery,
+      isBreakingOnly,
+      selectedArticleId,
+      fetchFeedCounter,
+      fetchUnreadAlertsCount,
+      fetchQuota,
+      fetchSettings,
+      fetchCategoryCounts,
+      fetchSystemHealth,
+    } = get();
+
+    try {
+      const params = new URLSearchParams();
+      params.set('limit', '60');
+      params.set('status', 'done');
+      if (selectedCategory) params.set('category', selectedCategory);
+      if (selectedCountry) params.set('country', selectedCountry);
+      if (isBreakingOnly) params.set('breaking', 'true');
+      if (searchQuery.trim()) params.set('q', searchQuery.trim());
+
+      const articlesPromise = fetch(`/api/articles?${params.toString()}`).then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json()) as { total: number; items: Article[] };
+        get().setArticles(data.items, data.total);
+      });
+
+      const selectedPromise = selectedArticleId
+        ? fetch(`/api/articles/${selectedArticleId}`).then(async (res) => {
+            if (!res.ok) return;
+            const art = (await res.json()) as Article;
+            set((state) => ({
+              selectedArticle: state.selectedArticleId === art.id ? art : state.selectedArticle,
+              articles: state.articles.map((a) => (a.id === art.id ? { ...a, ...art } : a)),
+            }));
+          })
+        : Promise.resolve();
+
+      const gapPromise = fetch('/api/startup-status').then(async (res) => {
+        if (!res.ok) return;
+        const gap = (await res.json()) as StartupStatus;
+        set({ startupStatus: gap });
+      });
+
+      await Promise.allSettled([
+        articlesPromise,
+        selectedPromise,
+        gapPromise,
+        fetchFeedCounter(),
+        fetchUnreadAlertsCount(),
+        fetchQuota(),
+        fetchSettings(),
+        fetchCategoryCounts(),
+        fetchSystemHealth(),
+      ]);
+
+      sseBus.emit('resync', { reason, timestamp: new Date().toISOString() });
+    } catch (err) {
+      console.warn('[AppStore] Full resync encountered an error:', err);
     }
   },
 }));

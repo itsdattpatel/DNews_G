@@ -180,17 +180,35 @@ export interface Paginated<T> {
   items: T[];
 }
 
-// ─── SSE Events ───────────────────────────────────────────────────────────────
-export interface SSENewArticle     { type: 'new_article';     article_id: number; }
-export interface SSEClusterUpdate  { type: 'cluster_update';  cluster_id: number; outlet_count: number; }
-export interface SSEAlert          { type: 'alert';           alert: Alert; }
-export interface SSEProviderSwitch { type: 'provider_switch'; from: string; to: string; reason: string; }
-export interface SSEQuotaUpdate    { type: 'quota_update';    data: QuotaResponse; }
-export interface SSEHeartbeat      { type: 'heartbeat'; }
+// ─── SSE Events (PRD D Category 4: Unified Main Desk Real-Time Layer) ─────────
+// All domain frames carry a monotonic numeric `id: <seq>` (1,000-entry server ring buffer)
+// supporting `Last-Event-ID` / `?since=<seq>` cursor replay on reconnect.
+// `connected` and `heartbeat` frames intentionally omit `id:` per SSE spec.
+export interface SSEConnected           { type: 'connected';             clientId: string; latestEventId: number; }
+export interface SSEResyncRequired      { type: 'resync_required';       reason: 'cursor_expired' | 'server_restarted'; earliestAvailableId?: number; clientCursor?: number; latestId: number; }
+export interface SSENewArticle          { type: 'new_article';           article_id: number; }
+export interface SSEArticleUpdated      { type: 'article_updated';       article_id: number; }
+export interface SSEArticleEnrichedP2   { type: 'article_enriched_pass2'; article_id: number; }
+export interface SSEClusterUpdate       { type: 'cluster_update';        cluster_id: number; outlet_count: number; country_count?: number; is_breaking?: boolean; headline?: string; article_id?: number; }
+export interface SSEAlert               { type: 'alert';                 id?: number; type_kind?: string; message: string; article_id?: number; cluster_id?: number | null; breaking_score?: number; }
+export interface SSEAlertAcknowledged   { type: 'alert_acknowledged';    id?: number; all?: boolean; }
+export interface SSEProviderSwitch      { type: 'provider_switch';       from: string; to: string; reason: string; }
+export interface SSEQuotaUpdate         { type: 'quota_update';          data: QuotaResponse | Record<string, unknown>; }
+export interface SSEControlRoomUpdate   { type: 'control_room_update';   data: Record<string, unknown>; }
+export interface SSESystemError         { type: 'system_error';          data: Record<string, unknown>; }
+export interface SSEFeedCounterUpdate   { type: 'feed_counter_update';   data: Record<string, unknown>; }
+export interface SSETvHealthUpdate      { type: 'tv_health_update';      action?: string; channel_id?: number; is_alive?: boolean; latency_ms?: number; method?: string; channel?: Record<string, unknown>; }
+export interface SSEWatchlistUpdate     { type: 'watchlist_update';      action: 'created' | 'updated' | 'deleted'; item?: Record<string, unknown>; deleted_id?: number; }
+export interface SSESettingsUpdate      { type: 'settings_update';       updatedKeys?: string[]; settings: Record<string, unknown>; }
+export interface SSEBookmarkUpdate      { type: 'bookmark_update';       article_id: number; bookmarked: boolean; }
+export interface SSESessionGapUpdate    { type: 'session_gap_update';    detected: boolean; missed_minutes: number; can_backfill: boolean; }
+export interface SSEHeartbeat           { type: 'heartbeat';             ts?: string; }
 
 export type SSEEvent =
-  | SSENewArticle | SSEClusterUpdate | SSEAlert
-  | SSEProviderSwitch | SSEQuotaUpdate | SSEHeartbeat;
+  | SSEConnected | SSEResyncRequired | SSENewArticle | SSEArticleUpdated | SSEArticleEnrichedP2
+  | SSEClusterUpdate | SSEAlert | SSEAlertAcknowledged | SSEProviderSwitch | SSEQuotaUpdate
+  | SSEControlRoomUpdate | SSESystemError | SSEFeedCounterUpdate | SSETvHealthUpdate
+  | SSEWatchlistUpdate | SSESettingsUpdate | SSEBookmarkUpdate | SSESessionGapUpdate | SSEHeartbeat;
 
 // ─── Startup ──────────────────────────────────────────────────────────────────
 export interface StartupStatus {
@@ -371,56 +389,42 @@ export interface StartupStatus {
 
 ---
 
-## 3. SSE Hook Spec
+## 3. SSE & Event Bus Spec (PRD D Category 4)
 
 ```typescript
-// frontend/src/hooks/useSSE.ts
+// frontend/src/hooks/useSSE.ts + frontend/src/lib/sseBus.ts
 
 interface UseSSEOptions {
-  onNewArticle?: (event: SSENewArticle) => void;
-  onClusterUpdate?: (event: SSEClusterUpdate) => void;
-  onAlert?: (event: SSEAlert) => void;
-  onProviderSwitch?: (event: SSEProviderSwitch) => void;
-  onQuotaUpdate?: (event: SSEQuotaUpdate) => void;
+  onNewArticle?: (article: Article) => void;
+  onAlert?: (alert: SseBusEventMap['alert']) => void;
 }
 
-export function useSSE(options: UseSSEOptions): {
+export function useSSE(options?: UseSSEOptions): {
   connected: boolean;
+  reconnectAttempts: number;
   lastEvent: SSEEvent | null;
 }
 ```
 
-**Behavior**:
-- Auto-connects on mount to `http://127.0.0.1:3001/api/sse`
-- Reconnects with exponential backoff (1s → 2s → 4s → max 30s) on disconnect
-- Shows "connection lost" banner (`sonner` toast) after 2 failed reconnects
-- Heartbeat event resets backoff timer
-- Single global instance (provided at App root, consumed via context or Zustand)
+**Behavior & Reliability Guarantees**:
+- Single global `EventSource` mounted in `App.tsx` with stable `[]` dependency lifecycle (`optionsRef` prevents teardown/recreate loops).
+- Connects to `/api/sse` (first boot) and `/api/sse?since=<lastEventId>` across exponential backoff retries (1s → 2s → 4s → max 30s).
+- Server maintains a 1,000-entry monotonic ring buffer and replays missed frames via `Last-Event-ID` or `?since=`; emits `resync_required` (`cursor_expired` / `server_restarted`) if replay cannot satisfy the cursor.
+- Client deduplicates frames with bounded `CappedIdSet(2000)` (`${eventType}:${numericId}`).
+- Non-blocking `Reconnecting...` chip in `StatusStrip` reflects `sseStatus === 'reconnecting'`.
+- Full resync (`performFullResync`) triggers on `resync_required`, reconnect after extended disconnect (>= 15s), tab wake (`visibilitychange`), or browser `online`.
+- Immediate pass-through (zero layout shift): `feed_counter_update`, `session_gap_update`, `settings_update`, `bookmark_update`, `alert_acknowledged`, `resync_required`.
+- Configurable UI batching: `live_refresh_interval_sec` (`2s–30s`, default `5s`, configured in `Settings > News and Sources` with Reset to default) batches `new_article`, `article_updated`, `article_enriched_pass2`, `cluster_update`, `alert`, `provider_switch`, `quota_update`, `control_room_update`, `system_error`, `tv_health_update`, and `watchlist_update`.
+- Domain updates are broadcast through `sseBus` (`subscribe` / `subscribeMany`) to Compare Coverage, Story Timeline, Watchlist, Archive Chat, TV View, Alerts Center, Control Room, System Health, and Category Rail without per-component unconditional polling.
+- Cross-tab instant synchronization via `BroadcastChannel('ai-world-news-desk-sync')` with `localStorage` fallback for `settings_update`, `bookmark_update`, `alert_acknowledged`, `watchlist_update`, and `session_gap_update`.
 
 ---
 
-## 4. TanStack Query Setup
+## 4. State Sync & Bounded Memory Rules
 
-```typescript
-// frontend/src/lib/queryClient.ts
-import { QueryClient } from '@tanstack/react-query'
-
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 60_000,          // 1 minute
-      gcTime: 5 * 60_000,         // 5 minutes
-      retry: 2,
-      refetchOnWindowFocus: false,
-    },
-  },
-})
-```
-
-**Invalidation strategy**:
-- SSE `new_article` → `queryClient.invalidateQueries({ queryKey: ['articles'] })`
-- SSE `cluster_update` → invalidate `['clusters', clusterId]`
-- SSE `quota_update` → update quota in Zustand store directly (no refetch needed)
+- Zustand store caps `articles` at `MAX_IN_MEMORY_ARTICLES = 200` and alerts/errors at `100` each.
+- `applyLiveArticlesBatch` enforces active region (`selectedCountry`), category (`selectedCategory`), `searchQuery`, and `isBreakingOnly` filters before upserting, updates `selectedArticle` in-place when its article updates, and preserves `autoAdvanceQueueIds` order cleanly.
+- Long UI lists (`CategoryRailView`, `AlertsCenter`, `ControlRoomDesk` error ledger) slice rows incrementally via `useWindowedList`.
 
 ---
 
@@ -457,4 +461,8 @@ Frontend error handling:
 | Cat 6 | POST /api/tv/channels/youtube-preview | Official YouTube oEmbed preview |
 | Cat 8 | GET /api/stats/ingest | Rolling 24h count & sparkline telemetry |
 | Cat 11 | GET /api/control-room/telemetry | Operational status & source freshness |
+| PRD D Cat 4 | GET /api/articles/categories/counts | Live filtered article counts per category |
+| PRD D Cat 4 | PATCH /api/articles/:id | Editorial article field update with `article_updated` / `new_article` SSE emission |
+| PRD D Cat 4 | GET /api/sse?since=<id> / Last-Event-ID | Cursor-based SSE replay & `resync_required` recovery |
+| PRD D Cat 4 | PATCH /api/settings (`live_refresh_interval_sec`) | Batched UI live-refresh interval (`2–30s`, default `5s`) with `settings_update` SSE broadcast |
 

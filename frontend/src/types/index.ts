@@ -266,6 +266,7 @@ export interface AppSettings {
 
   // News & Sources
   refresh_interval_minutes: number;
+  live_refresh_interval_sec?: number;
   default_country_filter?: string;
   category_filter_list?: string;
   enrich_batch_size?: number;
@@ -390,6 +391,22 @@ export interface SSESystemError {
   data: SystemErrorRecord;
 }
 
+export interface SSEGenericEvent {
+  type:
+    | 'connected'
+    | 'resync_required'
+    | 'article_updated'
+    | 'article_enriched_pass2'
+    | 'alert_acknowledged'
+    | 'feed_counter_update'
+    | 'tv_health_update'
+    | 'watchlist_update'
+    | 'settings_update'
+    | 'bookmark_update'
+    | 'session_gap_update';
+  data?: unknown;
+}
+
 export type SSEEvent =
   | SSENewArticle
   | SSEClusterUpdate
@@ -398,7 +415,8 @@ export type SSEEvent =
   | SSEQuotaUpdate
   | SSEHeartbeat
   | SSEControlRoomUpdate
-  | SSESystemError;
+  | SSESystemError
+  | SSEGenericEvent;
 
 // ─── Control Room Telemetry & Error Ledger (Category 11) ──────────────────────
 export type SubsystemName = 'fetcher' | 'ai' | 'scheduler' | 'db' | 'tv' | 'system';
