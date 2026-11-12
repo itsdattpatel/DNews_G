@@ -50,6 +50,8 @@ const COUNTRIES = [
 
 export const CategoryRailView: React.FC = () => {
   const articles = useAppStore((s) => s.articles);
+  const pendingNewArticles = useAppStore((s) => s.pendingNewArticles);
+  const mergePendingNewArticles = useAppStore((s) => s.mergePendingNewArticles);
   const totalArticles = useAppStore((s) => s.totalArticles);
   const isLoading = useAppStore((s) => s.isLoading);
   const selectedCategory = useAppStore((s) => s.selectedCategory);
@@ -113,8 +115,23 @@ export const CategoryRailView: React.FC = () => {
     <div
       id="category-rail-view"
       data-lenis-prevent="true"
-      className="flex-1 w-full h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain bg-paper text-ink p-6 sm:p-8 lg:p-10 select-none flex flex-col gap-6"
+      className="flex-1 w-full h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain bg-paper text-ink p-6 sm:p-8 lg:p-10 select-none flex flex-col gap-6 scroll-anchor-auto"
     >
+      {/* Floating "N new stories" Merge Pill (fixed so visible while scrolled & 0 px layout shift) */}
+      {pendingNewArticles.length > 0 && (
+        <button
+          type="button"
+          id="btn-category-new-stories-pill"
+          onClick={mergePendingNewArticles}
+          className="fixed right-16 top-24 z-30 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink bg-accent text-paper font-mono text-xs font-bold tabular-nums shadow-md hover:brightness-110 transition-opacity cursor-pointer animate-row-fade-in"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-paper shrink-0" />
+          <span>
+            {pendingNewArticles.length} new {pendingNewArticles.length === 1 ? 'story' : 'stories'}
+          </span>
+        </button>
+      )}
+
       {/* 1. Header Section: Masthead Kicker & Category Title */}
       <div className="shrink-0 flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b-2 border-ink">
         <div>
@@ -123,7 +140,7 @@ export const CategoryRailView: React.FC = () => {
               Section Desk · Catalog & Wire Archive
             </span>
             <span className="text-ink-muted text-xs">/</span>
-            <span className="font-mono text-xs font-bold text-accent">
+            <span className="font-mono text-xs font-bold tabular-nums text-accent min-w-[16ch] inline-block">
               {totalArticles} Total Wire Dispatches
             </span>
           </div>
@@ -169,7 +186,7 @@ export const CategoryRailView: React.FC = () => {
               {typeof catCount === 'number' && catCount > 0 && (
                 <span
                   data-testid={`category-count-${cat.toLowerCase()}`}
-                  className={`font-mono text-[10px] tabular-nums px-1 py-0.2 rounded-2xs ${
+                  className={`font-mono text-[10px] tabular-nums min-w-[2.5ch] text-center px-1 py-0.2 rounded-2xs ${
                     isActive
                       ? 'bg-paper/20 text-paper'
                       : 'bg-paper border border-paper-border text-ink-muted'
@@ -361,7 +378,7 @@ export const CategoryRailView: React.FC = () => {
                 id={`category-card-${article.id}`}
                 data-testid="category-article-card"
                 onClick={() => handleOpenArticle(article.id)}
-                className="group relative p-4 bg-paper-alt hover:bg-paper border border-paper-border hover:border-ink rounded-xs flex flex-col justify-between cursor-pointer transition-all duration-150 hover:-translate-y-1 shadow-xs hover:shadow-md"
+                className="group relative min-h-[210px] p-4 bg-paper-alt hover:bg-paper border border-paper-border hover:border-ink rounded-xs flex flex-col justify-between cursor-pointer transition-colors duration-150 shadow-xs hover:shadow-md scroll-anchor-auto animate-row-fade-in"
               >
                 {/* 1. Newspaper Top Rule Divider */}
                 <div>
@@ -451,7 +468,7 @@ export const CategoryRailView: React.FC = () => {
                 id="btn-category-show-more"
                 type="button"
                 onClick={showMore}
-                className="px-4 py-1.5 border border-ink bg-paper hover:bg-ink hover:text-paper text-ink font-mono text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                className="px-4 py-1.5 border border-ink bg-paper hover:bg-ink hover:text-paper text-ink font-mono text-xs font-bold tabular-nums uppercase tracking-wider transition-colors cursor-pointer"
               >
                 Show more dispatches ({visibleArticles.length} / {sortedArticles.length})
               </button>

@@ -140,7 +140,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
       id="summary-panel"
       ref={containerRef}
       data-lenis-prevent="true"
-      className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain p-6 sm:p-8 bg-paper-alt text-ink flex flex-col justify-between transition-colors duration-150 select-none"
+      className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain p-6 sm:p-8 bg-paper-alt text-ink flex flex-col justify-between transition-colors duration-150 select-none scroll-anchor-auto"
     >
       <div className="relative z-10 flex flex-col gap-6">
         {/* 1. Header & Actions Bar */}
@@ -150,7 +150,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
               Executive Briefing
             </span>
             {isBreaking ? (
-              <span className="font-ui text-[0.625rem] font-bold uppercase tracking-wider px-2 py-0.5 rounded-xs border border-accent bg-accent/15 text-accent shadow-xs">
+              <span className="font-ui text-[0.625rem] font-bold tabular-nums uppercase tracking-wider px-2 py-0.5 rounded-xs border border-accent bg-accent/15 text-accent shadow-xs">
                 Breaking ({article.breaking_score}%)
               </span>
             ) : (

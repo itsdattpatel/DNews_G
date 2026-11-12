@@ -138,7 +138,7 @@ export const FeedCounterPopover: React.FC<FeedCounterPopoverProps> = ({
               Rolling 24-Hour Velocity
             </span>
             <div className="flex items-baseline gap-2">
-              <span id="feed-counter-rolling-24h" className="font-headline text-3xl font-extrabold text-ink leading-none">
+              <span id="feed-counter-rolling-24h" className="font-headline text-3xl font-extrabold tabular-nums text-ink leading-none">
                 {rolling24Total.toLocaleString()}
               </span>
               <span className="font-ui text-xs font-bold uppercase tracking-wider text-ink-secondary">
@@ -147,7 +147,7 @@ export const FeedCounterPopover: React.FC<FeedCounterPopoverProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-1 font-mono text-[11px]">
+          <div className="flex flex-col items-end gap-1 font-mono text-[11px] tabular-nums">
             {catchupCount > 0 ? (
               <span
                 id="feed-counter-catchup-badge"
@@ -203,7 +203,7 @@ export const FeedCounterPopover: React.FC<FeedCounterPopoverProps> = ({
           <span className="font-mono text-[9px] uppercase font-bold text-ink-muted block">
             7-Day Total
           </span>
-          <span id="feed-counter-7d" className="font-headline text-base font-bold text-ink block">
+          <span id="feed-counter-7d" className="font-headline text-base font-bold tabular-nums text-ink block">
             {(feedCounter?.seven_day_total ?? 0).toLocaleString()}
           </span>
           <span className="font-serif text-[10px] text-ink-secondary italic block">
@@ -215,7 +215,7 @@ export const FeedCounterPopover: React.FC<FeedCounterPopoverProps> = ({
           <span className="font-mono text-[9px] uppercase font-bold text-ink-muted block">
             30-Day Volume
           </span>
-          <span id="feed-counter-30d" className="font-headline text-base font-bold text-ink block">
+          <span id="feed-counter-30d" className="font-headline text-base font-bold tabular-nums text-ink block">
             {(feedCounter?.thirty_day_total ?? 0).toLocaleString()}
           </span>
           <span className="font-mono text-[9px] text-positive font-bold flex items-center justify-center gap-0.5">

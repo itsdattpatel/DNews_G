@@ -38,7 +38,7 @@ export const DualTimestamp = memo<DualTimestampProps>(({
         tabIndex={0}
         title={info.tooltip}
         aria-label={info.tooltip}
-        className={`inline-flex items-center gap-1 font-mono text-[0.625rem] text-ink-muted cursor-help focus:outline-none focus:ring-1 focus:ring-ink/40 rounded-xs ${className}`}
+        className={`inline-flex items-center gap-1 font-mono text-[0.625rem] tabular-nums text-ink-muted cursor-help focus:outline-none focus:ring-1 focus:ring-ink/40 rounded-xs ${className}`}
       >
         {showIcon && <Clock size={10} className="shrink-0 text-ink-muted" />}
         <span className={info.isUnverified ? 'italic text-ink-muted' : ''}>
@@ -63,7 +63,7 @@ export const DualTimestamp = memo<DualTimestampProps>(({
         tabIndex={0}
         title={info.tooltip}
         aria-label={info.tooltip}
-        className={`flex flex-col font-mono text-[0.6875rem] text-ink-muted cursor-help focus:outline-none focus:ring-1 focus:ring-ink/40 rounded-xs ${className}`}
+        className={`flex flex-col font-mono text-[0.6875rem] tabular-nums text-ink-muted cursor-help focus:outline-none focus:ring-1 focus:ring-ink/40 rounded-xs ${className}`}
       >
         <div className="flex items-center gap-1">
           {showIcon && <Clock size={11} className="shrink-0 text-ink-muted" />}
@@ -91,7 +91,7 @@ export const DualTimestamp = memo<DualTimestampProps>(({
       tabIndex={0}
       title={info.tooltip}
       aria-label={info.tooltip}
-      className={`inline-flex items-center flex-wrap gap-1.5 font-mono text-[0.6875rem] text-ink-muted cursor-help focus:outline-none focus:ring-1 focus:ring-ink/40 rounded-xs transition-colors hover:text-ink ${className}`}
+      className={`inline-flex items-center flex-wrap gap-1.5 font-mono text-[0.6875rem] tabular-nums text-ink-muted cursor-help focus:outline-none focus:ring-1 focus:ring-ink/40 rounded-xs transition-colors hover:text-ink ${className}`}
     >
       {showIcon && <Clock size={11} className="shrink-0 text-ink-muted" />}
       <span className={info.isUnverified ? 'italic text-ink-secondary' : 'text-ink font-medium'}>

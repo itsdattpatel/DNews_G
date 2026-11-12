@@ -40,6 +40,11 @@ export const App: React.FC = () => {
   const checkStartupStatus = useAppStore((s) => s.checkStartupStatus);
   const fetchUnreadAlertsCount = useAppStore((s) => s.fetchUnreadAlertsCount);
   const fetchCategoryCounts = useAppStore((s) => s.fetchCategoryCounts);
+  const reduceMotionOverride = useAppStore((s) => s.settings.reduce_motion_override ?? 'system');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-reduce-motion', reduceMotionOverride);
+  }, [reduceMotionOverride]);
 
   useEffect(() => {
     fetchSettings();

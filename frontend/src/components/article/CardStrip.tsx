@@ -8,12 +8,14 @@
  * - Honors reduce-motion preference (instant jump vs smooth scroll).
  * - Toggleable via Settings > Reading ("Follow current story").
  */
-import React, { useRef, useState, useEffect, useCallback, memo } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback, memo } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import type { Article } from '../../types';
 import { ChevronLeft, ChevronRight, Flame, Star } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
 import { ConfirmationBadge } from '../common/ConfirmationBadge';
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 interface ArticleCardItemProps {
   article: Article;
@@ -49,7 +51,7 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
       aria-label={`Dispatch: ${article.title_english || article.title_original} from ${article.source.name}`}
       onClick={() => onSelect(article.id)}
       onKeyDown={handleKeyDown}
-      className={`relative shrink-0 w-[300px] min-w-[300px] h-[150px] p-3.5 rounded-xs flex flex-col justify-between cursor-pointer transition-all duration-150 ${
+      className={`relative shrink-0 w-[300px] min-w-[300px] h-[150px] p-3.5 rounded-xs flex flex-col justify-between cursor-pointer transition-all duration-150 scroll-anchor-auto [contain:layout_style] ${
         isSelected
           ? 'border-2 border-[var(--color-ink,#111827)] bg-[var(--color-paper,#fff)] shadow-md -translate-y-1 ring-1 ring-[var(--color-ink,#111827)] news-rule-t'
           : isBreaking
@@ -73,7 +75,7 @@ const ArticleCardItem = memo<ArticleCardItemProps>(({
           {isBreaking && (
             <span
               title="High Impact Breaking Story"
-              className="inline-flex items-center gap-1 font-mono text-[0.625rem] font-bold text-accent px-1.5 py-0.5 rounded-xs border border-accent/40 bg-accent/10"
+              className="inline-flex items-center gap-1 font-mono text-[0.625rem] font-bold tabular-nums text-accent px-1.5 py-0.5 rounded-xs border border-accent/40 bg-accent/10"
             >
               <Flame size={11} fill="currentColor" />
               <span>{article.breaking_score}%</span>
@@ -132,6 +134,7 @@ ArticleCardItem.displayName = 'ArticleCardItem';
 
 export interface CardStripProps {
   forcedArticles?: Article[];
+  forcedPendingNewArticles?: Article[];
   forcedSelectedArticleId?: number | null;
   forcedFollowPaused?: boolean;
   forcedStripFollowEnabled?: boolean;
@@ -140,6 +143,7 @@ export interface CardStripProps {
 
 export const CardStrip: React.FC<CardStripProps> = ({
   forcedArticles,
+  forcedPendingNewArticles,
   forcedSelectedArticleId,
   forcedFollowPaused,
   forcedStripFollowEnabled,
@@ -147,12 +151,17 @@ export const CardStrip: React.FC<CardStripProps> = ({
 }) => {
   const storeArticles = useAppStore((s) => s.articles);
   const articles = forcedArticles ?? storeArticles;
+  const storePendingNewArticles = useAppStore((s) => s.pendingNewArticles);
+  const pendingNewArticles = forcedPendingNewArticles ?? storePendingNewArticles;
+  const mergePendingNewArticles = useAppStore((s) => s.mergePendingNewArticles);
 
   const storeSelectedArticleId = useAppStore((s) => s.selectedArticleId);
   const selectedArticleId = forcedSelectedArticleId !== undefined ? forcedSelectedArticleId : storeSelectedArticleId;
 
   const selectArticleById = useAppStore((s) => s.selectArticleById);
   const toggleBookmark = useAppStore((s) => s.toggleBookmark);
+
+  const prevAnchorRef = useRef<{ id: number; offsetLeft: number } | null>(null);
 
   // Settings for auto-follow (PRD C Category 4)
   const storeStripFollowEnabled = useAppStore((s) => s.settings.strip_follow_enabled ?? true);
@@ -258,7 +267,7 @@ export const CardStrip: React.FC<CardStripProps> = ({
   // Global listener: keys j/k or Arrow navigation immediately resumes follow
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['j', 'k', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key.toLowerCase())) {
+      if (['j', 'k', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
         resumeFollow();
       }
     };
@@ -274,6 +283,34 @@ export const CardStrip: React.FC<CardStripProps> = ({
       window.removeEventListener('pointerup', handlePointerUp);
     };
   }, [resumeFollow]);
+
+  // Compensate horizontal scrollLeft when stories are merged/prepended while scrolled away from start
+  useIsomorphicLayoutEffect(() => {
+    const trackEl = scrollContainerRef.current;
+    const prevAnchor = prevAnchorRef.current;
+    const firstId = articles[0]?.id ?? null;
+
+    if (trackEl && prevAnchor && firstId !== null && firstId !== prevAnchor.id) {
+      if (trackEl.scrollLeft > 16 || isUserInteractingRef.current) {
+        const shiftedEl = document.getElementById(`article-card-${prevAnchor.id}`);
+        if (shiftedEl) {
+          const delta = shiftedEl.offsetLeft - prevAnchor.offsetLeft;
+          if (delta > 0) {
+            trackEl.scrollLeft += delta;
+          }
+        }
+      }
+    }
+
+    if (firstId !== null && typeof document !== 'undefined') {
+      const firstEl = document.getElementById(`article-card-${firstId}`);
+      prevAnchorRef.current = firstEl
+        ? { id: firstId, offsetLeft: firstEl.offsetLeft }
+        : { id: firstId, offsetLeft: 16 };
+    } else {
+      prevAnchorRef.current = null;
+    }
+  }, [articles]);
 
   // When selectedArticleId changes:
   useEffect(() => {
@@ -333,6 +370,28 @@ export const CardStrip: React.FC<CardStripProps> = ({
           ))
         )}
       </div>
+
+      {/* Floating "N new stories" Merge Pill (position: absolute so 0 px layout shift) */}
+      {pendingNewArticles.length > 0 && (
+        <button
+          type="button"
+          id="btn-new-stories-pill"
+          data-testid="new-stories-pill"
+          onClick={() => {
+            mergePendingNewArticles();
+            if (scrollContainerRef.current) {
+              scrollContainerRef.current.scrollTo({ left: 0, behavior: getScrollBehavior() });
+            }
+          }}
+          aria-label={`Load ${pendingNewArticles.length} new ${pendingNewArticles.length === 1 ? 'story' : 'stories'} into wire`}
+          className="absolute left-14 top-2 z-30 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-ink bg-accent text-paper font-mono text-[0.6875rem] font-bold tabular-nums shadow-md hover:brightness-110 transition-opacity cursor-pointer animate-row-fade-in"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-paper shrink-0" />
+          <span>
+            {pendingNewArticles.length} new {pendingNewArticles.length === 1 ? 'story' : 'stories'}
+          </span>
+        </button>
+      )}
 
       {/* User Scroll Grace Indicator */}
       {followPaused && stripFollowEnabled && (

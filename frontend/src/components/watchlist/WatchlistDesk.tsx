@@ -326,7 +326,7 @@ export const WatchlistDesk: React.FC = () => {
             })}
           </div>
 
-          <div className="font-mono text-[0.6875rem] text-ink-secondary shrink-0 hidden md:block">
+          <div className="font-mono text-[0.6875rem] tabular-nums text-ink-secondary shrink-0 hidden md:block">
             <strong>{items.length}</strong> Configured Topics
           </div>
         </div>
@@ -334,7 +334,7 @@ export const WatchlistDesk: React.FC = () => {
         {/* 3. Main Topic Ledger Body */}
         <div
           id="watchlist-body"
-          className="flex-1 overflow-y-auto p-4 sm:p-6 bg-paper relative space-y-3.5"
+          className="flex-1 overflow-y-auto p-4 sm:p-6 bg-paper relative space-y-3.5 scroll-anchor-auto"
         >
           {/* Loading State */}
           {isLoading && (

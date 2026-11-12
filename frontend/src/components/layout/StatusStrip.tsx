@@ -305,7 +305,7 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
             ) : (
               <span id="status-strip-state-running" className="text-positive font-bold flex items-center gap-1 shrink-0">
                 <span>▶ Advancing in</span>
-                <span className="font-bold text-ink tabular-nums inline-block min-w-[2.4ch]">{remainingSeconds}s</span>
+                <span className="font-bold text-ink tabular-nums inline-block min-w-[2.6ch] text-right">{remainingSeconds}s</span>
               </span>
             )}
 
@@ -323,7 +323,7 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
               id="status-strip-reconnecting-chip"
               role="status"
               aria-live="polite"
-              className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-2xs border border-amber-600/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 font-mono text-[0.625rem] font-bold tabular-nums shrink-0"
+              className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-2xs border border-amber-600/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 font-mono text-[0.625rem] font-bold tabular-nums min-w-[106px] justify-center shrink-0"
               title="Live wire stream interrupted — automatically reconnecting with cursor replay"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
@@ -339,7 +339,7 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
               id="status-strip-gap-chip"
               type="button"
               onClick={() => setMissedNewsModalOpen(true)}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded-2xs border border-amber-600/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-[0.625rem] font-bold hover:bg-amber-500/20 transition-colors cursor-pointer"
+              className="flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-2xs border border-amber-600/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-mono text-[0.625rem] font-bold tabular-nums min-w-[66px] hover:bg-amber-500/20 transition-colors cursor-pointer"
               title={`Offline for ${startupStatus.missed_minutes}m — Click to open Catch-Up Dispatches`}
             >
               <Clock size={10} />
@@ -352,7 +352,7 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
             id="status-strip-plain-chip"
             type="button"
             onClick={() => updateSettings({ plain_mode_enabled: !isPlainMode })}
-            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-2xs border font-mono text-[0.625rem] font-bold transition-all shadow-2xs cursor-pointer ${
+            className={`flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-2xs border font-mono text-[0.625rem] font-bold tabular-nums min-w-[80px] transition-all shadow-2xs cursor-pointer ${
               isPlainMode
                 ? 'border-ink bg-ink text-paper'
                 : 'border-paper-border bg-paper hover:border-ink text-ink-secondary hover:text-ink'

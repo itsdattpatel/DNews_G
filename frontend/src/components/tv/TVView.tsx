@@ -135,6 +135,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const prevSyncedChannelIdRef = useRef<number | null>(null);
 
   // Fetch subpages counts (live, faulty, stopped)
   const fetchSubpageCounts = async () => {
@@ -213,16 +214,19 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
     return unsub;
   }, [fetchChannels]);
 
-  // Sync selectedChannel with store
+  // Sync selectedChannel with store; preserve active playbackMethod when channel health refreshes
   useEffect(() => {
     if (selectedTvChannelId && channels.length > 0) {
       const match = channels.find((c) => c.id === selectedTvChannelId);
       if (match) {
         setSelectedChannel(match);
-        if (match.youtube_live_url && (!match.stream_url || match.stream_url.includes('youtube'))) {
-          setPlaybackMethod('youtube');
-        } else {
-          setPlaybackMethod('hls');
+        if (prevSyncedChannelIdRef.current !== match.id) {
+          prevSyncedChannelIdRef.current = match.id;
+          if (match.youtube_live_url && (!match.stream_url || match.stream_url.includes('youtube'))) {
+            setPlaybackMethod('youtube');
+          } else {
+            setPlaybackMethod('hls');
+          }
         }
       }
     }
@@ -738,6 +742,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
             <div className="w-full aspect-video max-h-[calc(100vh-280px)] bg-black border-2 border-ink rounded-xs overflow-hidden relative shadow-md flex items-center justify-center mx-auto">
               {playbackMethod === 'youtube' && selectedChannel?.youtube_live_url ? (
                 <iframe
+                  key={`tv-youtube-${selectedChannel.id}`}
                   id="tv-youtube-embed-frame"
                   src={getYouTubeEmbedUrl(selectedChannel.youtube_live_url)}
                   title={selectedChannel.name}
@@ -747,6 +752,8 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
                 />
               ) : (
                 <video
+                  key="tv-hls-video-player"
+                  id="tv-hls-video-player"
                   ref={videoRef}
                   className="w-full h-full object-contain"
                   playsInline

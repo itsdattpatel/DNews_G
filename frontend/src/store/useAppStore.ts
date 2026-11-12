@@ -11,6 +11,7 @@ import {
   MAX_IN_MEMORY_ARTICLES,
   capList,
   mergeLiveArticleList,
+  mergePendingArticles,
   type ActiveArticleFilters,
 } from '../utils/liveDesk';
 
@@ -29,12 +30,19 @@ function buildOverlayViewPatch(
 function navigateArticleStep(
   state: AppState,
   direction: 1 | -1,
-): { target: Article | null; refreshedQueueIds?: number[] } {
-  const { articles, autoAdvanceQueueIds, selectedArticleId } = state;
+): {
+  target: Article | null;
+  refreshedQueueIds?: number[];
+  mergedArticles?: Article[];
+  mergedTotalDelta?: number;
+} {
+  const { articles, pendingNewArticles, autoAdvanceQueueIds, selectedArticleId } = state;
   if (!articles.length) return { target: null };
 
+  // Reader navigation (buttons, j/k, Auto-Advance) traverses the active snapshot order
+  // so arriving live stories never cause mid-queue skips, repeats, or reshuffles.
   const queue =
-    state.settings.auto_advance_enabled && autoAdvanceQueueIds.length > 0
+    autoAdvanceQueueIds.length > 0
       ? autoAdvanceQueueIds
           .map((id) => articles.find((a) => a.id === id))
           .filter((a): a is Article => Boolean(a))
@@ -47,18 +55,34 @@ function navigateArticleStep(
     if (idx !== -1 && idx < activeList.length - 1) {
       return { target: activeList[idx + 1] ?? null };
     }
+    const { items: merged, addedCount } = mergePendingArticles(
+      pendingNewArticles,
+      articles,
+      MAX_IN_MEMORY_ARTICLES,
+    );
     return {
-      target: articles[0] ?? activeList[0] ?? null,
-      refreshedQueueIds: articles.map((a) => a.id),
+      target: merged[0] ?? activeList[0] ?? null,
+      refreshedQueueIds: merged.map((a) => a.id),
+      ...(pendingNewArticles.length > 0
+        ? { mergedArticles: merged, mergedTotalDelta: addedCount }
+        : {}),
     };
   }
 
   if (idx > 0) {
     return { target: activeList[idx - 1] ?? null };
   }
+  const { items: merged, addedCount } = mergePendingArticles(
+    pendingNewArticles,
+    articles,
+    MAX_IN_MEMORY_ARTICLES,
+  );
   return {
-    target: articles[articles.length - 1] ?? activeList[activeList.length - 1] ?? null,
-    refreshedQueueIds: articles.map((a) => a.id),
+    target: merged[merged.length - 1] ?? activeList[activeList.length - 1] ?? null,
+    refreshedQueueIds: merged.map((a) => a.id),
+    ...(pendingNewArticles.length > 0
+      ? { mergedArticles: merged, mergedTotalDelta: addedCount }
+      : {}),
   };
 }
 
@@ -244,6 +268,8 @@ interface AppState {
   categoryCounts: Record<string, number>;
   categoryCountsTotal: number;
   fetchCategoryCounts: () => Promise<void>;
+  pendingNewArticles: Article[];
+  mergePendingNewArticles: () => void;
   applyLiveArticlesBatch: (incomingArticles: Article[]) => void;
   applyBookmarkUpdate: (articleId: number, bookmarked: boolean) => void;
   applySettingsFromRemote: (remoteSettings: Partial<AppSettings>) => void;
@@ -309,19 +335,37 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   nextArticle: (options) => {
-    const { target, refreshedQueueIds } = navigateArticleStep(get(), 1);
+    const { target, refreshedQueueIds, mergedArticles, mergedTotalDelta } = navigateArticleStep(get(), 1);
     if (!target) return;
-    if (refreshedQueueIds) {
-      set({ autoAdvanceQueueIds: refreshedQueueIds });
+    if (refreshedQueueIds || mergedArticles) {
+      set((state) => ({
+        ...(refreshedQueueIds ? { autoAdvanceQueueIds: refreshedQueueIds } : {}),
+        ...(mergedArticles
+          ? {
+              articles: mergedArticles,
+              pendingNewArticles: [],
+              totalArticles: Math.max(0, state.totalArticles + (mergedTotalDelta ?? 0)),
+            }
+          : {}),
+      }));
     }
     get().setSelectedArticle(target, options);
   },
 
   prevArticle: (options) => {
-    const { target, refreshedQueueIds } = navigateArticleStep(get(), -1);
+    const { target, refreshedQueueIds, mergedArticles, mergedTotalDelta } = navigateArticleStep(get(), -1);
     if (!target) return;
-    if (refreshedQueueIds) {
-      set({ autoAdvanceQueueIds: refreshedQueueIds });
+    if (refreshedQueueIds || mergedArticles) {
+      set((state) => ({
+        ...(refreshedQueueIds ? { autoAdvanceQueueIds: refreshedQueueIds } : {}),
+        ...(mergedArticles
+          ? {
+              articles: mergedArticles,
+              pendingNewArticles: [],
+              totalArticles: Math.max(0, state.totalArticles + (mergedTotalDelta ?? 0)),
+            }
+          : {}),
+      }));
     }
     get().setSelectedArticle(target, options);
   },
@@ -347,6 +391,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({ autoAdvanceResetToken: state.autoAdvanceResetToken + 1 })),
 
   articles: [],
+  pendingNewArticles: [],
   selectedArticleId: null,
   selectedArticle: null,
   activeSentenceIndex: null,
@@ -378,14 +423,15 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set((state) => ({
       articles: bounded,
+      pendingNewArticles: [],
       totalArticles: total,
       selectedArticle: nextSelected,
       selectedArticleId: nextSelected?.id ?? null,
       isLoading: false,
-      // Keep active Auto-Advance queue order stable during background refetches;
-      // initialize or update freely when Auto-Advance is off or queue was reset on filter change.
+      // Always maintain an explicit snapshot queue for stable prev/next & Auto-Advance order.
       autoAdvanceQueueIds:
-        state.settings.auto_advance_enabled && state.autoAdvanceQueueIds.length > 0
+        state.autoAdvanceQueueIds.length > 0 &&
+        bounded.some((a) => state.autoAdvanceQueueIds.includes(a.id))
           ? state.autoAdvanceQueueIds
           : bounded.map((a) => a.id),
     }));
@@ -451,6 +497,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().applyLiveArticlesBatch([article]);
   },
 
+  mergePendingNewArticles: () => {
+    set((state) => {
+      if (!state.pendingNewArticles.length) return {};
+      const { items: merged, addedCount } = mergePendingArticles(
+        state.pendingNewArticles,
+        state.articles,
+        MAX_IN_MEMORY_ARTICLES,
+      );
+      return {
+        articles: merged,
+        pendingNewArticles: [],
+        totalArticles: Math.max(0, state.totalArticles + addedCount),
+        autoAdvanceQueueIds: merged.map((a) => a.id),
+      };
+    });
+  },
+
   applyLiveArticlesBatch: (incomingArticles) => {
     if (!incomingArticles.length) return;
     set((state) => {
@@ -463,6 +526,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
 
       let nextArticles = state.articles;
+      let nextPending = state.pendingNewArticles;
       let nextTotal = state.totalArticles;
       let nextSelected = state.selectedArticle;
 
@@ -474,17 +538,32 @@ export const useAppStore = create<AppState>((set, get) => ({
             body_english: incoming.body_english ?? nextSelected.body_english,
           };
         }
-        const merged = mergeLiveArticleList(nextArticles, incoming, filters, MAX_IN_MEMORY_ARTICLES);
-        nextArticles = merged.items;
-        nextTotal = Math.max(0, nextTotal + merged.deltaTotal);
+
+        const inSnapshot = nextArticles.some((a) => a.id === incoming.id);
+        if (inSnapshot) {
+          const updated = mergeLiveArticleList(nextArticles, incoming, filters, MAX_IN_MEMORY_ARTICLES);
+          nextArticles = updated.items;
+          nextTotal = Math.max(0, nextTotal + updated.deltaTotal);
+        } else {
+          // Buffer new live arrivals behind the "N new stories" pill so the active
+          // reading queue, strip, and manual scroll stay locked until merged.
+          const buffered = mergeLiveArticleList(nextPending, incoming, filters, MAX_IN_MEMORY_ARTICLES);
+          nextPending = buffered.items;
+        }
       }
 
-      if (nextArticles === state.articles && nextSelected === state.selectedArticle && nextTotal === state.totalArticles) {
+      if (
+        nextArticles === state.articles &&
+        nextPending === state.pendingNewArticles &&
+        nextSelected === state.selectedArticle &&
+        nextTotal === state.totalArticles
+      ) {
         return {};
       }
 
       return {
         articles: nextArticles,
+        pendingNewArticles: nextPending,
         totalArticles: nextTotal,
         selectedArticle: nextSelected,
       };
@@ -532,21 +611,25 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSelectedCountry: (country) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ selectedCountry: country, autoAdvanceQueueIds: [] });
+    set({ selectedCountry: country, autoAdvanceQueueIds: [], pendingNewArticles: [] });
   },
 
   setSelectedCategory: (category) => {
     playButtonSound(get().settings.sound_enabled);
-    set({ selectedCategory: category, autoAdvanceQueueIds: [] });
+    set({ selectedCategory: category, autoAdvanceQueueIds: [], pendingNewArticles: [] });
   },
 
   setSearchQuery: (searchQuery) => {
-    set({ searchQuery, autoAdvanceQueueIds: [] });
+    set({ searchQuery, autoAdvanceQueueIds: [], pendingNewArticles: [] });
   },
 
   toggleBreakingOnly: () => {
     playButtonSound(get().settings.sound_enabled);
-    set((state) => ({ isBreakingOnly: !state.isBreakingOnly, autoAdvanceQueueIds: [] }));
+    set((state) => ({
+      isBreakingOnly: !state.isBreakingOnly,
+      autoAdvanceQueueIds: [],
+      pendingNewArticles: [],
+    }));
   },
 
   // Settings
@@ -628,7 +711,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           settings: data,
           isAutoAdvanceManualPaused: false,
           autoAdvanceQueueIds:
-            data.auto_advance_enabled && state.autoAdvanceQueueIds.length === 0
+            state.autoAdvanceQueueIds.length === 0
               ? state.articles.map((a) => a.id)
               : state.autoAdvanceQueueIds,
         }));
@@ -647,9 +730,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...('auto_advance_enabled' in updates
         ? {
             isAutoAdvanceManualPaused: false,
-            autoAdvanceQueueIds: updates.auto_advance_enabled
-              ? state.articles.map((a) => a.id)
-              : [],
+            autoAdvanceQueueIds:
+              state.autoAdvanceQueueIds.length > 0
+                ? state.autoAdvanceQueueIds
+                : state.articles.map((a) => a.id),
           }
         : {}),
     }));
@@ -1126,7 +1210,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       const articlesPromise = fetch(`/api/articles?${params.toString()}`).then(async (res) => {
         if (!res.ok) return;
         const data = (await res.json()) as { total: number; items: Article[] };
-        get().setArticles(data.items, data.total);
+        const stateSnapshot = get();
+        if (stateSnapshot.articles.length > 0 && stateSnapshot.autoAdvanceQueueIds.length > 0) {
+          stateSnapshot.applyLiveArticlesBatch(data.items);
+        } else {
+          stateSnapshot.setArticles(data.items, data.total);
+        }
       });
 
       const selectedPromise = selectedArticleId

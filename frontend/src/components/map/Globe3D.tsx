@@ -16,7 +16,7 @@
  * - Ambient auto-rotation (0.45 deg/s) with 8.0s idle resumption and prefers-reduced-motion guard
  * - WebGL context sentinel & FPS watchdog with automatic 2D fallback prompt
  */
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import * as THREE from 'three';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 import { feature } from 'topojson-client';
@@ -85,7 +85,7 @@ interface ArrivalRing {
   countryKey: string;
 }
 
-export const Globe3D: React.FC<Globe3DProps> = ({
+export const Globe3D: React.FC<Globe3DProps> = memo(({
   articles,
   isNight,
   wildlifeOverlay,
@@ -99,6 +99,7 @@ export const Globe3D: React.FC<Globe3DProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLElement>(null);
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
+  const hasInitializedCameraRef = useRef(false);
 
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [countriesGeoJson, setCountriesGeoJson] = useState<any>(null);
@@ -332,11 +333,14 @@ export const Globe3D: React.FC<Globe3DProps> = ({
     });
   }, [isNight]);
 
-  // Initial Camera Orientation
+  // Initial Camera Orientation (guarded so live arrival renders never reset user camera)
   const handleGlobeReady = useCallback(() => {
     if (globeRef.current) {
       if (typeof window !== 'undefined') (window as any).__globe = globeRef.current;
-      globeRef.current.pointOfView({ lat: 20, lng: 25, altitude: 2.2 }, 0);
+      if (!hasInitializedCameraRef.current) {
+        hasInitializedCameraRef.current = true;
+        globeRef.current.pointOfView({ lat: 20, lng: 25, altitude: 2.2 }, 0);
+      }
     }
   }, []);
 
@@ -737,9 +741,9 @@ export const Globe3D: React.FC<Globe3DProps> = ({
 
         {/* Status & FPS Meter */}
         <div className="flex items-center gap-3 font-mono text-[0.6875rem] text-ink-secondary">
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1 font-mono tabular-nums">
             <Radio size={11} className={fps >= 30 ? 'text-positive' : 'text-accent'} />
-            <strong>{fps} FPS</strong>
+            <strong className="min-w-[6ch] inline-block">{fps} FPS</strong>
           </span>
           <span className="hidden sm:inline">WebGL 2.0 Vector Cartography</span>
           <span className="text-ink-muted">·</span>
@@ -748,6 +752,8 @@ export const Globe3D: React.FC<Globe3DProps> = ({
       </footer>
     </div>
   );
-};
+});
+
+Globe3D.displayName = 'Globe3D';
 
 export default Globe3D;

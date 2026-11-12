@@ -215,7 +215,7 @@ export const RightIconRail: React.FC<RightIconRailProps> = ({
             isPinned={isRailPinned}
             onClick={() => setFeedCounterOpen(!isFeedCounterOpen)}
             badge={
-              <span className="font-mono text-[8px] font-extrabold px-1 py-0.2 bg-ink text-paper rounded-2xs border border-paper-border">
+              <span className="font-mono text-[8px] font-extrabold tabular-nums min-w-[24px] text-center px-1 py-0.2 bg-ink text-paper rounded-2xs border border-paper-border">
                 {compactCount}
               </span>
             }

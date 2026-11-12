@@ -179,7 +179,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
       data-lenis-prevent="true"
       onMouseEnter={() => setIsArticlePanelHovered(true)}
       onMouseLeave={() => setIsArticlePanelHovered(false)}
-      className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain p-6 sm:p-10 lg:p-12 border-r border-paper-border bg-paper text-ink transition-colors duration-150"
+      className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain p-6 sm:p-10 lg:p-12 border-r border-paper-border bg-paper text-ink transition-colors duration-150 scroll-anchor-auto"
     >
       {/* Real-time Downtime Welcome-Back Card (PRD A Category 1B) */}
       <WelcomeBackCard />
@@ -219,7 +219,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
           <span className="text-ink-muted text-xs">·</span>
 
           {/* Reading Time */}
-          <span className="font-ui text-xs text-ink-muted">
+          <span className="font-ui text-xs tabular-nums text-ink-muted">
             {readTimeMin} min read
           </span>
 

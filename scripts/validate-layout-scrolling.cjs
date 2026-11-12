@@ -2,7 +2,18 @@ const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
-const ARTIFACT_DIR = 'C:/Users/dattj/.gemini/antigravity/brain/26bd5fa2-bbf3-4423-bdff-d9b87f39e06a';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+const ARTIFACT_DIR = process.env.ARTIFACT_DIR || 'C:/Users/dattj/.gemini/antigravity/brain/de158b63-a933-45e3-aa1f-e44b099f191f';
+
+function boxesEqual(a, b, tol = 0) {
+  if (!a || !b) return false;
+  return (
+    Math.abs(a.x - b.x) <= tol &&
+    Math.abs(a.y - b.y) <= tol &&
+    Math.abs(a.width - b.width) <= tol &&
+    Math.abs(a.height - b.height) <= tol
+  );
+}
 
 async function runValidation() {
   console.log('[Validator] Launching Chromium test runner...');
@@ -12,8 +23,8 @@ async function runValidation() {
   });
   const page = await context.newPage();
 
-  console.log('[Validator] Navigating to http://localhost:5173...');
-  await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded', timeout: 15000 });
+  console.log(`[Validator] Navigating to ${BASE_URL}...`);
+  await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 15000 });
   await page.waitForSelector('#app-shell', { timeout: 10000 });
   await page.waitForTimeout(1500);
 
@@ -37,7 +48,12 @@ async function runValidation() {
     horizontalDragWorks: false,
     verticalDragWorks: false,
     doubleClickResetWorks: false,
-    persistenceWorks: false
+    persistenceWorks: false,
+    liveUpdateZeroLayoutShift: false,
+    liveUpdatePreservesScroll: false,
+    liveUpdateQueueSnapshotAndPill: false,
+    liveUpdateNoRemounts: false,
+    liveUpdatePillMergeWorks: false
   };
 
   // 1. Check Panel Handles
@@ -80,10 +96,14 @@ async function runValidation() {
   const initialScrollHeight = await page.locator('#article-panel').evaluate(el => el.scrollHeight);
   const initialClientHeight = await page.locator('#article-panel').evaluate(el => el.clientHeight);
   if (initialScrollHeight <= initialClientHeight) {
-    console.log('[Validator] Current article fits within viewport, selecting article with long full-text body (id: 68075)...');
+    console.log('[Validator] Current article fits within viewport, selecting longest available dispatch...');
     await page.evaluate(async () => {
       if (window.__APP_STORE__) {
-        await window.__APP_STORE__.getState().selectArticleById(68075);
+        const list = window.__APP_STORE__.getState().articles || [];
+        const longest = [...list].sort((a, b) => (b.body_english?.length || 0) - (a.body_english?.length || 0))[0];
+        if (longest) {
+          await window.__APP_STORE__.getState().selectArticleById(longest.id);
+        }
       }
     });
     await page.waitForTimeout(600);
@@ -99,15 +119,20 @@ async function runValidation() {
   results.articlePanelScrolls = afterArticleScroll > initialArticleScroll;
   console.log(`[Validator] Article panel wheel scroll: initial=${initialArticleScroll}, after=${afterArticleScroll}`);
 
-  // 6. Test Wheel Scrolling on Summary Panel
+  // 6. Test Wheel Scrolling on Summary Panel (only mounted in Standard / Dual-pane mode)
   const summaryPanel = page.locator('#summary-panel');
-  await summaryPanel.hover();
-  const initialSummaryScroll = await summaryPanel.evaluate(el => el.scrollTop);
-  await page.mouse.wheel(0, 200);
-  await page.waitForTimeout(400);
-  const afterSummaryScroll = await summaryPanel.evaluate(el => el.scrollTop);
-  results.summaryPanelScrolls = afterSummaryScroll >= initialSummaryScroll;
-  console.log(`[Validator] Summary panel wheel responsive: initial=${initialSummaryScroll}, after=${afterSummaryScroll}`);
+  if (await summaryPanel.count() > 0) {
+    await summaryPanel.hover();
+    const initialSummaryScroll = await summaryPanel.evaluate(el => el.scrollTop);
+    await page.mouse.wheel(0, 200);
+    await page.waitForTimeout(400);
+    const afterSummaryScroll = await summaryPanel.evaluate(el => el.scrollTop);
+    results.summaryPanelScrolls = afterSummaryScroll >= initialSummaryScroll;
+    console.log(`[Validator] Summary panel wheel responsive: initial=${initialSummaryScroll}, after=${afterSummaryScroll}`);
+  } else {
+    results.summaryPanelScrolls = true;
+    console.log('[Validator] Summary panel hidden (Plain Mode active) — skipping wheel check');
+  }
 
   // 7. Test Wheel Scrolling on Card Strip (Vertical wheel scrolls horizontally)
   const cardTrack = page.locator('#card-strip-track');
@@ -213,6 +238,184 @@ async function runValidation() {
     console.log(`[Validator] Persistent panel sizes in localStorage: H=${savedH}, V=${savedV}`);
   }
 
+  // 11.5 Category 5: Live-Update Zero Layout Shift, Queue Snapshot, Scroll Anchor, & No Remounts
+  console.log('[Validator] Running Category 5 Live-Update UI Stability assertions...');
+  const activeArticleIdBeforeLive = await page.evaluate(() => window.__APP_STORE__?.getState().selectedArticleId ?? null);
+  const snapshotIdsBeforeLive = await page.evaluate(() => (window.__APP_STORE__?.getState().articles || []).map((a) => a.id));
+
+  // Scroll reader & strip away from 0 to verify live updates do not cause scroll jumps
+  await articlePanel.evaluate((el) => { el.scrollTop = Math.min(180, Math.max(0, el.scrollHeight - el.clientHeight)); });
+  await cardTrack.evaluate((el) => { el.scrollLeft = Math.min(200, Math.max(0, el.scrollWidth - el.clientWidth)); });
+  await page.waitForTimeout(200);
+
+  const scrollBeforeLive = await page.evaluate(() => ({
+    articleTop: document.querySelector('#article-panel')?.scrollTop ?? 0,
+    stripLeft: document.querySelector('#card-strip-track')?.scrollLeft ?? 0
+  }));
+
+  // Record exact bounding boxes (tolerance 0 px)
+  const boxesBeforeLive = {
+    articlePanel: await page.locator('#article-panel').boundingBox(),
+    headline: await page.locator('#article-headline').boundingBox(),
+    summaryPanel: (await summaryPanel.count()) > 0 ? await summaryPanel.boundingBox() : null,
+    cardStrip: await page.locator('#card-strip-container').boundingBox(),
+    ticker: (await page.locator('#news-ticker-bar').count()) > 0 ? await page.locator('#news-ticker-bar').boundingBox() : null,
+    activeCard: activeArticleIdBeforeLive
+      ? await page.locator(`#article-card-${activeArticleIdBeforeLive}`).boundingBox()
+      : null
+  };
+
+  // Record DOM node identities to guarantee 0 remounts across live updates
+  await page.evaluate((activeId) => {
+    window.__cat5DomRefs = {
+      headline: document.querySelector('#article-headline'),
+      articlePanel: document.querySelector('#article-panel'),
+      summaryPanel: document.querySelector('#summary-panel'),
+      cardStripTrack: document.querySelector('#card-strip-track'),
+      ticker: document.querySelector('#news-ticker-bar'),
+      activeCard: activeId ? document.querySelector(`#article-card-${activeId}`) : null
+    };
+  }, activeArticleIdBeforeLive);
+
+  // Inject live dispatches into the store (matching SSE batch pipeline)
+  await page.evaluate(() => {
+    const store = window.__APP_STORE__?.getState();
+    if (!store) return;
+    const base = store.articles[0];
+    if (!base) return;
+    const nowIso = new Date().toISOString();
+    store.applyLiveArticlesBatch([
+      {
+        ...base,
+        id: 999901,
+        url: 'https://live.example.test/cat5-1',
+        title_english: 'Live Wire Flash #1: Stability Snapshot Preserved',
+        summary: 'Live arrival buffered behind the pill without disturbing reading layout.',
+        published_at: nowIso,
+        fetched_at: nowIso,
+        ingested_at: nowIso,
+        breaking_score: 88,
+      },
+      {
+        ...base,
+        id: 999902,
+        url: 'https://live.example.test/cat5-2',
+        title_english: 'Live Wire Flash #2: Zero Bounding Box Shift Verified',
+        summary: 'Second live arrival queued behind pill.',
+        published_at: nowIso,
+        fetched_at: nowIso,
+        ingested_at: nowIso,
+        breaking_score: 82,
+      }
+    ]);
+  });
+  await page.waitForTimeout(300);
+
+  const boxesAfterLive = {
+    articlePanel: await page.locator('#article-panel').boundingBox(),
+    headline: await page.locator('#article-headline').boundingBox(),
+    summaryPanel: (await summaryPanel.count()) > 0 ? await summaryPanel.boundingBox() : null,
+    cardStrip: await page.locator('#card-strip-container').boundingBox(),
+    ticker: (await page.locator('#news-ticker-bar').count()) > 0 ? await page.locator('#news-ticker-bar').boundingBox() : null,
+    activeCard: activeArticleIdBeforeLive
+      ? await page.locator(`#article-card-${activeArticleIdBeforeLive}`).boundingBox()
+      : null
+  };
+
+  const zeroShiftOk =
+    boxesEqual(boxesBeforeLive.articlePanel, boxesAfterLive.articlePanel, 0) &&
+    boxesEqual(boxesBeforeLive.headline, boxesAfterLive.headline, 0) &&
+    (boxesBeforeLive.summaryPanel === null || boxesEqual(boxesBeforeLive.summaryPanel, boxesAfterLive.summaryPanel, 0)) &&
+    boxesEqual(boxesBeforeLive.cardStrip, boxesAfterLive.cardStrip, 0) &&
+    (boxesBeforeLive.ticker === null || boxesEqual(boxesBeforeLive.ticker, boxesAfterLive.ticker, 0)) &&
+    (boxesBeforeLive.activeCard === null || boxesEqual(boxesBeforeLive.activeCard, boxesAfterLive.activeCard, 0));
+  results.liveUpdateZeroLayoutShift = zeroShiftOk;
+
+  const scrollAfterLive = await page.evaluate(() => ({
+    articleTop: document.querySelector('#article-panel')?.scrollTop ?? 0,
+    stripLeft: document.querySelector('#card-strip-track')?.scrollLeft ?? 0
+  }));
+  results.liveUpdatePreservesScroll =
+    scrollAfterLive.articleTop === scrollBeforeLive.articleTop &&
+    scrollAfterLive.stripLeft === scrollBeforeLive.stripLeft;
+
+  const pillVisible = await page.locator('#btn-new-stories-pill').isVisible().catch(() => false);
+  const pillText = pillVisible ? await page.locator('#btn-new-stories-pill').textContent() : '';
+  const snapshotIdsAfterLive = await page.evaluate(() => (window.__APP_STORE__?.getState().articles || []).map((a) => a.id));
+  const activeArticleIdAfterLive = await page.evaluate(() => window.__APP_STORE__?.getState().selectedArticleId ?? null);
+
+  results.liveUpdateQueueSnapshotAndPill =
+    pillVisible &&
+    Boolean(pillText && pillText.includes('2 new stories')) &&
+    activeArticleIdAfterLive === activeArticleIdBeforeLive &&
+    JSON.stringify(snapshotIdsAfterLive) === JSON.stringify(snapshotIdsBeforeLive);
+
+  // Focus test input and verify live update neither blurs nor remounts DOM elements
+  const searchInput = page.locator('#article-search-input');
+  await searchInput.focus();
+  await page.evaluate(() => {
+    window.__cat5SearchInput = document.querySelector('#article-search-input');
+  });
+  await page.evaluate(() => {
+    const store = window.__APP_STORE__?.getState();
+    const base = store?.articles[0];
+    if (store && base) {
+      const nowIso = new Date().toISOString();
+      store.applyLiveArticlesBatch([
+        {
+          ...base,
+          id: 999903,
+          url: 'https://live.example.test/cat5-3',
+          title_english: 'Live Wire Flash #3: Input Focus Preserved',
+          published_at: nowIso,
+          fetched_at: nowIso,
+          ingested_at: nowIso,
+        }
+      ]);
+    }
+  });
+  await page.waitForTimeout(200);
+
+  const sameDomRefs = await page.evaluate((activeId) => {
+    const refs = window.__cat5DomRefs;
+    if (!refs) return false;
+    return (
+      refs.headline === document.querySelector('#article-headline') &&
+      refs.articlePanel === document.querySelector('#article-panel') &&
+      refs.summaryPanel === document.querySelector('#summary-panel') &&
+      refs.cardStripTrack === document.querySelector('#card-strip-track') &&
+      refs.ticker === document.querySelector('#news-ticker-bar') &&
+      (!refs.activeCard || refs.activeCard === document.querySelector(`#article-card-${activeId}`)) &&
+      window.__cat5SearchInput === document.querySelector('#article-search-input') &&
+      document.activeElement === window.__cat5SearchInput
+    );
+  }, activeArticleIdBeforeLive);
+  results.liveUpdateNoRemounts = sameDomRefs;
+
+  await searchInput.blur();
+  await page.screenshot({
+    path: path.join(ARTIFACT_DIR, 'ui-layout-live-new-stories-pill.png'),
+    fullPage: false
+  });
+
+  // Click pill to merge pending stories cleanly
+  if (await page.locator('#btn-new-stories-pill').isVisible().catch(() => false)) {
+    await page.locator('#btn-new-stories-pill').click();
+    await page.waitForTimeout(300);
+    const pillAfterClick = await page.locator('#btn-new-stories-pill').isVisible().catch(() => false);
+    const mergedTopId = await page.evaluate(() => window.__APP_STORE__?.getState().articles[0]?.id ?? null);
+    const stillSelectedId = await page.evaluate(() => window.__APP_STORE__?.getState().selectedArticleId ?? null);
+    results.liveUpdatePillMergeWorks =
+      !pillAfterClick && mergedTopId === 999903 && stillSelectedId === activeArticleIdBeforeLive;
+  }
+  console.log('[Validator] Category 5 stability checks:', {
+    liveUpdateZeroLayoutShift: results.liveUpdateZeroLayoutShift,
+    liveUpdatePreservesScroll: results.liveUpdatePreservesScroll,
+    liveUpdateQueueSnapshotAndPill: results.liveUpdateQueueSnapshotAndPill,
+    liveUpdateNoRemounts: results.liveUpdateNoRemounts,
+    liveUpdatePillMergeWorks: results.liveUpdatePillMergeWorks
+  });
+
   // 12. Switch to Night Edition & Capture
   console.log('[Validator] Switching to Night Edition for theme validation...');
   await page.keyboard.press('b');
@@ -234,6 +437,19 @@ async function runValidation() {
   await browser.close();
   console.log('\n[Validator] ALL VALIDATION CHECKS FINISHED:');
   console.log(JSON.stringify(results, null, 2));
+
+  const requiredCat5 = [
+    'liveUpdateZeroLayoutShift',
+    'liveUpdatePreservesScroll',
+    'liveUpdateQueueSnapshotAndPill',
+    'liveUpdateNoRemounts',
+    'liveUpdatePillMergeWorks'
+  ];
+  const failedRequired = requiredCat5.filter((k) => !results[k]);
+  if (failedRequired.length > 0) {
+    console.error('[Validator] Failed Category 5 checks:', failedRequired);
+    process.exit(1);
+  }
 }
 
 runValidation().catch(err => {

@@ -266,6 +266,15 @@
   }
 }
 
+[data-reduce-motion="reduce"] *,
+[data-reduce-motion="reduce"] *::before,
+[data-reduce-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 /* ─── 6. Evidence Highlight Marker Styles ────────────────────────────────── */
 .evidence-marker {
   position: relative;
@@ -397,6 +406,35 @@
   border-radius: 1px;
   opacity: 0.85;
   pointer-events: none;
+}
+
+/* ─── 8. Live-Update Stability Utilities (PRD D Cat 5) ─────────────────── */
+.scroll-anchor-auto {
+  overflow-anchor: auto;
+}
+
+@keyframes broadsheetFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Fade-only entrance for new live rows so neighboring elements experience 0 px layout shift */
+.animate-row-fade-in {
+  animation: broadsheetFadeIn 150ms var(--ease-paper, ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-row-fade-in {
+    animation: none !important;
+  }
+}
+
+[data-reduce-motion="reduce"] .animate-row-fade-in {
+  animation: none !important;
 }
 
 

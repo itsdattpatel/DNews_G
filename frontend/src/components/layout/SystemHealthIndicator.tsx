@@ -88,7 +88,7 @@ export const SystemHealthIndicator: React.FC<SystemHealthIndicatorProps> = ({
         id="btn-status-strip-system-health"
         onClick={() => setIsOpen((prev) => !prev)}
         onMouseEnter={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 px-2 py-0.5 rounded-2xs border border-paper-border hover:border-ink bg-paper font-mono text-[0.625rem] font-bold text-ink transition-colors cursor-pointer select-none"
+        className="flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-2xs border border-paper-border hover:border-ink bg-paper font-mono text-[0.625rem] font-bold tabular-nums min-w-[92px] text-ink transition-colors cursor-pointer select-none"
         title="System Operational Telemetry — Click to inspect diagnostic telemetry"
         aria-expanded={isOpen}
       >

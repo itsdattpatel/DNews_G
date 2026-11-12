@@ -304,7 +304,7 @@ export const AlertsCenter: React.FC = () => {
           )}
 
           {!isLoading && filteredAlerts.length > 0 && (
-            <div id="alerts-list" className="space-y-2.5">
+            <div id="alerts-list" className="space-y-2.5 scroll-anchor-auto">
               {visibleAlerts.map((alert) => {
                 const badge = getAlertBadgeStyle(alert.type);
                 const isUnread = !alert.acknowledged;
@@ -313,7 +313,7 @@ export const AlertsCenter: React.FC = () => {
                   <div
                     key={alert.id}
                     id={`alert-row-${alert.id}`}
-                    className={`p-3 sm:p-4 border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    className={`p-3 sm:p-4 border transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 scroll-anchor-auto animate-row-fade-in ${
                       isUnread
                         ? 'border-ink bg-paper shadow-xs'
                         : 'border-paper-border bg-paper-alt opacity-80'

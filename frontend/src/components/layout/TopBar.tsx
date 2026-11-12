@@ -126,7 +126,7 @@ export const TopBar: React.FC = () => {
               ? `Disable Auto-Advance (${settings.auto_advance_interval_sec ?? 7}s interval)`
               : `Enable Auto-Advance (${settings.auto_advance_interval_sec ?? 7}s ambient reading)`
           }
-          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xs border text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1 rounded-xs border text-xs font-bold tabular-nums min-w-[3.4ch] md:min-w-[82px] transition-all cursor-pointer ${
             settings.auto_advance_enabled
               ? 'border-ink bg-ink text-paper shadow-xs'
               : 'border-paper-border text-ink-muted hover:border-ink hover:text-ink'

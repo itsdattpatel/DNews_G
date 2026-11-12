@@ -992,9 +992,9 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
                                 <React.Fragment key={err.id}>
                                   <tr
                                     onClick={() => setExpandedErrorId(isExpanded ? null : err.id)}
-                                    className="hover:bg-paper-alt/50 cursor-pointer transition-colors"
+                                    className="hover:bg-paper-alt/50 cursor-pointer transition-colors animate-row-fade-in"
                                   >
-                                    <td className="p-2.5 font-mono text-ink-secondary whitespace-nowrap">
+                                    <td className="p-2.5 font-mono tabular-nums text-ink-secondary whitespace-nowrap">
                                       {err.timestamp.replace('T', ' ').replace('Z', '')}
                                     </td>
                                     <td className="p-2.5 font-mono uppercase text-ink-muted">

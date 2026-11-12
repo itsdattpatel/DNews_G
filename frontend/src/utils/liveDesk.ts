@@ -106,3 +106,42 @@ export function mergeLiveArticleList(
   };
 }
 
+/**
+ * Merges buffered live arrivals ahead of the current snapshot queue, deduping by id
+ * and preserving memory bounds. Used on explicit "N new stories" click or wrap-around.
+ */
+export function mergePendingArticles(
+  pending: Article[],
+  existing: Article[],
+  maxItems: number = MAX_IN_MEMORY_ARTICLES,
+): { items: Article[]; addedCount: number } {
+  if (!pending.length) {
+    return { items: existing, addedCount: 0 };
+  }
+
+  const seen = new Set<number>();
+  const combined: Article[] = [];
+  let addedCount = 0;
+  const existingIds = new Set(existing.map((a) => a.id));
+
+  for (const item of pending) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    combined.push(item);
+    if (!existingIds.has(item.id)) {
+      addedCount += 1;
+    }
+  }
+
+  for (const item of existing) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    combined.push(item);
+  }
+
+  return {
+    items: capList(combined, maxItems),
+    addedCount,
+  };
+}
+

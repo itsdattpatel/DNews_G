@@ -9,7 +9,7 @@
  * - Full Broadsheet design system integration (Paper & Night editions)
  * - Instant manual & automatic WebGL fallback between 3D Globe and 2D Flat Map
  */
-import React, { useState, useMemo, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, Suspense, lazy } from 'react';
 import {
   ComposableMap,
   Geographies,
@@ -65,15 +65,23 @@ function checkWebGLSupport(): boolean {
   }
 }
 
+const DEFAULT_MAP_CENTER: [number, number] = [20, 25];
+
 export const WorldMap: React.FC<WorldMapProps> = ({ forceOpen }) => {
   const isGlobeOpenStore = useAppStore((s) => s.isGlobeOpen);
   const isGlobeOpen = forceOpen ?? isGlobeOpenStore;
   const setGlobeOpen = useAppStore((s) => s.setGlobeOpen);
   const articles = useAppStore((s) => s.articles);
+  const pendingNewArticles = useAppStore((s) => s.pendingNewArticles);
   const setSelectedCountry = useAppStore((s) => s.setSelectedCountry);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const theme = useAppStore((s) => s.theme);
   const settings = useAppStore((s) => s.settings);
+
+  const [mapViewport, setMapViewport] = useState<{ coordinates: [number, number]; zoom: number }>({
+    coordinates: DEFAULT_MAP_CENTER,
+    zoom: 1,
+  });
 
   // Check WebGL availability once
   const webGLAvailable = useMemo(() => checkWebGLSupport(), []);
@@ -106,10 +114,17 @@ export const WorldMap: React.FC<WorldMapProps> = ({ forceOpen }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isGlobeOpen, setGlobeOpen]);
 
+  // Combine active snapshot + pending live arrivals for live cartography counts without shifting the reader queue
+  const mapArticles = useMemo(() => {
+    if (!pendingNewArticles.length) return articles;
+    const seen = new Set(articles.map((a) => a.id));
+    return [...pendingNewArticles.filter((a) => !seen.has(a.id)), ...articles];
+  }, [articles, pendingNewArticles]);
+
   // Aggregate country news
   const { countryStats, wildlifeCountries, totalDispatchesMapped } = useMemo(() => {
-    return aggregateCountryNews(articles);
-  }, [articles]);
+    return aggregateCountryNews(mapArticles);
+  }, [mapArticles]);
 
   const statsList = useMemo(() => {
     const list = Object.values(countryStats);
@@ -122,11 +137,14 @@ export const WorldMap: React.FC<WorldMapProps> = ({ forceOpen }) => {
     );
   }, [countryStats, searchFilter]);
 
-  const handleCountryClick = (countryKey: string) => {
-    setSelectedCountry(countryKey);
-    setGlobeOpen(false);
-    setCurrentView('category');
-  };
+  const handleCountryClick = useCallback(
+    (countryKey: string) => {
+      setSelectedCountry(countryKey);
+      setGlobeOpen(false);
+      setCurrentView('category');
+    },
+    [setSelectedCountry, setGlobeOpen, setCurrentView],
+  );
 
   const handleCycleProjection = () => {
     if (projection === 'globe3d') {
@@ -137,6 +155,9 @@ export const WorldMap: React.FC<WorldMapProps> = ({ forceOpen }) => {
       setProjection(webGLAvailable ? 'globe3d' : 'geoMercator');
     }
   };
+
+  const handleFallbackTo2D = useCallback(() => setProjection('geoMercator'), []);
+  const handleToggleWildlifeOverlay = useCallback(() => setWildlifeOverlay((prev) => !prev), []);
 
   if (!isGlobeOpen) return null;
 
@@ -262,14 +283,14 @@ export const WorldMap: React.FC<WorldMapProps> = ({ forceOpen }) => {
               }
             >
               <Globe3D
-                articles={articles}
+                articles={mapArticles}
                 isNight={isNight}
                 wildlifeOverlay={wildlifeOverlay}
                 autoRotate={autoRotate}
                 onAutoRotateChange={setAutoRotate}
                 onCountrySelect={handleCountryClick}
-                onFallbackTo2D={() => setProjection('geoMercator')}
-                onToggleWildlifeOverlay={() => setWildlifeOverlay((prev) => !prev)}
+                onFallbackTo2D={handleFallbackTo2D}
+                onToggleWildlifeOverlay={handleToggleWildlifeOverlay}
                 searchFilter={searchFilter}
               />
             </Suspense>
@@ -292,7 +313,18 @@ export const WorldMap: React.FC<WorldMapProps> = ({ forceOpen }) => {
               projectionConfig={{ scale: projection === 'geoMercator' ? 125 : 155 }}
               style={{ width: '100%', height: '100%' }}
             >
-              <ZoomableGroup center={[20, 25]} zoom={1} minZoom={0.8} maxZoom={4}>
+              <ZoomableGroup
+                center={mapViewport.coordinates}
+                zoom={mapViewport.zoom}
+                minZoom={0.8}
+                maxZoom={4}
+                onMoveEnd={(position) =>
+                  setMapViewport((prev) => ({
+                    coordinates: position.coordinates ?? prev.coordinates,
+                    zoom: position.zoom ?? prev.zoom,
+                  }))
+                }
+              >
                 <Geographies geography={GEO_URL}>
                   {({ geographies }) =>
                     geographies.map((geo) => {
@@ -408,7 +440,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({ forceOpen }) => {
                       <text
                         textAnchor="middle"
                         y={3.5}
-                        className="font-mono text-[0.625rem] font-bold fill-white select-none pointer-events-none"
+                        className="font-mono text-[0.625rem] font-bold tabular-nums fill-white select-none pointer-events-none"
                       >
                         {st.articleCount}
                       </text>
