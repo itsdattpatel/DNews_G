@@ -13,13 +13,16 @@ import { recordFeedIngestion } from '../services/feedCounter';
 export function syncSources(): void {
   const db = getDb();
   const upsert = db.prepare(`
-    INSERT INTO sources (slug, name, country, url, fetch_type, enabled)
-    VALUES (@slug, @name, @country, @url, @fetchType, @enabled)
+    INSERT INTO sources (slug, name, country, region, url, fetch_type, language, priority, enabled)
+    VALUES (@slug, @name, @country, @region, @url, @fetchType, @language, @priority, @enabled)
     ON CONFLICT(slug) DO UPDATE SET
       name = excluded.name,
       country = excluded.country,
+      region = excluded.region,
       url = excluded.url,
       fetch_type = excluded.fetch_type,
+      language = excluded.language,
+      priority = excluded.priority,
       enabled = excluded.enabled
   `);
 
@@ -29,8 +32,11 @@ export function syncSources(): void {
         slug: s.slug,
         name: s.name,
         country: s.country,
+        region: s.region ?? 'Global',
         url: s.url,
         fetchType: s.fetchType,
+        language: s.language ?? 'en',
+        priority: s.priority ?? 'tier2',
         enabled: s.enabled ? 1 : 0,
       });
     }
