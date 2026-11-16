@@ -105,6 +105,10 @@ describe('Plain Mode Engine & Deterministic Rules (PRD A Category 3)', () => {
           is_catchup INTEGER DEFAULT 0,
           pass1_completed_at TEXT,
           pass2_completed_at TEXT,
+          body_en_normalized TEXT DEFAULT NULL,
+          source_language TEXT DEFAULT 'en',
+          body_quality TEXT DEFAULT 'good',
+          readability_score INTEGER DEFAULT 0,
           created_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE IF NOT EXISTS two_pass_stats (

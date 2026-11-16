@@ -29,7 +29,7 @@ articlesRouter.get('/', (req: Request, res: Response) => {
   if (q) {
     // Full-text search path
     query = `
-      SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.anchor_phrases, a.breaking_score,
+      SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.body_en_normalized, a.body_quality, a.readability_score, a.source_language, a.anchor_phrases, a.breaking_score,
              a.cluster_id, a.bookmarked, a.published_at, a.ingested_at, a.is_catchup, a.fetched_at,
              a.pass1_completed_at, a.pass2_completed_at,
              s.id AS source_id, s.name AS source_name, s.country AS source_country,
@@ -59,7 +59,7 @@ articlesRouter.get('/', (req: Request, res: Response) => {
     params.push(limit, offset);
   } else {
     query = `
-      SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.anchor_phrases, a.breaking_score,
+      SELECT a.id, a.url, a.title_english, a.summary, a.body_english, a.body_en_normalized, a.body_quality, a.readability_score, a.source_language, a.anchor_phrases, a.breaking_score,
              a.cluster_id, a.bookmarked, a.published_at, a.ingested_at, a.is_catchup, a.fetched_at,
              a.pass1_completed_at, a.pass2_completed_at,
              s.id AS source_id, s.name AS source_name, s.country AS source_country,
@@ -318,7 +318,10 @@ articlesRouter.patch('/:id', (req: Request, res: Response) => {
 
 interface RawRow {
   id: number; url: string; title_english: string | null; summary: string | null;
-  body_english?: string | null; anchor_phrases?: string | null;
+  body_english?: string | null; body_en_normalized?: string | null;
+  body_quality?: string | null; readability_score?: number | null;
+  source_language?: string | null;
+  anchor_phrases?: string | null;
   breaking_score: number; cluster_id: number | null;
   cluster_outlet_count?: number | null;
   cluster_country_count?: number | null;
@@ -353,6 +356,10 @@ function formatRow(row: RawRow) {
     title_english: row.title_english,
     summary: row.summary,
     body_english: row.body_english,
+    body_en_normalized: row.body_en_normalized ?? row.body_english ?? null,
+    body_quality: row.body_quality ?? 'good',
+    readability_score: row.readability_score ?? 0,
+    source_language: row.source_language ?? 'en',
     anchor_phrases: anchorPhrases,
     breaking_score: row.breaking_score,
     cluster_id: row.cluster_id,

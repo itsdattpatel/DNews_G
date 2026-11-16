@@ -8,6 +8,7 @@ import { SOURCES } from '../../../config/sources';
 import type { ArticleRaw } from '../fetch/rss';
 import { recordSessionArticlesIngested } from '../services/sessionManager';
 import { recordFeedIngestion } from '../services/feedCounter';
+import { normalizeArticleText } from './textNormalizer';
 
 /** Sync sources config into DB on startup */
 export function syncSources(): void {
@@ -63,9 +64,9 @@ export async function insertPendingArticles(
 
   const insertArticle = db.prepare(`
     INSERT OR IGNORE INTO articles
-      (source_id, url, title_original, body_original, published_at, ingested_at, is_catchup, status)
+      (source_id, url, title_original, title_english, body_original, body_english, body_en_normalized, body_quality, readability_score, source_language, published_at, ingested_at, is_catchup, status)
     VALUES
-      (@sourceId, @url, @titleOriginal, @bodyOriginal, @publishedAt, @ingestedAt, @isCatchup, 'pending')
+      (@sourceId, @url, @titleOriginal, @titleEnglish, @bodyOriginal, @bodyEnglish, @bodyEnNormalized, @bodyQuality, @readabilityScore, @sourceLanguage, @publishedAt, @ingestedAt, @isCatchup, 'pending')
   `);
 
   let inserted = 0;
@@ -76,11 +77,18 @@ export async function insertPendingArticles(
       if (!sourceRow) continue;
       evaluated++;
 
+      const norm = normalizeArticleText(a.titleOriginal, a.bodyOriginal);
       const result = insertArticle.run({
         sourceId: sourceRow.id,
         url: a.url,
         titleOriginal: a.titleOriginal,
+        titleEnglish: norm.titleEnglish,
         bodyOriginal: a.bodyOriginal,
+        bodyEnglish: norm.bodyEnglishNormalized,
+        bodyEnNormalized: norm.bodyEnglishNormalized,
+        bodyQuality: norm.quality,
+        readabilityScore: norm.readabilityScore,
+        sourceLanguage: norm.sourceLanguage,
         publishedAt: a.publishedAt,
         ingestedAt: nowIso,
         isCatchup: isCatchup ? 1 : 0,

@@ -30,6 +30,7 @@ import { runClusteringPass } from './cluster';
 import { detectAlerts } from '../alerts/detector';
 import { checkWatchlistMatches } from '../alerts/watchlist-checker';
 import { logSystemError } from '../services/controlRoom';
+import { normalizeArticleText, computeReadability } from './textNormalizer';
 
 export type ArticleRow = DbArticle & { source_country: string; source_name: string };
 
@@ -720,6 +721,9 @@ async function processBatch(batch: ArticleRow[]): Promise<void> {
     UPDATE articles SET
       title_english = @title_english,
       body_english  = @body_english,
+      body_en_normalized = coalesce(@body_en_normalized, @body_english),
+      body_quality  = @body_quality,
+      readability_score = @readability_score,
       summary       = @summary,
       breaking_score = @breaking_score,
       anchor_phrases = @anchor_phrases,
@@ -746,11 +750,15 @@ async function processBatch(batch: ArticleRow[]): Promise<void> {
       // Count summary sentences and validate anchor phrases verbatim
       const summarySentences = (r.summary.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || []).length;
       const validAnchors = validateAnchorPhrases(r.anchor_phrases || [], r.body_english, summarySentences);
+      const metrics = computeReadability(r.body_english);
 
       updateArticle.run({
         id: article.id,
         title_english: r.title_english,
         body_english: r.body_english,
+        body_en_normalized: r.body_english,
+        body_quality: metrics.quality,
+        readability_score: metrics.score,
         summary: r.summary,
         breaking_score: r.breaking_score,
         anchor_phrases: validAnchors.length > 0 ? JSON.stringify(validAnchors) : null,
@@ -824,8 +832,12 @@ export function processPlainModeBatch(batch: ArticleRow[]): void {
 
   const updateArticle = db.prepare(`
     UPDATE articles SET
-      title_english = coalesce(title_english, title_original),
-      body_english  = coalesce(body_english, body_original),
+      title_english = coalesce(@title_english, title_english, title_original),
+      body_english  = coalesce(@body_english, body_english, body_original),
+      body_en_normalized = @body_en_normalized,
+      body_quality  = @body_quality,
+      readability_score = @readability_score,
+      source_language = @source_language,
       summary       = NULL,
       breaking_score = @breaking_score,
       anchor_phrases = NULL,
@@ -855,9 +867,9 @@ export function processPlainModeBatch(batch: ArticleRow[]): void {
 
   const writeAll = db.transaction((rows: ArticleRow[]) => {
     for (const article of rows) {
-      const title = (article.title_original || 'World News Dispatch').trim();
-      const rawBody = (article.body_original || article.title_original || '').trim();
-      const cleanBody = rawBody.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const norm = normalizeArticleText(article.title_original || '', article.body_original || '');
+      const title = norm.titleEnglish || (article.title_original || 'World News Dispatch').trim();
+      const cleanBody = norm.bodyEnglishNormalized || (article.body_original || article.title_original || '').trim();
 
       // Rule-based categorization
       const categories = applyRuleBasedCategorization(title, cleanBody, article.source_country, article.source_name);
@@ -883,6 +895,12 @@ export function processPlainModeBatch(batch: ArticleRow[]): void {
 
       updateArticle.run({
         id: article.id,
+        title_english: norm.titleEnglish,
+        body_english: norm.bodyEnglishNormalized,
+        body_en_normalized: norm.bodyEnglishNormalized,
+        body_quality: norm.quality,
+        readability_score: norm.readabilityScore,
+        source_language: norm.sourceLanguage,
         breaking_score: breakingScore,
       });
 
