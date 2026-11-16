@@ -113,9 +113,18 @@ function saveWindowState(): void {
  */
 function spawnBackend(): Promise<void> {
   return new Promise((resolve, reject) => {
-    const backendScript = app.isPackaged
-      ? path.join(process.resourcesPath, 'backend', 'dist', 'index.js')
-      : path.resolve(__dirname, '../../backend/dist/index.js');
+    const candidates = app.isPackaged
+      ? [
+          path.join(process.resourcesPath, 'backend', 'dist', 'backend', 'src', 'index.js'),
+          path.join(process.resourcesPath, 'backend', 'dist', 'index.js'),
+          path.join(app.getAppPath(), 'backend', 'dist', 'backend', 'src', 'index.js'),
+          path.join(app.getAppPath(), 'backend', 'dist', 'index.js'),
+        ]
+      : [
+          path.resolve(__dirname, '../../backend/dist/backend/src/index.js'),
+          path.resolve(__dirname, '../../backend/dist/index.js'),
+        ];
+    const backendScript = candidates.find((p) => fs.existsSync(p)) || candidates[0];
 
     console.log(`[Electron] Starting backend process at: ${backendScript}`);
 
@@ -128,10 +137,19 @@ function spawnBackend(): Promise<void> {
 
     try {
       // Use Electron binary with ELECTRON_RUN_AS_NODE=1 so user does not need system Node.js
+      const nodePath = app.isPackaged
+        ? [
+            path.join(process.resourcesPath, 'app.asar', 'node_modules'),
+            path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules'),
+            path.join(app.getAppPath(), 'node_modules'),
+          ].join(path.delimiter)
+        : process.env['NODE_PATH'];
+
       backendProcess = spawn(process.execPath, [backendScript], {
         env: {
           ...process.env,
           ELECTRON_RUN_AS_NODE: '1',
+          ...(nodePath ? { NODE_PATH: nodePath } : {}),
           DNEWS_APP_DATA_DIR: APP_DATA_ROOT,
           PORT: '3001',
           HOST: '127.0.0.1',
