@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getDbPath, closeDb, getDb } from '../db/db';
+import { getBackupsDir as resolveBackupsDir } from '../utils/appPaths';
 
 export interface BackupRecord {
   filename: string;
@@ -17,19 +18,11 @@ export interface BackupRecord {
 }
 
 export function getBackupsDir(): string {
-  if (process.env['BACKUPS_DIR']) {
-    const customDir = path.resolve(process.env['BACKUPS_DIR']);
-    if (!fs.existsSync(customDir)) {
-      fs.mkdirSync(customDir, { recursive: true });
-    }
-    return customDir;
+  const dir = resolveBackupsDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
-  // Always resolves to workspace root /backups
-  const rootBackups = path.resolve('backups');
-  if (!fs.existsSync(rootBackups)) {
-    fs.mkdirSync(rootBackups, { recursive: true });
-  }
-  return rootBackups;
+  return dir;
 }
 
 export function formatBytes(bytes: number): string {

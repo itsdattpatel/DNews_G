@@ -5,26 +5,10 @@
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
+import { getDataDir, ensureAppDataDirs } from '../utils/appPaths';
 
 let _db: Database.Database | null = null;
 let _currentDbPath: string | null = null;
-
-function getDataDir(): string {
-  if (process.env['DATA_DIR']) {
-    return path.resolve(process.env['DATA_DIR']);
-  }
-  const cwd = process.cwd();
-  // If cwd is already the backend directory, use its data dir
-  if (path.basename(cwd) === 'backend') {
-    return path.resolve(cwd, 'data');
-  }
-  // If running from repository root, prioritize backend/data
-  const rootBackendData = path.resolve(cwd, 'backend', 'data');
-  if (fs.existsSync(rootBackendData)) {
-    return rootBackendData;
-  }
-  return path.resolve(cwd, 'data');
-}
 
 export function getDbPath(): string {
   if (process.env['DB_PATH']) {
@@ -64,10 +48,8 @@ export function getDb(): Database.Database {
     _db = null;
   }
 
+  ensureAppDataDirs();
   const dataDir = getDataDir();
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
 
   _db = new Database(dbPath, { timeout: 10000 });
   _currentDbPath = dbPath;
