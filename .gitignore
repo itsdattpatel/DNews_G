@@ -42,6 +42,7 @@ news.sqlite
 # Electron packaging outputs
 electron/dist/
 release/
+assets/bin/
 
 # User API key store (written by in-app Secrets Manager)
 user.env

@@ -26,4 +26,9 @@ function copyFolder(src, dest) {
 
 copyFolder(srcMigrations, target1);
 copyFolder(srcMigrations, target2);
-console.log('[copy-assets] Successfully copied migration SQL files to dist.');
+
+const srcConfig = path.resolve(__dirname, '../../config');
+const targetConfig = path.resolve(__dirname, '../dist/config');
+copyFolder(srcConfig, targetConfig);
+
+console.log('[copy-assets] Successfully copied migration SQL files and config to dist.');

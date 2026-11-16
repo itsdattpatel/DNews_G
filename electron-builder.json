@@ -14,9 +14,14 @@
     "package.json"
   ],
   "asarUnpack": [
-    "**/node_modules/better-sqlite3/**"
+    "**/node_modules/better-sqlite3/**",
+    "backend/dist/**"
   ],
   "extraResources": [
+    {
+      "from": "assets/bin/node.exe",
+      "to": "bin/node.exe"
+    },
     {
       "from": "config/",
       "to": "config/"

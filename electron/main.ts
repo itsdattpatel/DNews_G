@@ -26,10 +26,34 @@ const APP_ID = 'com.dnews.app';
 app.name = APP_NAME;
 app.setAppUserModelId(APP_ID);
 
+// Paths & Directories (Ensure log file exists before single instance check)
+const APP_DATA_ROOT = path.join(app.getPath('appData'), 'DNews');
+if (!fs.existsSync(APP_DATA_ROOT)) {
+  fs.mkdirSync(APP_DATA_ROOT, { recursive: true });
+}
+const LOGS_DIR = path.join(APP_DATA_ROOT, 'logs');
+if (!fs.existsSync(LOGS_DIR)) {
+  fs.mkdirSync(LOGS_DIR, { recursive: true });
+}
+const DESKTOP_LOG_FILE = path.join(LOGS_DIR, 'desktop.log');
+
+export function logDesktop(message: string): void {
+  try {
+    const timestamp = new Date().toISOString();
+    fs.appendFileSync(DESKTOP_LOG_FILE, `[${timestamp}] ${message}\n`);
+  } catch {
+    // Ignore logging errors
+  }
+}
+
+logDesktop('=== DNews Application Initializing ===');
+
 // 1. Single-Instance Lock (PRD E Category 8)
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
+logDesktop(`Single-instance lock status: ${hasSingleInstanceLock}`);
 if (!hasSingleInstanceLock) {
   console.log('[Electron] Another instance of DNews is already running. Focusing existing window and exiting.');
+  logDesktop('Another instance already running. Exiting cleanly.');
   app.quit();
   process.exit(0);
 }
@@ -41,11 +65,6 @@ let appUpdater: AppUpdater | null = null;
 let backendProcess: ChildProcess | null = null;
 let isQuitting = false;
 
-// Paths & Directories
-const APP_DATA_ROOT = path.join(app.getPath('appData'), 'DNews');
-if (!fs.existsSync(APP_DATA_ROOT)) {
-  fs.mkdirSync(APP_DATA_ROOT, { recursive: true });
-}
 const WINDOW_STATE_FILE = path.join(APP_DATA_ROOT, 'window-state.json');
 const USER_ENV_FILE = path.join(APP_DATA_ROOT, 'user.env');
 
@@ -142,6 +161,8 @@ function spawnBackend(): Promise<void> {
   return new Promise((resolve, reject) => {
     const candidates = app.isPackaged
       ? [
+          path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'dist', 'backend', 'src', 'index.js'),
+          path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'dist', 'index.js'),
           path.join(process.resourcesPath, 'backend', 'dist', 'backend', 'src', 'index.js'),
           path.join(process.resourcesPath, 'backend', 'dist', 'index.js'),
           path.join(app.getAppPath(), 'backend', 'dist', 'backend', 'src', 'index.js'),
@@ -154,28 +175,57 @@ function spawnBackend(): Promise<void> {
     const backendScript = candidates.find((p) => fs.existsSync(p)) || candidates[0];
 
     console.log(`[Electron] Starting backend process at: ${backendScript}`);
+    logDesktop(`Starting backend process at: ${backendScript}`);
 
     // If running in development and script doesn't exist yet, warn but proceed
     if (!fs.existsSync(backendScript) && !app.isPackaged) {
       console.warn(`[Electron] Backend build not found at ${backendScript}. Assuming external dev server.`);
+      logDesktop(`Backend build not found at ${backendScript}. Assuming external dev server.`);
       resolve();
       return;
     }
 
     try {
-      // Use Electron binary with ELECTRON_RUN_AS_NODE=1 so user does not need system Node.js
+      // Runtime selection:
+      // 1. Dedicated bundled Node runtime (process.resourcesPath/bin/node.exe)
+      // 2. System Node.js binary
+      // 3. Bundled Electron runtime (ELECTRON_RUN_AS_NODE=1)
+      let runtimeBinary = process.execPath;
+      let isElectronRunner = true;
+
+      const bundledNode = path.join(process.resourcesPath, 'bin', 'node.exe');
+      if (app.isPackaged && fs.existsSync(bundledNode)) {
+        runtimeBinary = bundledNode;
+        isElectronRunner = false;
+        logDesktop(`Found bundled private Node.js runtime at ${bundledNode}`);
+      } else {
+        try {
+          const { execSync } = require('child_process');
+          const nodeVer = execSync('node -v', { stdio: ['ignore', 'pipe', 'ignore'], timeout: 2000 }).toString().trim();
+          if (nodeVer.startsWith('v')) {
+            runtimeBinary = 'node';
+            isElectronRunner = false;
+            logDesktop(`Found system Node.js (${nodeVer}), utilizing system runtime for backend`);
+          }
+        } catch {
+          logDesktop('System Node.js not detected; falling back to bundled Electron Node runtime');
+        }
+      }
+
       const nodePath = app.isPackaged
         ? [
-            path.join(process.resourcesPath, 'app.asar', 'node_modules'),
             path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules'),
+            path.join(process.resourcesPath, 'app.asar', 'node_modules'),
             path.join(app.getAppPath(), 'node_modules'),
           ].join(path.delimiter)
         : process.env['NODE_PATH'];
 
-      backendProcess = spawn(process.execPath, [backendScript], {
+      logDesktop(`Spawning backend using ${runtimeBinary} (isElectronRunner=${isElectronRunner}) with NODE_PATH=${nodePath}`);
+
+      backendProcess = spawn(runtimeBinary, [backendScript], {
         env: {
           ...process.env,
-          ELECTRON_RUN_AS_NODE: '1',
+          ...(isElectronRunner ? { ELECTRON_RUN_AS_NODE: '1' } : {}),
           ...(nodePath ? { NODE_PATH: nodePath } : {}),
           DNEWS_APP_DATA_DIR: APP_DATA_ROOT,
           PORT: '3001',
@@ -187,19 +237,23 @@ function spawnBackend(): Promise<void> {
       backendProcess.stdout?.on('data', (data) => {
         const str = data.toString();
         process.stdout.write(`[Backend] ${str}`);
+        logDesktop(`[Backend] ${str.trim()}`);
       });
 
       backendProcess.stderr?.on('data', (data) => {
         const str = data.toString();
         process.stderr.write(`[Backend:Err] ${str}`);
+        logDesktop(`[Backend:Err] ${str.trim()}`);
       });
 
       backendProcess.on('error', (err) => {
         console.error('[Electron] Backend process error:', err);
+        logDesktop(`[Backend:Error] ${err.message}`);
       });
 
       backendProcess.on('exit', (code, signal) => {
         console.log(`[Electron] Backend process exited with code=${code}, signal=${signal}`);
+        logDesktop(`[Backend:Exit] code=${code}, signal=${signal}`);
         backendProcess = null;
       });
 
@@ -478,6 +532,7 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   console.log('[Electron] App ready, launching DNews desktop environment...');
+  logDesktop('App ready, launching DNews desktop environment...');
 
   createMenu();
   createTray();
@@ -487,11 +542,14 @@ app.whenReady().then(async () => {
     const healthy = await waitForBackendHealth();
     if (healthy) {
       console.log('[Electron] Backend health check PASSED (127.0.0.1:3001/api/health is online).');
+      logDesktop('Backend health check PASSED (127.0.0.1:3001/api/health is online).');
     } else {
       console.warn('[Electron] Backend health check timed out. Creating window regardless.');
+      logDesktop('Backend health check TIMED OUT (127.0.0.1:3001/api/health unreachable). Creating window regardless.');
     }
   } catch (err) {
     console.error('[Electron] Failed to start backend:', err);
+    logDesktop(`[Electron] Failed to start backend: ${err instanceof Error ? err.stack || err.message : String(err)}`);
   }
 
   createMainWindow();

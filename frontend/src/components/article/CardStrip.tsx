@@ -355,8 +355,12 @@ export const CardStrip: React.FC<CardStripProps> = ({
         className="flex-1 flex items-center gap-3.5 px-4 py-2 overflow-x-auto overscroll-x-contain h-full scrollbar-thin"
       >
         {articles.length === 0 ? (
-          <div className="font-ui text-xs text-ink-muted italic m-auto">
-            No dispatches match the current filter. Live radar scanning wire...
+          <div className="font-ui text-xs text-ink-muted italic m-auto flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
+            </span>
+            <span>No dispatches match the current filter. Printing morning edition from 155 global wires...</span>
           </div>
         ) : (
           articles.map((art) => (

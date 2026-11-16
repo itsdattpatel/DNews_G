@@ -63,6 +63,49 @@ export function refreshInterval(): void {
   }
 }
 
+async function fetchSingleSource(source: (typeof SOURCES)[0]): Promise<ArticleRaw[]> {
+  const sourceStart = Date.now();
+  try {
+    let articles: ArticleRaw[] = [];
+
+    if (source.fetchType === 'rss' && FEATURES.rss) {
+      articles = await fetchRss(source.url, source.slug, source.name, source.country);
+    } else if (source.fetchType === 'gdelt' && FEATURES.gdelt) {
+      articles = await fetchGdelt(source.url, source.slug, source.name, source.country);
+    } else if (source.fetchType === 'scrape' && FEATURES.scraper) {
+      const scraped = await scrapeArticle(source.url);
+      if (scraped) {
+        articles = [
+          {
+            url: source.url,
+            titleOriginal: scraped.title,
+            bodyOriginal: scraped.body,
+            publishedAt: new Date().toISOString(),
+            sourceSlug: source.slug,
+            sourceName: source.name,
+            country: source.country,
+          },
+        ];
+      }
+    }
+
+    const sourceLatency = Date.now() - sourceStart;
+    updateSourceTelemetry(source.slug, sourceLatency, null);
+    return articles;
+  } catch (err) {
+    const sourceLatency = Date.now() - sourceStart;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[Scheduler] Error fetching ${source.slug}: ${msg}`);
+    updateSourceTelemetry(source.slug, sourceLatency, msg);
+    logSystemError('fetcher', `Fetch failed for ${source.name} (${source.slug}): ${msg}`, 'error', {
+      slug: source.slug,
+      url: source.url,
+      latencyMs: sourceLatency,
+    });
+    return [];
+  }
+}
+
 async function runFetchCycle(): Promise<void> {
   if (!getConnectivityWatchdog().isCurrentlyOnline()) {
     console.log('[Scheduler] Fetch cycle suspended — offline mode active (watchdog checking every 15s)');
@@ -79,76 +122,56 @@ async function runFetchCycle(): Promise<void> {
   const cycleStartMs = Date.now();
 
   try {
-    const enabledSources = SOURCES.filter((s) => s.enabled);
+    // Sort sources so tier1 priority sources are fetched first for fast first-paint
+    const enabledSources = SOURCES.filter((s) => s.enabled).sort((a, b) => {
+      const pA = a.priority === 'tier1' ? 1 : 2;
+      const pB = b.priority === 'tier1' ? 1 : 2;
+      return pA - pB;
+    });
 
     console.log(`[Scheduler] Fetch cycle started — ${enabledSources.length} sources`);
     const allArticles: ArticleRaw[] = [];
+    let totalNewCount = 0;
 
-    for (const source of enabledSources) {
-      const sourceStart = Date.now();
-      try {
-        let articles: ArticleRaw[] = [];
+    // Fetch in concurrent batches of 6 sources so initial articles land within seconds
+    const BATCH_SIZE = 6;
+    for (let i = 0; i < enabledSources.length; i += BATCH_SIZE) {
+      const batch = enabledSources.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(batch.map((s) => fetchSingleSource(s)));
+      const batchArticles = batchResults.flat();
 
-        if (source.fetchType === 'rss' && FEATURES.rss) {
-          articles = await fetchRss(source.url, source.slug, source.name, source.country);
-        } else if (source.fetchType === 'gdelt' && FEATURES.gdelt) {
-          articles = await fetchGdelt(source.url, source.slug, source.name, source.country);
-        } else if (source.fetchType === 'scrape' && FEATURES.scraper) {
-          const scraped = await scrapeArticle(source.url);
-          if (scraped) {
-            articles = [
-              {
-                url: source.url,
-                titleOriginal: scraped.title,
-                bodyOriginal: scraped.body,
-                publishedAt: new Date().toISOString(),
-                sourceSlug: source.slug,
-                sourceName: source.name,
-                country: source.country,
-              },
-            ];
+      if (batchArticles.length > 0) {
+        allArticles.push(...batchArticles);
+        const batchNew = await insertPendingArticles(batchArticles);
+        totalNewCount += batchNew;
+
+        // If new articles landed, immediately trigger stream enrichment and emit SSE
+        if (batchNew > 0 && _onFetch) {
+          try {
+            await _onFetch(batchArticles);
+          } catch (enrichErr) {
+            console.warn('[Scheduler] Stream enrichment warning:', enrichErr);
           }
         }
-
-        allArticles.push(...articles);
-        const sourceLatency = Date.now() - sourceStart;
-
-        // Update telemetry and last_fetched_at in database
-        updateSourceTelemetry(source.slug, sourceLatency, null);
-      } catch (err) {
-        const sourceLatency = Date.now() - sourceStart;
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`[Scheduler] Error fetching ${source.slug}: ${msg}`);
-        updateSourceTelemetry(source.slug, sourceLatency, msg);
-        logSystemError('fetcher', `Fetch failed for ${source.name} (${source.slug}): ${msg}`, 'error', {
-          slug: source.slug,
-          url: source.url,
-          latencyMs: sourceLatency,
-        });
       }
     }
 
-    const newCount = await insertPendingArticles(allArticles);
     _lastCycleArticlesFetched = allArticles.length;
-    _lastCycleNewArticles = newCount;
+    _lastCycleNewArticles = totalNewCount;
     _lastCycleDurationMs = Date.now() - cycleStartMs;
     _lastCycleCompletedAt = new Date().toISOString();
     _nextCycleExpectedAt = new Date(Date.now() + getIntervalMs()).toISOString();
 
-    console.log(`[Scheduler] Cycle complete — ${allArticles.length} fetched, ${newCount} new in ${_lastCycleDurationMs}ms`);
+    console.log(`[Scheduler] Cycle complete — ${allArticles.length} fetched, ${totalNewCount} new in ${_lastCycleDurationMs}ms`);
 
     // Broadcast SSE update so Control Room and client surfaces reflect cycle completion
     emitSseEvent('control_room_update', {
       type: 'fetch_cycle_completed',
       articlesFetched: allArticles.length,
-      newArticles: newCount,
+      newArticles: totalNewCount,
       durationMs: _lastCycleDurationMs,
       completedAt: _lastCycleCompletedAt,
     });
-
-    if (_onFetch && allArticles.length > 0) {
-      await _onFetch(allArticles);
-    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logSystemError('scheduler', `Fatal scheduler cycle error: ${msg}`, 'error');

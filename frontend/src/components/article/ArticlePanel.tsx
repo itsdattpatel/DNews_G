@@ -6,7 +6,7 @@
  */
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { ExternalLink, Globe2, Languages, BookOpen, Sparkles } from 'lucide-react';
+import { ExternalLink, Globe2, Languages, BookOpen, Sparkles, Radio, RefreshCw } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
 import { WelcomeBackCard } from './WelcomeBackCard';
 import { ConfirmationBadge } from '../common/ConfirmationBadge';
@@ -29,15 +29,19 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string
 
 export interface ArticlePanelProps {
   article?: Article | null;
+  articles?: Article[];
   plainMode?: boolean;
 }
 
 export const ArticlePanel: React.FC<ArticlePanelProps> = ({
   article: propArticle,
+  articles: propArticles,
   plainMode: propPlainMode,
 }) => {
   const storeArticle = useAppStore((s) => s.selectedArticle);
   const storePlainMode = useAppStore((s) => s.settings.plain_mode_enabled ?? false);
+  const storeArticles = useAppStore((s) => s.articles);
+  const articles = propArticles !== undefined ? propArticles : storeArticles;
   const article = propArticle !== undefined ? propArticle : storeArticle;
   const isPlainMode = propPlainMode !== undefined ? propPlainMode : storePlainMode;
   const isLoading = useAppStore((s) => s.isLoading);
@@ -51,7 +55,26 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
 
   const [showOriginal, setShowOriginal] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
+  const [isManualFetching, setIsManualFetching] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleManualFetchNow = async () => {
+    setIsManualFetching(true);
+    try {
+      await fetch('/api/control-room/fetch-cycle', { method: 'POST' });
+      const res = await fetch('/api/articles?limit=60&status=done');
+      if (res.ok) {
+        const data = (await res.json()) as { total: number; items: Article[] };
+        if (data.items?.length > 0) {
+          useAppStore.getState().setArticles(data.items, data.total);
+        }
+      }
+    } catch (err) {
+      console.warn('[ArticlePanel] Manual fetch failed:', err);
+    } finally {
+      setIsManualFetching(false);
+    }
+  };
 
   const handleSummarizeStory = async () => {
     if (!article?.id || isEnriching) return;
@@ -134,6 +157,46 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
 
   // Empty State
   if (!article) {
+    if (articles.length === 0) {
+      return (
+        <div
+          id="article-panel-first-run"
+          data-lenis-prevent="true"
+          className="w-full h-full min-h-0 min-w-0 flex flex-col items-center justify-center p-8 text-center border-r border-paper-border bg-paper"
+        >
+          <div className="inline-block px-3 py-1 border border-accent/40 bg-accent/10 rounded-xs font-mono text-[11px] font-bold tracking-widest text-accent uppercase mb-4">
+            ★ HOT OFF THE PRESS — FIRST EDITION ★
+          </div>
+          <div className="p-4 border-2 border-ink rounded-xs bg-paper-alt mb-4 shadow-sm relative">
+            <Radio size={36} className="text-ink animate-pulse" />
+            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-accent" />
+            </span>
+          </div>
+          <h2 className="font-headline text-3xl font-bold text-ink tracking-tight mb-2">
+            Printing Today's First Edition
+          </h2>
+          <div className="w-32 h-0.5 bg-ink/20 my-2 mx-auto" />
+          <p className="font-serif italic text-base text-ink-secondary max-w-md mb-2">
+            The global telegraph wire is actively gathering and formatting dispatches from 155 international bureaus across 70+ nations.
+          </p>
+          <p className="font-ui text-xs text-ink-muted max-w-sm mb-6">
+            Stories will appear on your broadsheet desk automatically as incoming reports are verified and normalized.
+          </p>
+          <button
+            type="button"
+            onClick={handleManualFetchNow}
+            disabled={isManualFetching}
+            className="inline-flex items-center gap-2 px-4 py-2 border-2 border-ink bg-paper-alt hover:bg-paper active:bg-paper-alt font-ui text-xs font-bold uppercase tracking-wider text-ink shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw size={14} className={isManualFetching ? 'animate-spin' : ''} />
+            <span>{isManualFetching ? 'Connecting to Global Wires...' : 'Fetch Wire Dispatches Now'}</span>
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div
         id="article-panel-empty"

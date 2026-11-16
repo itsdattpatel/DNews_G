@@ -551,6 +551,15 @@ export const useAppStore = create<AppState>((set, get) => ({
           const updated = mergeLiveArticleList(nextArticles, incoming, filters, MAX_IN_MEMORY_ARTICLES);
           nextArticles = updated.items;
           nextTotal = Math.max(0, nextTotal + updated.deltaTotal);
+        } else if (nextArticles.length === 0) {
+          // First-run bootstrap: if desk is currently empty, place incoming dispatches
+          // directly onto the broadsheet desk and auto-select the lead dispatch.
+          const placed = mergeLiveArticleList(nextArticles, incoming, filters, MAX_IN_MEMORY_ARTICLES);
+          nextArticles = placed.items;
+          nextTotal = Math.max(1, nextTotal + placed.deltaTotal);
+          if (!nextSelected && nextArticles.length > 0) {
+            nextSelected = nextArticles[0] ?? null;
+          }
         } else {
           // Buffer new live arrivals behind the "N new stories" pill so the active
           // reading queue, strip, and manual scroll stay locked until merged.
@@ -573,6 +582,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         pendingNewArticles: nextPending,
         totalArticles: nextTotal,
         selectedArticle: nextSelected,
+        selectedArticleId: nextSelected?.id ?? state.selectedArticleId,
+        autoAdvanceQueueIds:
+          state.autoAdvanceQueueIds.length === 0 && nextArticles.length > 0
+            ? nextArticles.map((a) => a.id)
+            : state.autoAdvanceQueueIds,
       };
     });
   },
