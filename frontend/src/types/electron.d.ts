@@ -1,12 +1,26 @@
 /**
  * frontend/src/types/electron.d.ts
- * TypeScript type definitions for the Native Electron Context Bridge (PRD E Category 6.3 & 7).
+ * TypeScript type definitions for the Native Electron Context Bridge (PRD E Category 6, 7, 8, 9).
  */
 
 export interface ElectronBridgeNotificationAction {
   type?: 'article' | 'alert' | 'control_room' | 'settings' | 'update';
   id?: number;
   url?: string;
+}
+
+export interface UpdateInfo {
+  version: string;
+  releaseNotes?: string;
+  releaseDate?: string;
+  url?: string;
+}
+
+export interface UpdateProgress {
+  percent: number;
+  transferred: number;
+  total: number;
+  bytesPerSecond: number;
 }
 
 export interface ElectronBridge {
@@ -18,7 +32,9 @@ export interface ElectronBridge {
     body: string,
     action?: ElectronBridgeNotificationAction,
   ) => void;
-  checkForUpdates: () => void;
+  checkForUpdates: () => Promise<void>;
+  downloadUpdate: () => Promise<void>;
+  installUpdate: () => void;
   quitApp: () => void;
   onNotificationAction: (
     callback: (action: ElectronBridgeNotificationAction) => void,
@@ -27,6 +43,11 @@ export interface ElectronBridge {
     callback: (filter: { breaking?: boolean }) => void,
   ) => () => void;
   onOpenSettings: (callback: () => void) => () => void;
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void;
+  onUpdateProgress: (callback: (progress: UpdateProgress) => void) => () => void;
+  onUpdateDownloaded: (callback: (info: { version: string }) => void) => () => void;
+  onUpdateNotAvailable: (callback: (info: { version: string }) => void) => () => void;
+  onUpdateError: (callback: (err: { message: string }) => void) => () => void;
   platform: 'win32' | 'darwin' | 'linux';
 }
 

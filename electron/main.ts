@@ -18,6 +18,7 @@ import fs from 'fs';
 import { spawn, type ChildProcess } from 'child_process';
 import http from 'http';
 import { TrayManager } from './tray';
+import { AppUpdater } from './updater';
 
 // App Identity
 const APP_NAME = 'DNews';
@@ -36,6 +37,7 @@ if (!hasSingleInstanceLock) {
 // Global State
 let mainWindow: BrowserWindow | null = null;
 let trayManager: TrayManager | null = null;
+let appUpdater: AppUpdater | null = null;
 let backendProcess: ChildProcess | null = null;
 let isQuitting = false;
 
@@ -346,6 +348,13 @@ function createMenu(): void {
       label: 'Help',
       submenu: [
         {
+          label: 'Check for Updates...',
+          click: () => {
+            appUpdater?.checkForUpdates();
+          },
+        },
+        { type: 'separator' },
+        {
           label: 'About DNews',
           click: () => {
             const version = app.getVersion();
@@ -441,6 +450,13 @@ app.whenReady().then(async () => {
   }
 
   createMainWindow();
+
+  // Initialize auto-updater (PRD E Category 9)
+  appUpdater = new AppUpdater(() => mainWindow);
+  // Silent background check 3 seconds after startup
+  setTimeout(() => {
+    appUpdater?.checkForUpdates();
+  }, 3000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
