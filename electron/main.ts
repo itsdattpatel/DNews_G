@@ -1,0 +1,487 @@
+/**
+ * electron/main.ts
+ * Electron Main Process for DNews (PRD E Category 6, 7, 8).
+ *
+ * Responsibilities:
+ * 1. Single-instance lock (app.requestSingleInstanceLock).
+ * 2. Set DNEWS_APP_DATA_DIR to %APPDATA%\DNews before spawning backend.
+ * 3. Spawn Express backend process with local SQLite isolation.
+ * 4. Health-check wait on 127.0.0.1:3001/api/health before showing window.
+ * 5. Window bounds persistence in %APPDATA%\DNews\window-state.json.
+ * 6. System Tray management with minimize-to-tray & Quit action.
+ * 7. IPC Bridge for version, notifications, external browser links.
+ * 8. Graceful shutdown with WAL checkpoint flush.
+ */
+import { app, BrowserWindow, Menu, Tray, ipcMain, shell, Notification, screen } from 'electron';
+import path from 'path';
+import fs from 'fs';
+import { spawn, type ChildProcess } from 'child_process';
+import http from 'http';
+
+// App Identity
+const APP_NAME = 'DNews';
+const APP_ID = 'com.dnews.app';
+app.name = APP_NAME;
+app.setAppUserModelId(APP_ID);
+
+// 1. Single-Instance Lock (PRD E Category 8)
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  console.log('[Electron] Another instance of DNews is already running. Focusing existing window and exiting.');
+  app.quit();
+  process.exit(0);
+}
+
+// Global State
+let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let backendProcess: ChildProcess | null = null;
+let isQuitting = false;
+
+// Paths & Directories
+const APP_DATA_ROOT = path.join(app.getPath('appData'), 'DNews');
+if (!fs.existsSync(APP_DATA_ROOT)) {
+  fs.mkdirSync(APP_DATA_ROOT, { recursive: true });
+}
+const WINDOW_STATE_FILE = path.join(APP_DATA_ROOT, 'window-state.json');
+
+// Propagate environment variables for backend child process
+process.env['DNEWS_APP_DATA_DIR'] = APP_DATA_ROOT;
+process.env['PORT'] = '3001';
+process.env['HOST'] = '127.0.0.1';
+process.env['NODE_ENV'] = app.isPackaged ? 'production' : 'development';
+
+interface WindowState {
+  width: number;
+  height: number;
+  x?: number;
+  y?: number;
+  isMaximized?: boolean;
+}
+
+function loadWindowState(): WindowState {
+  const defaultState: WindowState = { width: 1440, height: 900, isMaximized: false };
+  try {
+    if (fs.existsSync(WINDOW_STATE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(WINDOW_STATE_FILE, 'utf-8'));
+      if (typeof data.width === 'number' && typeof data.height === 'number') {
+        return data;
+      }
+    }
+  } catch {
+    // fallback to defaults
+  }
+  return defaultState;
+}
+
+function saveWindowState(): void {
+  if (!mainWindow) return;
+  try {
+    const isMaximized = mainWindow.isMaximized();
+    if (!isMaximized) {
+      const bounds = mainWindow.getBounds();
+      fs.writeFileSync(
+        WINDOW_STATE_FILE,
+        JSON.stringify({
+          width: bounds.width,
+          height: bounds.height,
+          x: bounds.x,
+          y: bounds.y,
+          isMaximized: false,
+        }),
+      );
+    } else {
+      fs.writeFileSync(
+        WINDOW_STATE_FILE,
+        JSON.stringify({
+          width: 1440,
+          height: 900,
+          isMaximized: true,
+        }),
+      );
+    }
+  } catch {
+    // ignore write errors during shutdown
+  }
+}
+
+/**
+ * Spawns the Express backend as a dedicated background child process.
+ */
+function spawnBackend(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const backendScript = app.isPackaged
+      ? path.join(process.resourcesPath, 'backend', 'dist', 'index.js')
+      : path.resolve(__dirname, '../../backend/dist/index.js');
+
+    console.log(`[Electron] Starting backend process at: ${backendScript}`);
+
+    // If running in development and script doesn't exist yet, warn but proceed
+    if (!fs.existsSync(backendScript) && !app.isPackaged) {
+      console.warn(`[Electron] Backend build not found at ${backendScript}. Assuming external dev server.`);
+      resolve();
+      return;
+    }
+
+    try {
+      // Use Electron binary with ELECTRON_RUN_AS_NODE=1 so user does not need system Node.js
+      backendProcess = spawn(process.execPath, [backendScript], {
+        env: {
+          ...process.env,
+          ELECTRON_RUN_AS_NODE: '1',
+          DNEWS_APP_DATA_DIR: APP_DATA_ROOT,
+          PORT: '3001',
+          HOST: '127.0.0.1',
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      backendProcess.stdout?.on('data', (data) => {
+        const str = data.toString();
+        process.stdout.write(`[Backend] ${str}`);
+      });
+
+      backendProcess.stderr?.on('data', (data) => {
+        const str = data.toString();
+        process.stderr.write(`[Backend:Err] ${str}`);
+      });
+
+      backendProcess.on('error', (err) => {
+        console.error('[Electron] Backend process error:', err);
+      });
+
+      backendProcess.on('exit', (code, signal) => {
+        console.log(`[Electron] Backend process exited with code=${code}, signal=${signal}`);
+        backendProcess = null;
+      });
+
+      resolve();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+/**
+ * Polls http://127.0.0.1:3001/api/health until server responds.
+ */
+function waitForBackendHealth(timeoutMs = 15000): Promise<boolean> {
+  const start = Date.now();
+  return new Promise((resolve) => {
+    const check = () => {
+      const req = http.get('http://127.0.0.1:3001/api/health', (res) => {
+        if (res.statusCode === 200) {
+          resolve(true);
+        } else if (Date.now() - start < timeoutMs) {
+          setTimeout(check, 300);
+        } else {
+          resolve(false);
+        }
+      });
+
+      req.on('error', () => {
+        if (Date.now() - start < timeoutMs) {
+          setTimeout(check, 300);
+        } else {
+          resolve(false);
+        }
+      });
+
+      req.setTimeout(1000, () => {
+        req.destroy();
+        if (Date.now() - start < timeoutMs) {
+          setTimeout(check, 300);
+        } else {
+          resolve(false);
+        }
+      });
+    };
+
+    check();
+  });
+}
+
+/**
+ * Creates the primary application BrowserWindow.
+ */
+function createMainWindow(): void {
+  const state = loadWindowState();
+  const iconPath = path.resolve(__dirname, '../../assets/icon.ico');
+
+  mainWindow = new BrowserWindow({
+    width: state.width,
+    height: state.height,
+    x: state.x,
+    y: state.y,
+    minWidth: 1024,
+    minHeight: 680,
+    title: 'DNews — The Daily Bugle',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    backgroundColor: '#FAF7F0', // Cream broadsheet background prevents white flash
+    show: false,                // Wait until ready-to-show to prevent flicker
+    webPreferences: {
+      preload: path.resolve(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+
+  if (state.isMaximized) {
+    mainWindow.maximize();
+  }
+
+  // Intercept external links and open in default OS browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  // Load URL
+  if (!app.isPackaged && process.env['ELECTRON_START_URL']) {
+    void mainWindow.loadURL(process.env['ELECTRON_START_URL']);
+  } else if (!app.isPackaged && process.env['NODE_ENV'] === 'development') {
+    // In local dev, try 5173, fallback to packaged index.html
+    void mainWindow.loadURL('http://localhost:5173').catch(() => {
+      const indexPath = path.resolve(__dirname, '../../frontend/dist/index.html');
+      void mainWindow?.loadFile(indexPath);
+    });
+  } else {
+    const indexPath = path.resolve(__dirname, '../../frontend/dist/index.html');
+    void mainWindow.loadFile(indexPath);
+  }
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+
+  // Window bounds tracking
+  mainWindow.on('resize', saveWindowState);
+  mainWindow.on('move', saveWindowState);
+
+  // Minimize to Tray on Close (User choice in PRD E)
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      saveWindowState();
+      mainWindow?.hide();
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'DNews Minimized',
+          body: 'DNews is running in the system tray. Click the tray icon to restore.',
+          icon: fs.existsSync(iconPath) ? iconPath : undefined,
+        }).show();
+      }
+    }
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+/**
+ * Initializes the System Tray icon and context menu (PRD E Category 7).
+ */
+function createTray(): void {
+  const trayIconPath = path.resolve(__dirname, '../../assets/icon-tray.png');
+  const fallbackIcon = path.resolve(__dirname, '../../assets/icon.ico');
+  const iconToUse = fs.existsSync(trayIconPath) ? trayIconPath : fallbackIcon;
+
+  if (!fs.existsSync(iconToUse)) return;
+
+  tray = new Tray(iconToUse);
+  tray.setToolTip('DNews — The Daily Bugle');
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Open DNews',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        } else {
+          createMainWindow();
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Check for Updates...',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit DNews',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+
+  // Click on tray toggles window
+  tray.on('click', () => {
+    if (mainWindow?.isVisible()) {
+      mainWindow.hide();
+    } else if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    } else {
+      createMainWindow();
+    }
+  });
+}
+
+/**
+ * Builds the application desktop menu.
+ */
+function createMenu(): void {
+  const isMac = process.platform === 'darwin';
+  const template: any[] = [
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Minimize to Tray',
+          accelerator: 'CmdOrCtrl+M',
+          click: () => mainWindow?.hide(),
+        },
+        { type: 'separator' },
+        {
+          label: 'Quit DNews',
+          accelerator: 'CmdOrCtrl+Q',
+          click: () => {
+            isQuitting = true;
+            app.quit();
+          },
+        },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'About DNews',
+          click: () => {
+            const version = app.getVersion();
+            if (mainWindow) {
+              void shell.openExternal('https://github.com/itsdattpatel/DNews_G');
+            }
+          },
+        },
+      ],
+    },
+  ];
+
+  if (!app.isPackaged) {
+    template[1].submenu.push({ type: 'separator' }, { role: 'toggleDevTools' });
+  }
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
+// IPC Handlers
+ipcMain.handle('get-app-version', () => app.getVersion());
+ipcMain.handle('get-app-data-dir', () => APP_DATA_ROOT);
+ipcMain.handle('open-external', (_event, url: string) => {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    void shell.openExternal(url);
+  }
+});
+ipcMain.on('show-notification', (_event, { title, body }: { title: string; body: string }) => {
+  if (Notification.isSupported()) {
+    const iconPath = path.resolve(__dirname, '../../assets/icon.ico');
+    new Notification({
+      title,
+      body,
+      icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    }).show();
+  }
+});
+ipcMain.on('quit-app', () => {
+  isQuitting = true;
+  app.quit();
+});
+
+// App Lifecycle
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    if (!mainWindow.isVisible()) mainWindow.show();
+    mainWindow.focus();
+  }
+});
+
+app.whenReady().then(async () => {
+  console.log('[Electron] App ready, launching DNews desktop environment...');
+
+  createMenu();
+  createTray();
+
+  try {
+    await spawnBackend();
+    const healthy = await waitForBackendHealth();
+    if (healthy) {
+      console.log('[Electron] Backend health check PASSED (127.0.0.1:3001/api/health is online).');
+    } else {
+      console.warn('[Electron] Backend health check timed out. Creating window regardless.');
+    }
+  } catch (err) {
+    console.error('[Electron] Failed to start backend:', err);
+  }
+
+  createMainWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createMainWindow();
+    }
+  });
+});
+
+// Graceful Shutdown (PRD E Category 8)
+app.on('before-quit', (event) => {
+  if (!isQuitting) {
+    isQuitting = true;
+  }
+
+  if (backendProcess && !backendProcess.killed) {
+    console.log('[Electron] Terminating backend process gracefully...');
+    try {
+      backendProcess.kill('SIGTERM');
+    } catch {
+      // ignore
+    }
+  }
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin' && isQuitting) {
+    app.quit();
+  }
+});

@@ -2,9 +2,15 @@
   "name": "ai-world-news-desk",
   "version": "1.0.0",
   "private": true,
+  "main": "electron/dist/main.js",
   "workspaces": ["backend", "frontend"],
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "dev:electron": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\" \"electron .\"",
+    "build:electron": "tsc -p electron/tsconfig.json",
+    "build:all": "npm run build --workspace=backend && npm run build --workspace=frontend && npm run build:electron",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
     "test": "npm run test --workspace=backend && npm run test --workspace=frontend",
     "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
     "db:restore": "node scripts/db-restore.cjs",
@@ -12,7 +18,12 @@
     "setup:autostart:mac": "node scripts/autostart-mac.js",
     "setup:autostart:linux": "node scripts/autostart-linux.js"
   },
+  "dependencies": {
+    "electron-updater": "6.3.9"
+  },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "electron": "32.2.0",
+    "electron-builder": "24.13.3"
   }
 }

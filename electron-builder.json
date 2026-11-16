@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.dnews.app",
+  "productName": "DNews",
+  "copyright": "Copyright 2026 DNews — The Daily Bugle",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "electron/dist/**",
+    "frontend/dist/**",
+    "backend/dist/**",
+    "assets/**",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": "config/",
+      "to": "config/"
+    },
+    {
+      "from": ".env.example",
+      "to": ".env.example"
+    }
+  ],
+  "win": {
+    "target": ["nsis"],
+    "icon": "assets/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "DNews"
+  },
+  "publish": {
+    "provider": "github",
+    "owner": "itsdattpatel",
+    "repo": "DNews_G"
+  }
+}

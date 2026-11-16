@@ -13,6 +13,13 @@ All packages pinned with exact versions, vetted for license compliance (MIT / OF
 - `@fontsource/cormorant-garamond@5.3.0` (OFL-1.1) — Display serif for reading room folios
 - `@fontsource/lora@5.3.0` (OFL-1.1) — Screen serif for psychological help cards
 
+## Installed PRD E (Desktop Executable) Packages
+All packages pinned with exact versions, vetted for license compliance (MIT), > 14 days old:
+
+- `electron@32.2.0` (MIT) — Native Windows desktop application shell
+- `electron-builder@24.13.3` (MIT) — NSIS Windows installer builder
+- `electron-updater@6.3.9` (MIT) — Differential background update downloader
+
 ## Intellectual Property & Open Licensing
 - **Sacred Scriptures**: Edwin Arnold (1885), Kisari Mohan Ganguli (1883–1896), Ralph T. H. Griffith (1870–1874) — all worldwide **Public Domain**.
 - **Philosophical Quotes**: Marcus Aurelius, Epictetus, Seneca, Laozi, Swami Vivekananda, Confucius — **Public Domain** / **CC BY-SA 4.0** (Wikiquote).

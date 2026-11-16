@@ -49,7 +49,6 @@ export function getDb(): Database.Database {
   }
 
   ensureAppDataDirs();
-  const dataDir = getDataDir();
 
   _db = new Database(dbPath, { timeout: 10000 });
   _currentDbPath = dbPath;
