@@ -8,8 +8,51 @@ import { getDb, getSetting, setSetting } from '../db/db';
 import { refreshInterval } from '../fetch/scheduler';
 import { getUnenrichedCount, summarizeUnenrichedBatch } from '../pipeline/enricher';
 import { emitSseEvent } from './sse';
+import {
+  getProviderKeyStatuses,
+  saveProviderKeys,
+  testProviderKey,
+  type SupportedProvider,
+} from '../services/secretsManager';
 
 export const settingsRouter = Router();
+
+/**
+ * GET /api/settings/keys
+ * In-App Secrets Manager: Returns masked configuration status for all supported AI providers (PRD E Cat 11).
+ */
+settingsRouter.get('/keys', (_req: Request, res: Response) => {
+  const statuses = getProviderKeyStatuses();
+  res.json({ success: true, providers: statuses });
+});
+
+/**
+ * POST /api/settings/keys
+ * In-App Secrets Manager: Persists API keys to user.env and process.env (PRD E Cat 11).
+ */
+settingsRouter.post('/keys', (req: Request, res: Response) => {
+  const keys = req.body?.keys;
+  if (!keys || typeof keys !== 'object') {
+    res.status(400).json({ error: 'Payload must contain a keys object.' });
+    return;
+  }
+  const updated = saveProviderKeys(keys);
+  res.json({ success: true, updated, providers: getProviderKeyStatuses() });
+});
+
+/**
+ * POST /api/settings/keys/test
+ * In-App Secrets Manager: Tests API key connectivity for a specific provider (PRD E Cat 11).
+ */
+settingsRouter.post('/keys/test', async (req: Request, res: Response) => {
+  const { provider, key } = req.body;
+  if (!provider || !['gemini', 'groq', 'mistral', 'cerebras'].includes(provider)) {
+    res.status(400).json({ error: 'Valid provider (gemini, groq, mistral, cerebras) is required.' });
+    return;
+  }
+  const result = await testProviderKey(provider as SupportedProvider, key);
+  res.json(result);
+});
 
 const SETTINGS_SCHEMA: Record<string, { type: 'int' | 'bool' | 'str' | 'float'; min?: number; max?: number }> = {
   // General & Realtime

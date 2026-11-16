@@ -35,6 +35,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { SecretsManagerSection } from './SecretsManagerSection';
 
 interface BackupRecord {
   filename: string;
@@ -951,6 +952,9 @@ export const UnifiedSettingsDialog: React.FC<{
               {/* ─── 4. AI AND PLAIN MODE SECTION ─── */}
               {activeSection === 'ai_plain' && (
                 <div className="space-y-5 font-sans text-xs">
+                  {/* In-App Secrets Manager (PRD E Category 11) */}
+                  <SecretsManagerSection />
+
                   {/* Plain Mode Switch */}
                   <div className="flex items-center justify-between py-2 border-b border-[var(--color-ink-border,#e5e7eb)]">
                     <div>

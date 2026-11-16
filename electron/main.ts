@@ -47,6 +47,33 @@ if (!fs.existsSync(APP_DATA_ROOT)) {
   fs.mkdirSync(APP_DATA_ROOT, { recursive: true });
 }
 const WINDOW_STATE_FILE = path.join(APP_DATA_ROOT, 'window-state.json');
+const USER_ENV_FILE = path.join(APP_DATA_ROOT, 'user.env');
+
+// In-App Secrets Manager (PRD E Category 11): Load user.env secrets before backend spawn
+function loadUserEnv(): void {
+  try {
+    if (fs.existsSync(USER_ENV_FILE)) {
+      const content = fs.readFileSync(USER_ENV_FILE, 'utf-8');
+      content.split(/\r?\n/).forEach((line) => {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          const idx = trimmed.indexOf('=');
+          if (idx !== -1) {
+            const k = trimmed.slice(0, idx).trim();
+            const v = trimmed.slice(idx + 1).trim();
+            if (k && v) {
+              process.env[k] = v;
+            }
+          }
+        }
+      });
+      console.log('[Electron] Successfully loaded user secrets from', USER_ENV_FILE);
+    }
+  } catch (err) {
+    console.warn('[Electron] Failed to read user.env:', err);
+  }
+}
+loadUserEnv();
 
 // Propagate environment variables for backend child process
 process.env['DNEWS_APP_DATA_DIR'] = APP_DATA_ROOT;
