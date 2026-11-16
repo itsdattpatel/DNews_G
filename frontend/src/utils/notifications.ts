@@ -4,6 +4,8 @@
  * Handles permission requesting on first run and dispatching system notifications.
  */
 
+import type { ElectronBridgeNotificationAction } from '../types/electron';
+
 function getNotificationClass(): typeof Notification | null {
   if (typeof Notification !== 'undefined') {
     return Notification;
@@ -40,6 +42,7 @@ export interface ShowNotificationOptions {
   body: string;
   tag?: string;
   onClick?: () => void;
+  action?: ElectronBridgeNotificationAction;
 }
 
 export function showDesktopNotification({
@@ -47,7 +50,17 @@ export function showDesktopNotification({
   body,
   tag,
   onClick,
+  action,
 }: ShowNotificationOptions): Notification | null {
+  // If running inside Electron desktop shell, dispatch via native bridge
+  if (typeof window !== 'undefined' && window.electronBridge?.showNotification) {
+    try {
+      window.electronBridge.showNotification(title, body, action);
+    } catch {
+      // Fall through to browser notification
+    }
+  }
+
   const Notif = getNotificationClass();
   if (!Notif) return null;
   if (Notif.permission !== 'granted') return null;

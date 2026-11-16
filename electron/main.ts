@@ -17,6 +17,7 @@ import path from 'path';
 import fs from 'fs';
 import { spawn, type ChildProcess } from 'child_process';
 import http from 'http';
+import { TrayManager } from './tray';
 
 // App Identity
 const APP_NAME = 'DNews';
@@ -34,7 +35,7 @@ if (!hasSingleInstanceLock) {
 
 // Global State
 let mainWindow: BrowserWindow | null = null;
-let tray: Tray | null = null;
+let trayManager: TrayManager | null = null;
 let backendProcess: ChildProcess | null = null;
 let isQuitting = false;
 
@@ -287,60 +288,20 @@ function createMainWindow(): void {
  * Initializes the System Tray icon and context menu (PRD E Category 7).
  */
 function createTray(): void {
-  const trayIconPath = path.resolve(__dirname, '../../assets/icon-tray.png');
-  const fallbackIcon = path.resolve(__dirname, '../../assets/icon.ico');
-  const iconToUse = fs.existsSync(trayIconPath) ? trayIconPath : fallbackIcon;
-
-  if (!fs.existsSync(iconToUse)) return;
-
-  tray = new Tray(iconToUse);
-  tray.setToolTip('DNews — The Daily Bugle');
-
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Open DNews',
-      click: () => {
-        if (mainWindow) {
-          mainWindow.show();
-          mainWindow.focus();
-        } else {
-          createMainWindow();
-        }
-      },
+  trayManager = new TrayManager({
+    getMainWindow: () => mainWindow,
+    onCheckNews: () => {
+      console.log('[Electron:Tray] Triggering immediate news fetch cycle...');
+      const req = http.request('http://127.0.0.1:3001/api/control-room/fetch-cycle', { method: 'POST' });
+      req.on('error', (err) => console.warn('[Electron:Tray] Fetch cycle request error:', err.message));
+      req.end();
     },
-    { type: 'separator' },
-    {
-      label: 'Check for Updates...',
-      click: () => {
-        if (mainWindow) {
-          mainWindow.show();
-          mainWindow.focus();
-        }
-      },
+    onQuit: () => {
+      isQuitting = true;
+      app.quit();
     },
-    { type: 'separator' },
-    {
-      label: 'Quit DNews',
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      },
-    },
-  ]);
-
-  tray.setContextMenu(contextMenu);
-
-  // Click on tray toggles window
-  tray.on('click', () => {
-    if (mainWindow?.isVisible()) {
-      mainWindow.hide();
-    } else if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-    } else {
-      createMainWindow();
-    }
   });
+  trayManager.init();
 }
 
 /**
@@ -413,16 +374,40 @@ ipcMain.handle('open-external', (_event, url: string) => {
     void shell.openExternal(url);
   }
 });
-ipcMain.on('show-notification', (_event, { title, body }: { title: string; body: string }) => {
-  if (Notification.isSupported()) {
-    const iconPath = path.resolve(__dirname, '../../assets/icon.ico');
-    new Notification({
+ipcMain.on(
+  'show-notification',
+  (
+    _event,
+    {
       title,
       body,
-      icon: fs.existsSync(iconPath) ? iconPath : undefined,
-    }).show();
-  }
-});
+      action,
+    }: { title: string; body: string; action?: { type?: string; id?: number } },
+  ) => {
+    if (trayManager?.isMuted()) return;
+    if (Notification.isSupported()) {
+      const iconPath = path.resolve(__dirname, '../../assets/icon.ico');
+      const notification = new Notification({
+        title,
+        body,
+        icon: fs.existsSync(iconPath) ? iconPath : undefined,
+      });
+
+      notification.on('click', () => {
+        if (mainWindow) {
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          if (!mainWindow.isVisible()) mainWindow.show();
+          mainWindow.focus();
+          if (action) {
+            mainWindow.webContents.send('notification-action', action);
+          }
+        }
+      });
+
+      notification.show();
+    }
+  },
+);
 ipcMain.on('quit-app', () => {
   isQuitting = true;
   app.quit();
@@ -468,6 +453,11 @@ app.whenReady().then(async () => {
 app.on('before-quit', (event) => {
   if (!isQuitting) {
     isQuitting = true;
+  }
+
+  if (trayManager) {
+    trayManager.destroy();
+    trayManager = null;
   }
 
   if (backendProcess && !backendProcess.killed) {

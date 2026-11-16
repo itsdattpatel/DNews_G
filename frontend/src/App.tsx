@@ -54,6 +54,52 @@ export const App: React.FC = () => {
     fetchCategoryCounts();
   }, [fetchSettings, fetchQuota, checkStartupStatus, fetchUnreadAlertsCount, fetchCategoryCounts]);
 
+  // Native Electron System Tray & Notification IPC listeners
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electronBridge) return;
+
+    const unsubs: Array<() => void> = [];
+
+    if (window.electronBridge.onNotificationAction) {
+      unsubs.push(
+        window.electronBridge.onNotificationAction((action) => {
+          if (action.type === 'article' && action.id) {
+            void useAppStore.getState().selectArticleById(action.id);
+          } else if (action.type === 'control_room') {
+            useAppStore.getState().setCurrentView('control-room');
+          } else if (action.type === 'settings') {
+            useAppStore.getState().setSettingsOpen(true);
+          }
+        }),
+      );
+    }
+
+    if (window.electronBridge.onNavigateFilter) {
+      unsubs.push(
+        window.electronBridge.onNavigateFilter((filter) => {
+          if (filter.breaking) {
+            const store = useAppStore.getState();
+            if (!store.isBreakingOnly) {
+              store.toggleBreakingOnly();
+            }
+          }
+        }),
+      );
+    }
+
+    if (window.electronBridge.onOpenSettings) {
+      unsubs.push(
+        window.electronBridge.onOpenSettings(() => {
+          useAppStore.getState().setSettingsOpen(true);
+        }),
+      );
+    }
+
+    return () => {
+      unsubs.forEach((unsub) => unsub());
+    };
+  }, []);
+
   if (isShowcase) {
     return <DesignSystemShowcase />;
   }

@@ -202,10 +202,18 @@ export function useSSE(options?: UseSSEOptions): {
             optionsRef.current?.onAlert?.(alertPayload);
             sseBus.emit('alert', alertPayload);
 
+            const isBreaking = (alertPayload.breaking_score ?? 0) >= 80 || alertPayload.type === 'breaking';
+            const notificationTitle = isBreaking
+              ? `Breaking: ${alertPayload.message}`
+              : 'AI World News Desk — Breaking Dispatch';
+
             showDesktopNotification({
-              title: 'AI World News Desk — Breaking Dispatch',
+              title: notificationTitle,
               body: alertPayload.message,
               tag: `alert-${alertPayload.id || Date.now()}`,
+              action: alertPayload.article_id
+                ? { type: 'article', id: alertPayload.article_id }
+                : { type: 'alert' },
               onClick: () => {
                 if (alertPayload.article_id) {
                   useAppStore.getState().selectArticleById(alertPayload.article_id);
@@ -230,6 +238,16 @@ export function useSSE(options?: UseSSEOptions): {
           });
           sseBus.emit('provider_switch', sw);
           store.fetchQuota();
+
+          showDesktopNotification({
+            title: `Switched to ${sw.to.toUpperCase()}`,
+            body: `Provider failover: ${sw.reason}`,
+            tag: `failover-${Date.now()}`,
+            action: { type: 'control_room' },
+            onClick: () => {
+              store.setCurrentView('control-room');
+            },
+          });
         }
 
         // 5. Quota update (apply directly if full providers present, else fetch)
