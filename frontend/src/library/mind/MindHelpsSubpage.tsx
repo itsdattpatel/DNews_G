@@ -2,7 +2,7 @@
  * frontend/src/library/mind/MindHelpsSubpage.tsx
  * Complete Subpage 3 view: Evidence-based Psychology Techniques & Crisis Helplines.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { LibraryShellLayout } from '../components/LibraryShellLayout';
 import { HelpCard, type MindCardData, type MindCategory } from './HelpCard';
 import { CategoryFilterBar } from './CategoryFilterBar';
@@ -10,12 +10,21 @@ import { HelplinesModal } from './HelplinesModal';
 import { InkStampBadge } from '../ui/InkStampBadge';
 import { LibraryLoadingState, LibraryEmptyState, LibraryErrorState } from '../ui/LibraryStates';
 import { useLibraryStore } from '../store/useLibraryStore';
-import { Clock } from 'lucide-react';
+import { sseBus } from '../../lib/sseBus';
+import {
+  mindCardMatchesFilter,
+  reconcileLibraryIncomingItem,
+  mergePendingLibraryItems,
+  capLibraryList,
+  type LibraryMindCardRecord,
+} from '../utils/libraryLive';
+import { Clock, Sparkles } from 'lucide-react';
 
 export const MindHelpsSubpage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<MindCategory | 'all'>('all');
   const [selectedTime, setSelectedTime] = useState<number | 'all'>('all');
   const [cards, setCards] = useState<MindCardData[]>([]);
+  const [pendingCards, setPendingCards] = useState<MindCardData[]>([]);
   const [selectedCard, setSelectedCard] = useState<MindCardData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +33,11 @@ export const MindHelpsSubpage: React.FC = () => {
   const globalSearchQuery = useLibraryStore((s) => s.searchQuery);
   const isBookmarked = useLibraryStore((s) => s.isBookmarked);
   const toggleBookmark = useLibraryStore((s) => s.toggleBookmark);
+
+  const filterRef = useRef({ selectedCategory, selectedTime, globalSearchQuery });
+  filterRef.current = { selectedCategory, selectedTime, globalSearchQuery };
+  const cardsRef = useRef<MindCardData[]>(cards);
+  cardsRef.current = cards;
 
   const fetchCards = useCallback(async () => {
     setLoading(true);
@@ -46,12 +60,16 @@ export const MindHelpsSubpage: React.FC = () => {
       }
 
       const data = await res.json();
-      const items: MindCardData[] = data.cards || [];
+      const items: MindCardData[] = capLibraryList(data.cards || []);
       setCards(items);
+      setPendingCards([]);
 
       if (items.length > 0) {
         setSelectedCard((prev) => {
-          if (prev && items.some((c) => c.id === prev.id)) return prev;
+          if (prev) {
+            const refreshed = items.find((c) => c.id === prev.id);
+            if (refreshed) return refreshed;
+          }
           return items[0]!;
         });
       } else {
@@ -69,9 +87,67 @@ export const MindHelpsSubpage: React.FC = () => {
     fetchCards();
   }, [fetchCards]);
 
+  // Live SSE Mind Helps updates & provenance sync (L4, L6)
+  useEffect(() => {
+    const unsubMind = sseBus.subscribe('library_mind_update', ({ action, record }) => {
+      if (!record || typeof record.id !== 'number') return;
+      const incoming = record as MindCardData;
+
+      setSelectedCard((prev) => (prev && prev.id === incoming.id ? { ...prev, ...incoming } : prev));
+
+      const f = filterRef.current;
+      const matches = mindCardMatchesFilter(incoming as LibraryMindCardRecord, {
+        category: f.selectedCategory,
+        maxTime: f.selectedTime,
+        searchQuery: f.globalSearchQuery,
+      });
+
+      setCards((prevCards) => {
+        const exists = prevCards.some((c) => c.id === incoming.id);
+        if (action === 'updated' || exists) {
+          return prevCards.map((c) => (c.id === incoming.id ? { ...c, ...incoming } : c));
+        }
+        return prevCards;
+      });
+
+      if (action === 'created') {
+        setPendingCards((prevPending) => {
+          if (cardsRef.current.some((c) => c.id === incoming.id)) return prevPending;
+          return reconcileLibraryIncomingItem<MindCardData>({
+            action: 'created',
+            item: incoming,
+            matchesFilter: matches,
+            visible: cardsRef.current,
+            pending: prevPending,
+          }).pending;
+        });
+      } else {
+        setPendingCards((prevPending) =>
+          prevPending.map((c) => (c.id === incoming.id ? { ...c, ...incoming } : c)),
+        );
+      }
+    });
+
+    const unsubResync = sseBus.subscribe('library_resync', () => {
+      fetchCards();
+    });
+
+    return () => {
+      unsubMind();
+      unsubResync();
+    };
+  }, [fetchCards]);
+
+  const handleMergePendingCards = () => {
+    const merged = pendingCards;
+    setCards((prev) => mergePendingLibraryItems(merged, prev, true));
+    setSelectedCard((prev) => prev ?? merged[0] ?? null);
+    setPendingCards([]);
+  };
+
   // Left Panel Content: Category Filter Bar & Techniques List
   const leftPanel = (
-    <div className="space-y-5">
+    <div className="space-y-5 lib-scroll-anchor">
       <CategoryFilterBar
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
@@ -80,10 +156,22 @@ export const MindHelpsSubpage: React.FC = () => {
         onOpenHelplines={() => setShowHelplinesModal(true)}
       />
 
+      {pendingCards.length > 0 && (
+        <button
+          id="btn-library-mind-new-pill"
+          type="button"
+          onClick={handleMergePendingCards}
+          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-[var(--lib-sage)] bg-[var(--lib-surface-elevated)] text-xs font-serif font-medium text-[var(--lib-ink)] hover:opacity-90 cursor-pointer tabular-nums"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[var(--lib-sage)]" />
+          <span>• {pendingCards.length} new help card{pendingCards.length === 1 ? '' : 's'} — Click to view</span>
+        </button>
+      )}
+
       {/* Techniques Selection List */}
       <div className="space-y-2 pt-2 border-t border-[var(--lib-border-soft)]">
         <div className="flex items-center justify-between text-xs font-mono text-[var(--lib-ink-muted)]">
-          <span className="uppercase tracking-wider">
+          <span className="uppercase tracking-wider tabular-nums">
             Techniques ({cards.length}):
           </span>
           {selectedCategory !== 'all' && (

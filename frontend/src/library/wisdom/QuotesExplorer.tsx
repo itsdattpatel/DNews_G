@@ -3,10 +3,18 @@
  * Philosophical Quotes explorer with author filters, tradition selectors,
  * Quote of the Day, and Random Quote picker.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { QuoteFolioCard, type WisdomQuote } from './QuoteFolioCard';
 import { LibraryLoadingState, LibraryEmptyState, LibraryErrorState } from '../ui/LibraryStates';
 import { useLibraryStore } from '../store/useLibraryStore';
+import { sseBus, postCrossTabSync } from '../../lib/sseBus';
+import {
+  quoteMatchesFilter,
+  reconcileLibraryIncomingItem,
+  mergePendingLibraryItems,
+  capLibraryList,
+  type LibraryQuoteRecord,
+} from '../utils/libraryLive';
 import {
   Sparkles,
   Shuffle,
@@ -50,13 +58,20 @@ export const QuotesExplorer: React.FC = () => {
   const [selectedTheme, setSelectedTheme] = useState<string>('all');
 
   const [quotes, setQuotes] = useState<WisdomQuote[]>([]);
+  const [pendingQuotes, setPendingQuotes] = useState<WisdomQuote[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<WisdomQuote | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [savingMeaning, setSavingMeaning] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const globalSearchQuery = useLibraryStore((s) => s.searchQuery);
   const isBookmarked = useLibraryStore((s) => s.isBookmarked);
   const toggleBookmark = useLibraryStore((s) => s.toggleBookmark);
+
+  const filterRef = useRef({ selectedAuthor, selectedTradition, selectedTheme, globalSearchQuery });
+  filterRef.current = { selectedAuthor, selectedTradition, selectedTheme, globalSearchQuery };
+  const quotesRef = useRef<WisdomQuote[]>(quotes);
+  quotesRef.current = quotes;
 
   // Fetch quotes based on criteria
   const fetchQuotes = useCallback(async () => {
@@ -82,12 +97,16 @@ export const QuotesExplorer: React.FC = () => {
         throw new Error(`Failed to load quotes (HTTP ${res.status})`);
       }
       const data = await res.json();
-      const items: WisdomQuote[] = data.quotes || [];
+      const items: WisdomQuote[] = capLibraryList(data.quotes || []);
       setQuotes(items);
+      setPendingQuotes([]);
 
       if (items.length > 0) {
         setSelectedQuote((prev) => {
-          if (prev && items.some((q) => q.id === prev.id)) return prev;
+          if (prev) {
+            const refreshed = items.find((q) => q.id === prev.id);
+            if (refreshed) return refreshed;
+          }
           return items[0]!;
         });
       } else {
@@ -104,6 +123,94 @@ export const QuotesExplorer: React.FC = () => {
   useEffect(() => {
     fetchQuotes();
   }, [fetchQuotes]);
+
+  // Live SSE Wisdom updates for Quotes, QOTD, Meaning Approvals & Provenance (L3, L6)
+  useEffect(() => {
+    const unsubWisdom = sseBus.subscribe('library_wisdom_update', ({ kind, action, record }) => {
+      if (kind !== 'quote' || !record || typeof record.id !== 'number') return;
+      const incoming = record as WisdomQuote;
+
+      setSelectedQuote((prev) => (prev && prev.id === incoming.id ? { ...prev, ...incoming } : prev));
+
+      const f = filterRef.current;
+      const matches = quoteMatchesFilter(incoming as LibraryQuoteRecord, {
+        author: f.selectedAuthor,
+        tradition: f.selectedTradition,
+        theme: f.selectedTheme,
+        searchQuery: f.globalSearchQuery,
+      });
+
+      setQuotes((prevQuotes) => {
+        const exists = prevQuotes.some((q) => q.id === incoming.id);
+        if (action === 'updated' || exists) {
+          return prevQuotes.map((q) => (q.id === incoming.id ? { ...q, ...incoming } : q));
+        }
+        return prevQuotes;
+      });
+
+      if (action === 'created') {
+        setPendingQuotes((prevPending) => {
+          if (quotesRef.current.some((q) => q.id === incoming.id)) return prevPending;
+          return reconcileLibraryIncomingItem<WisdomQuote>({
+            action: 'created',
+            item: incoming,
+            matchesFilter: matches,
+            visible: quotesRef.current,
+            pending: prevPending,
+          }).pending;
+        });
+      } else {
+        setPendingQuotes((prevPending) =>
+          prevPending.map((q) => (q.id === incoming.id ? { ...q, ...incoming } : q)),
+        );
+      }
+    });
+
+    const unsubResync = sseBus.subscribe('library_resync', () => {
+      fetchQuotes();
+    });
+
+    return () => {
+      unsubWisdom();
+      unsubResync();
+    };
+  }, [fetchQuotes]);
+
+  const handleSaveQuoteMeaning = async (
+    quoteId: number,
+    patch: { plain_meaning: string; meaning_reviewed: number; commentary_source?: string },
+  ) => {
+    setSavingMeaning(true);
+    try {
+      const res = await fetch(`/api/library/wisdom/quotes/${quoteId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.record) {
+          setSelectedQuote((prev) => (prev && prev.id === data.record.id ? { ...prev, ...data.record } : prev));
+          setQuotes((prev) => prev.map((q) => (q.id === data.record.id ? { ...q, ...data.record } : q)));
+          postCrossTabSync({
+            type: 'library_wisdom_update',
+            kind: 'quote',
+            action: 'updated',
+            record: data.record,
+          });
+        }
+      }
+    } finally {
+      setSavingMeaning(false);
+    }
+  };
+
+  const handleMergePendingQuotes = () => {
+    const merged = pendingQuotes;
+    setQuotes((prev) => mergePendingLibraryItems(merged, prev, true));
+    setSelectedQuote((prev) => prev ?? merged[0] ?? null);
+    setPendingQuotes([]);
+  };
 
   // Handler for Quote of the Day
   const handleQuoteOfTheDay = async () => {
@@ -228,6 +335,19 @@ export const QuotesExplorer: React.FC = () => {
         </div>
       </div>
 
+      {/* Non-jumping "• N new quotes" pill */}
+      {pendingQuotes.length > 0 && (
+        <button
+          id="btn-library-quotes-new-pill"
+          type="button"
+          onClick={handleMergePendingQuotes}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[var(--lib-accent)] bg-[var(--lib-accent-soft)] text-xs font-serif font-medium text-[var(--lib-ink)] hover:opacity-90 cursor-pointer tabular-nums"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[var(--lib-accent)]" />
+          <span>• {pendingQuotes.length} new quote{pendingQuotes.length === 1 ? '' : 's'} — Click to add</span>
+        </button>
+      )}
+
       {/* Main Content Area */}
       {loading ? (
         <LibraryLoadingState rows={3} />
@@ -248,11 +368,12 @@ export const QuotesExplorer: React.FC = () => {
           }}
         />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 lib-scroll-anchor">
+
           {/* Quotes Selector Strip */}
           {quotes.length > 1 && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
-              <span className="lib-meta text-[10px] text-[var(--lib-ink-muted)] font-mono uppercase mr-1 shrink-0">
+              <span className="lib-meta text-[10px] text-[var(--lib-ink-muted)] font-mono uppercase mr-1 shrink-0 tabular-nums">
                 Maxims ({quotes.length}):
               </span>
               {quotes.map((q) => {
@@ -280,6 +401,8 @@ export const QuotesExplorer: React.FC = () => {
             <QuoteFolioCard
               quote={selectedQuote}
               isBookmarked={isBookmarked('quote', selectedQuote.id)}
+              isSaving={savingMeaning}
+              onSaveMeaning={handleSaveQuoteMeaning}
               onToggleBookmark={() =>
                 toggleBookmark('quote', selectedQuote.id, `"${selectedQuote.quote_text.slice(0, 50)}..." — ${selectedQuote.author}`)
               }

@@ -4,18 +4,29 @@
  */
 import { Router } from 'express';
 import { getDb } from '../db/db';
+import { emitSseEvent } from '../routes/sse';
 import {
   getLibraryBookmarks,
   toggleLibraryBookmark,
-  deleteLibraryBookmark,
+  deleteLibraryBookmarkWithRecord,
   type LibraryItemType,
 } from './services/bookmarkService';
 import { HistoryService } from './services/historyService';
 import { ScriptureService } from './services/scriptureService';
 import { QuoteService } from './services/quoteService';
 import { MindService, type MindCategory } from './services/mindService';
+import { getLibraryProvenanceSummary } from './services/provenanceService';
+import {
+  getLibraryRefreshStatus,
+  runLibraryHistoryRefresh,
+} from './services/libraryRefreshScheduler';
 
 export const libraryRouter = Router();
+
+function parseNumericId(raw: string): number | null {
+  const id = parseInt(raw, 10);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
 
 // GET /api/library/status
 libraryRouter.get('/status', (_req, res) => {
@@ -78,6 +89,21 @@ libraryRouter.post('/bookmarks/toggle', (req, res) => {
     }
 
     const result = toggleLibraryBookmark(item_type, item_id, note);
+    if (result.bookmarked && result.bookmark) {
+      emitSseEvent('library_bookmark_update', {
+        action: 'created',
+        item_type,
+        item_id,
+        bookmark: result.bookmark,
+      });
+    } else {
+      emitSseEvent('library_bookmark_update', {
+        action: 'deleted',
+        ...(result.id !== undefined ? { bookmark_id: result.id } : {}),
+        item_type,
+        item_id,
+      });
+    }
     res.json({ success: true, ...result });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to toggle bookmark', details: err.message });
@@ -87,13 +113,21 @@ libraryRouter.post('/bookmarks/toggle', (req, res) => {
 // DELETE /api/library/bookmarks/:id
 libraryRouter.delete('/bookmarks/:id', (req, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) {
+    const id = parseNumericId(req.params.id);
+    if (!id) {
       res.status(400).json({ error: 'Invalid bookmark id' });
       return;
     }
-    const deleted = deleteLibraryBookmark(id);
-    res.json({ success: true, deleted });
+    const removed = deleteLibraryBookmarkWithRecord(id);
+    if (removed) {
+      emitSseEvent('library_bookmark_update', {
+        action: 'deleted',
+        bookmark_id: removed.id,
+        item_type: removed.item_type,
+        item_id: removed.item_id,
+      });
+    }
+    res.json({ success: true, deleted: Boolean(removed) });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to delete bookmark', details: err.message });
   }
@@ -142,6 +176,82 @@ libraryRouter.get('/history/search', (req, res) => {
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to search historical archives', details: err.message });
+  }
+});
+
+// POST /api/library/history
+libraryRouter.post('/history', (req, res) => {
+  try {
+    const body = req.body ?? {};
+    if (!body.headline || !body.original_url || !body.event_date) {
+      res.status(400).json({ error: 'headline, event_date, and original_url are required' });
+      return;
+    }
+    const historyService = new HistoryService(getDb());
+    const record = historyService.createHistoryRecord({
+      source_slug: body.source_slug || 'wikimedia_onthisday',
+      external_id: body.external_id,
+      event_date: String(body.event_date),
+      event_year: Number(body.event_year ?? new Date().getFullYear()),
+      headline: String(body.headline),
+      snippet: String(body.snippet ?? ''),
+      original_url: String(body.original_url),
+      country: body.country ?? null,
+      media_url: body.media_url ?? null,
+      license: String(body.license || 'CC BY-SA 4.0'),
+      attribution: String(body.attribution || 'Public Archival Contributor'),
+    });
+    emitSseEvent('library_history_update', { action: 'created', record });
+    res.status(201).json({ record });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to create historical record', details: err.message });
+  }
+});
+
+// PATCH /api/library/history/:id
+libraryRouter.patch('/history/:id', (req, res) => {
+  try {
+    const id = parseNumericId(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: 'Invalid history record ID' });
+      return;
+    }
+    const historyService = new HistoryService(getDb());
+    const record = historyService.updateHistoryRecord(id, req.body ?? {});
+    if (!record) {
+      res.status(404).json({ error: 'Historical record not found' });
+      return;
+    }
+    emitSseEvent('library_history_update', { action: 'updated', record });
+    res.json({ record });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update historical record', details: err.message });
+  }
+});
+
+// GET /api/library/refresh/status
+libraryRouter.get('/refresh/status', (_req, res) => {
+  res.json(getLibraryRefreshStatus());
+});
+
+// POST /api/library/refresh/history
+libraryRouter.post('/refresh/history', async (req, res) => {
+  try {
+    const monthDay = typeof req.body?.monthDay === 'string' ? req.body.monthDay : undefined;
+    const skipExternalFetch = Boolean(req.body?.skipExternalFetch);
+    const status = await runLibraryHistoryRefresh(monthDay, { skipExternalFetch });
+    res.json(status);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to trigger history refresh', details: err.message });
+  }
+});
+
+// GET /api/library/provenance
+libraryRouter.get('/provenance', (_req, res) => {
+  try {
+    res.json(getLibraryProvenanceSummary(getDb()));
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve provenance registry', details: err.message });
   }
 });
 
@@ -256,6 +366,119 @@ libraryRouter.get('/wisdom/quotes/random', (_req, res) => {
   }
 });
 
+// POST /api/library/wisdom/verses
+libraryRouter.post('/wisdom/verses', (req, res) => {
+  try {
+    const body = req.body ?? {};
+    if (!body.verse_ref || !body.text_original || !body.translation_english || !body.translator || !body.source_url) {
+      res.status(400).json({
+        error: 'verse_ref, text_original, translation_english, translator, and source_url are required',
+      });
+      return;
+    }
+    const db = getDb();
+    const { scriptureService } = ensureWisdomSeeded(db);
+    const record = scriptureService.createVerse({
+      book_id: body.book_id,
+      book_slug: body.book_slug,
+      section_number: Number(body.section_number ?? 1),
+      verse_number: Number(body.verse_number ?? 1),
+      verse_ref: String(body.verse_ref),
+      text_original: String(body.text_original),
+      transliteration: body.transliteration ?? null,
+      translation_english: String(body.translation_english),
+      translator: String(body.translator),
+      commentary_source: body.commentary_source ?? null,
+      plain_meaning: body.plain_meaning ?? null,
+      meaning_reviewed: body.meaning_reviewed ?? 0,
+      source_url: String(body.source_url),
+      source_license: String(body.source_license || 'Public Domain'),
+      theme_tags: body.theme_tags ?? null,
+    });
+    emitSseEvent('library_wisdom_update', { kind: 'verse', action: 'created', record });
+    res.status(201).json({ record });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to create scripture verse', details: err.message });
+  }
+});
+
+// PATCH /api/library/wisdom/verses/:id
+libraryRouter.patch('/wisdom/verses/:id', (req, res) => {
+  try {
+    const id = parseNumericId(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: 'Invalid verse ID' });
+      return;
+    }
+    const db = getDb();
+    const { scriptureService } = ensureWisdomSeeded(db);
+    const record = scriptureService.updateVerse(id, req.body ?? {});
+    if (!record) {
+      res.status(404).json({ error: 'Scripture verse not found' });
+      return;
+    }
+    emitSseEvent('library_wisdom_update', { kind: 'verse', action: 'updated', record });
+    res.json({ record });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update scripture verse', details: err.message });
+  }
+});
+
+// POST /api/library/wisdom/quotes
+libraryRouter.post('/wisdom/quotes', (req, res) => {
+  try {
+    const body = req.body ?? {};
+    if (!body.quote_text || !body.author || !body.source_url || !body.attribution) {
+      res.status(400).json({ error: 'quote_text, author, source_url, and attribution are required' });
+      return;
+    }
+    const db = getDb();
+    const { quoteService } = ensureWisdomSeeded(db);
+    const record = quoteService.createQuote({
+      quote_text: String(body.quote_text),
+      author: String(body.author),
+      work_title: body.work_title ?? null,
+      year_published: body.year_published !== undefined ? Number(body.year_published) : null,
+      tradition: body.tradition ?? null,
+      country: body.country ?? null,
+      source_url: String(body.source_url),
+      source_license: String(body.source_license || 'Public Domain'),
+      attribution: String(body.attribution),
+      is_verified: body.is_verified ?? 1,
+      plain_meaning: body.plain_meaning ?? null,
+      meaning_reviewed: body.meaning_reviewed ?? 0,
+      commentary_source: body.commentary_source ?? null,
+      theme_tags: body.theme_tags ?? null,
+    });
+    emitSseEvent('library_wisdom_update', { kind: 'quote', action: 'created', record });
+    res.status(201).json({ record });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to create quote', details: err.message });
+  }
+});
+
+// PATCH /api/library/wisdom/quotes/:id
+libraryRouter.patch('/wisdom/quotes/:id', (req, res) => {
+  try {
+    const id = parseNumericId(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: 'Invalid quote ID' });
+      return;
+    }
+    const db = getDb();
+    const { quoteService } = ensureWisdomSeeded(db);
+    const record = quoteService.updateQuote(id, req.body ?? {});
+    if (!record) {
+      res.status(404).json({ error: 'Quote not found' });
+      return;
+    }
+    emitSseEvent('library_wisdom_update', { kind: 'quote', action: 'updated', record });
+    res.json({ record });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update quote', details: err.message });
+  }
+});
+
 // ─── Mind Helps Endpoints (Category B5) ───────────────────────────────────────
 
 function ensureMindSeeded(db: any) {
@@ -306,6 +529,61 @@ libraryRouter.get('/mind/cards/:id', (req, res) => {
     res.json({ card });
   } catch (err: any) {
     res.status(500).json({ error: 'Failed to retrieve help card', details: err.message });
+  }
+});
+
+// POST /api/library/mind/cards
+libraryRouter.post('/mind/cards', (req, res) => {
+  try {
+    const body = req.body ?? {};
+    if (!body.title || !body.category || !body.what_it_is || !body.when_it_helps || !body.source_book || !body.source_url || !body.attribution) {
+      res.status(400).json({
+        error: 'title, category, what_it_is, when_it_helps, source_book, source_url, and attribution are required',
+      });
+      return;
+    }
+    const db = getDb();
+    const mindService = ensureMindSeeded(db);
+    const card = mindService.createCard({
+      slug: body.slug,
+      title: String(body.title),
+      category: body.category as MindCategory,
+      what_it_is: String(body.what_it_is),
+      when_it_helps: String(body.when_it_helps),
+      steps: Array.isArray(body.steps) ? body.steps.map(String) : [],
+      time_needed_minutes: Number(body.time_needed_minutes ?? 5),
+      source_book: String(body.source_book),
+      source_chapter: String(body.source_chapter ?? 'General'),
+      source_url: String(body.source_url),
+      source_license: String(body.source_license || 'CC BY 4.0'),
+      attribution: String(body.attribution),
+    });
+    emitSseEvent('library_mind_update', { action: 'created', record: card });
+    res.status(201).json({ card });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to create mind card', details: err.message });
+  }
+});
+
+// PATCH /api/library/mind/cards/:id
+libraryRouter.patch('/mind/cards/:id', (req, res) => {
+  try {
+    const id = parseNumericId(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: 'Invalid card ID' });
+      return;
+    }
+    const db = getDb();
+    const mindService = ensureMindSeeded(db);
+    const card = mindService.updateCard(id, req.body ?? {});
+    if (!card) {
+      res.status(404).json({ error: 'Mind card not found' });
+      return;
+    }
+    emitSseEvent('library_mind_update', { action: 'updated', record: card });
+    res.json({ card });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update mind card', details: err.message });
   }
 });
 

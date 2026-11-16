@@ -4,6 +4,7 @@
  */
 import React from 'react';
 import { Bookmark, Globe, ChevronRight } from 'lucide-react';
+import { useLibraryStore } from '../store/useLibraryStore';
 
 export interface HistoryFeedItem {
   id: number;
@@ -25,6 +26,7 @@ export interface TodayInHistoryFeedProps {
   items: HistoryFeedItem[];
   selectedId: number | null;
   onSelect: (item: HistoryFeedItem) => void;
+  onToggleBookmark?: (item: HistoryFeedItem) => void;
 }
 
 export const TodayInHistoryFeed: React.FC<TodayInHistoryFeedProps> = ({
@@ -32,17 +34,24 @@ export const TodayInHistoryFeed: React.FC<TodayInHistoryFeedProps> = ({
   selectedId,
   onSelect,
 }) => {
+  const storeBookmarks = useLibraryStore((s) => s.bookmarks);
+  // Fall back cleanly to getState() during Node SSR static markup renders while keeping live subscriptions in CSR
+  const bookmarks = storeBookmarks.length > 0 ? storeBookmarks : useLibraryStore.getState().bookmarks;
+
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2.5 lib-scroll-anchor">
       <div className="flex items-center justify-between text-xs text-[var(--lib-ink-muted)] font-serif px-1">
-        <span>Timeline ({items.length} records)</span>
+        <span className="tabular-nums">Timeline ({items.length} records)</span>
         <span className="text-[10px] uppercase tracking-wider">Oldest to Newest</span>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2 lib-scroll-anchor">
         {items.map((item) => {
           const isSelected = selectedId === item.id;
           const countryBadge = item.country || 'International';
+          const isRowBookmarked =
+            bookmarks.some((b) => b.item_type === 'history' && b.item_id === item.id) ||
+            Boolean(item.is_bookmarked);
 
           return (
             <div
@@ -56,7 +65,7 @@ export const TodayInHistoryFeed: React.FC<TodayInHistoryFeedProps> = ({
                   onSelect(item);
                 }
               }}
-              className={`group relative text-left p-3.5 rounded-lg border transition-all duration-200 cursor-pointer ${
+              className={`group lib-row-fade-in relative text-left p-3.5 rounded-lg border transition-all duration-200 cursor-pointer ${
                 isSelected
                   ? 'bg-[var(--lib-surface)] border-[var(--lib-accent)] shadow-sm'
                   : 'bg-[var(--lib-card-bg)] border-[var(--lib-border)] hover:border-[var(--lib-gold)] hover:bg-[var(--lib-surface)]'
@@ -64,16 +73,18 @@ export const TodayInHistoryFeed: React.FC<TodayInHistoryFeedProps> = ({
             >
               {/* Top row: Year & Country */}
               <div className="flex items-center justify-between gap-2 mb-1.5">
-                <span className="px-2 py-0.5 text-xs font-mono font-bold tracking-tight rounded bg-[var(--lib-surface)] text-[var(--lib-accent)] border border-[var(--lib-border)]">
+                <span className="px-2 py-0.5 text-xs font-mono font-bold tracking-tight tabular-nums rounded bg-[var(--lib-surface)] text-[var(--lib-accent)] border border-[var(--lib-border)]">
                   {item.event_year > 0 ? item.event_year : `${Math.abs(item.event_year)} BCE`}
                 </span>
 
                 <div className="flex items-center gap-1.5">
-                  {item.is_bookmarked && (
-                    <Bookmark
-                      className="w-3.5 h-3.5 text-[var(--lib-terracotta)] fill-current"
-                      aria-label="Bookmarked"
-                    />
+                  {isRowBookmarked && (
+                    <span title="Saved to Folio" className="inline-flex">
+                      <Bookmark
+                        className="w-3.5 h-3.5 text-[var(--lib-terracotta)] fill-current"
+                        aria-label="Saved to Folio"
+                      />
+                    </span>
                   )}
                   <span className="flex items-center gap-1 text-[10px] text-[var(--lib-ink-muted)] font-serif">
                     <Globe className="w-2.5 h-2.5 opacity-60" />

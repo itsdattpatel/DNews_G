@@ -3,10 +3,18 @@
  * Canonical Holy Book reader with chapter/section selectors, theme filters,
  * Verse of the Day, and Random Verse explorer.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { VerseFolioCard, type ScriptureVerse } from './VerseFolioCard';
 import { LibraryLoadingState, LibraryEmptyState, LibraryErrorState } from '../ui/LibraryStates';
 import { useLibraryStore } from '../store/useLibraryStore';
+import { sseBus, postCrossTabSync } from '../../lib/sseBus';
+import {
+  verseMatchesFilter,
+  reconcileLibraryIncomingItem,
+  mergePendingLibraryItems,
+  capLibraryList,
+  type LibraryVerseRecord,
+} from '../utils/libraryLive';
 import {
   Sparkles,
   Shuffle,
@@ -47,34 +55,38 @@ export const ScriptureReader: React.FC<ScriptureReaderProps> = () => {
   const [selectedTheme, setSelectedTheme] = useState<string>('all');
 
   const [verses, setVerses] = useState<ScriptureVerse[]>([]);
+  const [pendingVerses, setPendingVerses] = useState<ScriptureVerse[]>([]);
   const [selectedVerse, setSelectedVerse] = useState<ScriptureVerse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [savingMeaning, setSavingMeaning] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const globalSearchQuery = useLibraryStore((s) => s.searchQuery);
   const isBookmarked = useLibraryStore((s) => s.isBookmarked);
   const toggleBookmark = useLibraryStore((s) => s.toggleBookmark);
 
+  const filterRef = useRef({ selectedBookSlug, selectedSection, selectedTheme, globalSearchQuery });
+  filterRef.current = { selectedBookSlug, selectedSection, selectedTheme, globalSearchQuery };
+  const versesRef = useRef<ScriptureVerse[]>(verses);
+  versesRef.current = verses;
+
   // 1. Fetch Holy Books Registry
-  useEffect(() => {
-    let isMounted = true;
-    async function loadBooks() {
-      try {
-        const res = await fetch('/api/library/wisdom/books');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (isMounted && data.books?.length > 0) {
-          setBooks(data.books);
-        }
-      } catch (err: any) {
-        console.error('[ScriptureReader] Failed to load books registry:', err);
+  const loadBooks = useCallback(async () => {
+    try {
+      const res = await fetch('/api/library/wisdom/books');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.books?.length > 0) {
+        setBooks(data.books);
       }
+    } catch (err: any) {
+      console.error('[ScriptureReader] Failed to load books registry:', err);
     }
-    loadBooks();
-    return () => {
-      isMounted = false;
-    };
   }, []);
+
+  useEffect(() => {
+    loadBooks();
+  }, [loadBooks]);
 
   // 2. Fetch Verses based on criteria
   const fetchVerses = useCallback(async () => {
@@ -101,12 +113,16 @@ export const ScriptureReader: React.FC<ScriptureReaderProps> = () => {
         throw new Error(`Failed to load verses (HTTP ${res.status})`);
       }
       const data = await res.json();
-      const items: ScriptureVerse[] = data.verses || [];
+      const items: ScriptureVerse[] = capLibraryList(data.verses || []);
       setVerses(items);
+      setPendingVerses([]);
 
       if (items.length > 0) {
         setSelectedVerse((prev) => {
-          if (prev && items.some((v) => v.id === prev.id)) return prev;
+          if (prev) {
+            const refreshed = items.find((v) => v.id === prev.id);
+            if (refreshed) return refreshed;
+          }
           return items[0]!;
         });
       } else {
@@ -123,6 +139,96 @@ export const ScriptureReader: React.FC<ScriptureReaderProps> = () => {
   useEffect(() => {
     fetchVerses();
   }, [fetchVerses]);
+
+  // Live SSE Wisdom updates for Scripture Verses & Provenance (L3, L6)
+  useEffect(() => {
+    const unsubWisdom = sseBus.subscribe('library_wisdom_update', ({ kind, action, record }) => {
+      if (kind !== 'verse' || !record || typeof record.id !== 'number') return;
+      const incoming = record as ScriptureVerse;
+
+      // Always update active folio in place (covers VOTD / Random outside current list)
+      setSelectedVerse((prev) => (prev && prev.id === incoming.id ? { ...prev, ...incoming } : prev));
+
+      const f = filterRef.current;
+      const matches = verseMatchesFilter(incoming as LibraryVerseRecord, {
+        bookId: f.selectedBookSlug,
+        chapter: f.selectedSection,
+        theme: f.selectedTheme,
+        searchQuery: f.globalSearchQuery,
+      });
+
+      setVerses((prevVerses) => {
+        const exists = prevVerses.some((v) => v.id === incoming.id);
+        if (action === 'updated' || exists) {
+          return prevVerses.map((v) => (v.id === incoming.id ? { ...v, ...incoming } : v));
+        }
+        return prevVerses;
+      });
+
+      if (action === 'created') {
+        setPendingVerses((prevPending) => {
+          if (versesRef.current.some((v) => v.id === incoming.id)) return prevPending;
+          return reconcileLibraryIncomingItem<ScriptureVerse>({
+            action: 'created',
+            item: incoming,
+            matchesFilter: matches,
+            visible: versesRef.current,
+            pending: prevPending,
+          }).pending;
+        });
+      } else {
+        setPendingVerses((prevPending) =>
+          prevPending.map((v) => (v.id === incoming.id ? { ...v, ...incoming } : v)),
+        );
+      }
+    });
+
+    const unsubResync = sseBus.subscribe('library_resync', () => {
+      loadBooks();
+      fetchVerses();
+    });
+
+    return () => {
+      unsubWisdom();
+      unsubResync();
+    };
+  }, [fetchVerses, loadBooks]);
+
+  const handleSaveVerseMeaning = async (
+    verseId: number,
+    patch: { plain_meaning: string; meaning_reviewed: number; commentary_source?: string },
+  ) => {
+    setSavingMeaning(true);
+    try {
+      const res = await fetch(`/api/library/wisdom/verses/${verseId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.record) {
+          setSelectedVerse((prev) => (prev && prev.id === data.record.id ? { ...prev, ...data.record } : prev));
+          setVerses((prev) => prev.map((v) => (v.id === data.record.id ? { ...v, ...data.record } : v)));
+          postCrossTabSync({
+            type: 'library_wisdom_update',
+            kind: 'verse',
+            action: 'updated',
+            record: data.record,
+          });
+        }
+      }
+    } finally {
+      setSavingMeaning(false);
+    }
+  };
+
+  const handleMergePendingVerses = () => {
+    const merged = pendingVerses;
+    setVerses((prev) => mergePendingLibraryItems(merged, prev, true));
+    setSelectedVerse((prev) => prev ?? merged[0] ?? null);
+    setPendingVerses([]);
+  };
 
   // Handler for Verse of the Day
   const handleVerseOfTheDay = async () => {
@@ -272,6 +378,19 @@ export const ScriptureReader: React.FC<ScriptureReaderProps> = () => {
         </div>
       </div>
 
+      {/* Non-jumping "• N new verses" pill */}
+      {pendingVerses.length > 0 && (
+        <button
+          id="btn-library-verses-new-pill"
+          type="button"
+          onClick={handleMergePendingVerses}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[var(--lib-gold)] bg-[var(--lib-gold-soft)] text-xs font-serif font-medium text-[var(--lib-ink)] hover:opacity-90 cursor-pointer tabular-nums"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[var(--lib-gold)]" />
+          <span>• {pendingVerses.length} new verse{pendingVerses.length === 1 ? '' : 's'} — Click to add</span>
+        </button>
+      )}
+
       {/* Main Content Area */}
       {loading ? (
         <LibraryLoadingState rows={3} />
@@ -292,11 +411,12 @@ export const ScriptureReader: React.FC<ScriptureReaderProps> = () => {
           }}
         />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 lib-scroll-anchor">
+
           {/* Verse Selector Strip if multiple verses loaded */}
           {verses.length > 1 && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
-              <span className="lib-meta text-[10px] text-[var(--lib-ink-muted)] font-mono uppercase mr-1 shrink-0">
+              <span className="lib-meta text-[10px] text-[var(--lib-ink-muted)] font-mono uppercase mr-1 shrink-0 tabular-nums">
                 Folios ({verses.length}):
               </span>
               {verses.map((v) => {
@@ -324,6 +444,8 @@ export const ScriptureReader: React.FC<ScriptureReaderProps> = () => {
             <VerseFolioCard
               verse={selectedVerse}
               isBookmarked={isBookmarked('verse', selectedVerse.id)}
+              isSaving={savingMeaning}
+              onSaveMeaning={handleSaveVerseMeaning}
               onToggleBookmark={() =>
                 toggleBookmark('verse', selectedVerse.id, `${selectedVerse.verse_ref}: ${selectedVerse.translation.slice(0, 60)}...`)
               }

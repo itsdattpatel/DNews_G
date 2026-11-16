@@ -59,6 +59,27 @@ export interface SseBusEventMap {
   settings_update: { updatedKeys?: string[]; settings: Partial<AppSettings> };
   bookmark_update: { article_id: number; bookmarked: boolean };
   session_gap_update: Partial<StartupStatus>;
+  library_history_update: { action: 'created' | 'updated'; record: any };
+  library_wisdom_update: { kind: 'verse' | 'quote'; action: 'created' | 'updated'; record: any };
+  library_mind_update: { action: 'created' | 'updated'; record: any };
+  library_bookmark_update: {
+    action: 'created' | 'deleted';
+    bookmark_id?: number;
+    item_type: 'history' | 'verse' | 'quote' | 'mind';
+    item_id: number;
+    bookmark?: any;
+  };
+  library_refresh_status: {
+    status: 'idle' | 'running' | 'completed' | 'error';
+    last_run_at: string | null;
+    next_run_at: string | null;
+    added: number;
+    total_cached: number;
+    month_day: string;
+    error: string | null;
+  };
+  library_resync: { reason: string; timestamp: string };
+  library_theme_update: { theme: 'day' | 'night' };
 }
 
 export type SseBusEventName = keyof SseBusEventMap;
@@ -166,7 +187,20 @@ export type CrossTabMessage =
   | { type: 'bookmark_update'; article_id: number; bookmarked: boolean; tabId: string }
   | { type: 'alert_acknowledged'; id?: number; all?: boolean; tabId: string }
   | { type: 'watchlist_update'; action: string; item?: any; deleted_id?: number; tabId: string }
-  | { type: 'session_gap_update'; status: Partial<StartupStatus>; tabId: string };
+  | { type: 'session_gap_update'; status: Partial<StartupStatus>; tabId: string }
+  | {
+      type: 'library_bookmark_update';
+      action: 'created' | 'deleted';
+      bookmark_id?: number;
+      item_type: 'history' | 'verse' | 'quote' | 'mind';
+      item_id: number;
+      bookmark?: any;
+      tabId: string;
+    }
+  | { type: 'library_wisdom_update'; kind: 'verse' | 'quote'; action: 'created' | 'updated'; record: any; tabId: string }
+  | { type: 'library_history_update'; action: 'created' | 'updated'; record: any; tabId: string }
+  | { type: 'library_mind_update'; action: 'created' | 'updated'; record: any; tabId: string }
+  | { type: 'library_theme_update'; theme: 'day' | 'night'; tabId: string };
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 

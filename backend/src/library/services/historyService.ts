@@ -231,6 +231,202 @@ export class HistoryService {
     return result.changes;
   }
 
+  getHistoryById(id: number): HistoryItem | null {
+    const row = this.db
+      .prepare(`
+        SELECT h.*,
+               CASE WHEN b.id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked
+        FROM library_history_cache h
+        LEFT JOIN library_bookmarks b
+          ON b.item_type = 'history' AND b.item_id = h.id
+        WHERE h.id = ?
+      `)
+      .get(id) as any;
+    return row ? this.formatRow(row) : null;
+  }
+
+  createHistoryRecord(input: {
+    source_slug: HistoryItem['source_slug'];
+    external_id?: string | undefined;
+    event_date: string;
+    event_year: number;
+    headline: string;
+    snippet: string;
+    original_url: string;
+    country?: string | null | undefined;
+    media_url?: string | null | undefined;
+    license: string;
+    attribution: string;
+  }): HistoryItem {
+    const normalizedYear = Number(input.event_year) || 0;
+    const rawDate = input.event_date.trim();
+    const normalizedDate = /^\d{2}-\d{2}$/.test(rawDate)
+      ? `${normalizedYear > 0 ? String(normalizedYear).padStart(4, '0') : '0000'}-${rawDate}`
+      : rawDate;
+
+    const extId =
+      input.external_id?.trim() ||
+      `manual_${normalizedYear}_${normalizedDate}_${hashSnippet(`${input.headline}:${Date.now()}`)}`;
+
+    const res = this.db
+      .prepare(`
+        INSERT INTO library_history_cache (
+          source_slug, external_id, event_date, event_year, headline, snippet, original_url, country, media_url, license, attribution
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        input.source_slug,
+        extId,
+        normalizedDate,
+        normalizedYear,
+        input.headline,
+        input.snippet,
+        input.original_url,
+        input.country ?? detectCountry(input.snippet, input.headline),
+        input.media_url ?? null,
+        input.license,
+        input.attribution,
+      );
+
+    this.enforceCacheCap();
+    const record = this.getHistoryById(Number(res.lastInsertRowid));
+    if (!record) {
+      throw new Error('Failed to load created history record');
+    }
+    return record;
+  }
+
+  updateHistoryRecord(
+    id: number,
+    patch: Partial<{
+      headline: string;
+      snippet: string;
+      original_url: string;
+      country: string | null;
+      media_url: string | null;
+      license: string;
+      attribution: string;
+      event_year: number;
+      event_date: string;
+    }>,
+  ): HistoryItem | null {
+    const existing = this.getHistoryById(id);
+    if (!existing) return null;
+
+    const setClauses: string[] = [];
+    const params: any[] = [];
+    const allowedFields = [
+      'headline',
+      'snippet',
+      'original_url',
+      'country',
+      'media_url',
+      'license',
+      'attribution',
+      'event_year',
+      'event_date',
+    ] as const;
+
+    for (const field of allowedFields) {
+      if (patch[field] !== undefined) {
+        setClauses.push(`${field} = ?`);
+        params.push(patch[field]);
+      }
+    }
+
+    if (setClauses.length === 0) return existing;
+
+    params.push(id);
+    this.db.prepare(`UPDATE library_history_cache SET ${setClauses.join(', ')} WHERE id = ?`).run(...params);
+    return this.getHistoryById(id);
+  }
+
+  async refreshMonthDay(
+    month: number,
+    day: number,
+    options: { skipExternalFetch?: boolean } = {},
+  ): Promise<{ added: HistoryItem[]; total: number; monthDay: string }> {
+    const padM = String(month).padStart(2, '0');
+    const padD = String(day).padStart(2, '0');
+    const monthDay = `${padM}-${padD}`;
+    const suffix = `-${padM}-${padD}`;
+
+    const beforeRows = this.db
+      .prepare('SELECT id FROM library_history_cache WHERE event_date LIKE ? OR event_date = ?')
+      .all(`%${suffix}`, monthDay) as Array<{ id: number }>;
+    const beforeIds = new Set(beforeRows.map((r) => r.id));
+
+    if (!options.skipExternalFetch && process.env.NODE_ENV !== 'test') {
+      try {
+        const url = `https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${padM}/${padD}`;
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent': 'AIWorldNewsDesk/1.0 (https://github.com/dnews; non-commercial historical reader)',
+            Accept: 'application/json',
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { events?: any[] };
+          const rawEvents = data.events || [];
+          const insertStmt = this.db.prepare(`
+            INSERT OR IGNORE INTO library_history_cache (
+              source_slug, external_id, event_date, event_year, headline, snippet, original_url, country, media_url, license, attribution
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `);
+          const insertMany = this.db.transaction((events: any[]) => {
+            for (const ev of events) {
+              const year = ev.year ?? 0;
+              const dateStr = `${year > 0 ? String(year).padStart(4, '0') : '0000'}-${padM}-${padD}`;
+              const externalId = `wikimedia_${year}_${padM}_${padD}_${hashSnippet(ev.text)}`;
+              const primePage = ev.pages && ev.pages.length > 0 ? ev.pages[0] : null;
+              const headline = primePage?.normalizedtitle || primePage?.title?.replace(/_/g, ' ') || `Event in ${year}`;
+              const originalUrl = primePage?.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${padM}_${padD}`;
+              const mediaUrl = primePage?.thumbnail?.source || null;
+              const country = detectCountry(ev.text, headline);
+              insertStmt.run(
+                'wikimedia_onthisday',
+                externalId,
+                dateStr,
+                year,
+                headline,
+                ev.text || '',
+                originalUrl,
+                country,
+                mediaUrl,
+                'CC BY-SA 3.0 / 4.0',
+                'Wikimedia Foundation contributors under CC BY-SA',
+              );
+            }
+          });
+          insertMany(rawEvents);
+          this.enforceCacheCap();
+        }
+      } catch {
+        // Non-fatal in offline environments; fall back to cached state
+      }
+    }
+
+    const afterRows = this.db
+      .prepare(`
+        SELECT h.*,
+               CASE WHEN b.id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked
+        FROM library_history_cache h
+        LEFT JOIN library_bookmarks b
+          ON b.item_type = 'history' AND b.item_id = h.id
+        WHERE h.event_date LIKE ? OR h.event_date = ?
+        ORDER BY h.event_year DESC
+      `)
+      .all(`%${suffix}`, monthDay) as any[];
+
+    const added = afterRows.filter((r) => !beforeIds.has(r.id)).map((r) => this.formatRow(r));
+    return {
+      added,
+      total: afterRows.length,
+      monthDay,
+    };
+  }
+
   private formatRow(row: any): HistoryItem {
     return {
       id: row.id,

@@ -43,6 +43,8 @@ export interface ScriptureVerse {
   source_url: string | null;
   license: string;
   source_license?: string;
+  commentary_source?: string | null;
+  meaning_reviewed?: number;
   is_bookmarked?: boolean;
 }
 
@@ -206,8 +208,152 @@ export class ScriptureService {
       source_url: row.source_url,
       license: row.source_license || 'Public Domain',
       source_license: row.source_license || 'Public Domain',
+      commentary_source: row.commentary_source ?? null,
+      meaning_reviewed: Number(row.meaning_reviewed ?? 0),
       is_bookmarked: Boolean(row.is_bookmarked),
     };
+  }
+
+  private getVerseColumns(): Set<string> {
+    const cols = this.db.prepare('PRAGMA table_info(library_verses)').all() as Array<{ name: string }>;
+    return new Set(cols.map((c) => c.name));
+  }
+
+  getVerseById(id: number): ScriptureVerse | null {
+    const row = this.db
+      .prepare(`
+        SELECT v.*, b.slug AS book_slug, b.title_english AS book_title, b.section_unit,
+               CASE WHEN bm.id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked
+        FROM library_verses v
+        JOIN library_books b ON b.id = v.book_id
+        LEFT JOIN library_bookmarks bm
+          ON bm.item_type = 'verse' AND bm.item_id = v.id
+        WHERE v.id = ?
+      `)
+      .get(id) as any;
+    return row ? this.formatVerse(row) : null;
+  }
+
+  createVerse(input: {
+    book_id?: number | string | undefined;
+    book_slug?: string | undefined;
+    section_number: number;
+    verse_number: number;
+    verse_ref: string;
+    text_original: string;
+    transliteration?: string | null | undefined;
+    translation_english: string;
+    translator: string;
+    commentary_source?: string | null | undefined;
+    plain_meaning?: string | null | undefined;
+    meaning_reviewed?: number | undefined;
+    source_url: string;
+    source_license?: string | undefined;
+    theme_tags?: string | null | undefined;
+  }): ScriptureVerse {
+    let resolvedBookId: number | null = typeof input.book_id === 'number' ? input.book_id : null;
+    if (!resolvedBookId) {
+      const slugCandidate =
+        input.book_slug ?? (typeof input.book_id === 'string' ? input.book_id : undefined) ?? 'bhagavad_gita';
+      const bookRow = this.db
+        .prepare('SELECT id FROM library_books WHERE slug = ? OR slug LIKE ? ORDER BY id ASC LIMIT 1')
+        .get(slugCandidate, `%${slugCandidate}%`) as { id: number } | undefined;
+      if (!bookRow) {
+        throw new Error(`Unknown scripture book: ${slugCandidate}`);
+      }
+      resolvedBookId = bookRow.id;
+    }
+
+    const cols = this.getVerseColumns();
+    const hasMeaningReviewed = cols.has('meaning_reviewed');
+
+    const sqlCols = [
+      'book_id',
+      'section_number',
+      'verse_number',
+      'verse_ref',
+      'text_original',
+      'transliteration',
+      'translation_english',
+      'translator',
+      'commentary_source',
+      'plain_meaning',
+      'source_url',
+      'source_license',
+      'theme_tags',
+    ];
+    const values: any[] = [
+      resolvedBookId,
+      input.section_number,
+      input.verse_number,
+      input.verse_ref,
+      input.text_original,
+      input.transliteration ?? null,
+      input.translation_english,
+      input.translator,
+      input.commentary_source ?? null,
+      input.plain_meaning ?? null,
+      input.source_url,
+      input.source_license || 'Public Domain',
+      input.theme_tags ?? null,
+    ];
+
+    if (hasMeaningReviewed) {
+      sqlCols.push('meaning_reviewed');
+      values.push(Number(input.meaning_reviewed ?? 0) ? 1 : 0);
+    }
+
+    const placeholders = sqlCols.map(() => '?').join(', ');
+    const res = this.db
+      .prepare(`INSERT INTO library_verses (${sqlCols.join(', ')}) VALUES (${placeholders})`)
+      .run(...values);
+
+    const created = this.getVerseById(Number(res.lastInsertRowid));
+    if (!created) throw new Error('Failed to load created verse');
+    return created;
+  }
+
+  updateVerse(
+    id: number,
+    patch: Partial<{
+      plain_meaning: string | null;
+      meaning_reviewed: number | boolean;
+      commentary_source: string | null;
+      translation_english: string;
+      translator: string;
+      source_url: string;
+      source_license: string;
+      theme_tags: string | null;
+    }>,
+  ): ScriptureVerse | null {
+    const existing = this.getVerseById(id);
+    if (!existing) return null;
+
+    const cols = this.getVerseColumns();
+    const setClauses: string[] = [];
+    const params: any[] = [];
+
+    const assign = (col: string, val: any) => {
+      if (cols.has(col)) {
+        setClauses.push(`${col} = ?`);
+        params.push(val);
+      }
+    };
+
+    if (patch.plain_meaning !== undefined) assign('plain_meaning', patch.plain_meaning);
+    if (patch.meaning_reviewed !== undefined) assign('meaning_reviewed', patch.meaning_reviewed ? 1 : 0);
+    if (patch.commentary_source !== undefined) assign('commentary_source', patch.commentary_source);
+    if (patch.translation_english !== undefined) assign('translation_english', patch.translation_english);
+    if (patch.translator !== undefined) assign('translator', patch.translator);
+    if (patch.source_url !== undefined) assign('source_url', patch.source_url);
+    if (patch.source_license !== undefined) assign('source_license', patch.source_license);
+    if (patch.theme_tags !== undefined) assign('theme_tags', patch.theme_tags);
+
+    if (setClauses.length === 0) return existing;
+
+    params.push(id);
+    this.db.prepare(`UPDATE library_verses SET ${setClauses.join(', ')} WHERE id = ?`).run(...params);
+    return this.getVerseById(id);
   }
 
   /**

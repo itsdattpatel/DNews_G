@@ -13,6 +13,7 @@ import { initAppSession, closeAppSession } from './services/sessionManager';
 import { initBackupScheduler, stopBackupScheduler } from './services/backupManager';
 import { loadTop5Channels } from './tv/catalog';
 import { closeAllSseConnections } from './routes/sse';
+import { startLibraryRefreshScheduler, stopLibraryRefreshScheduler } from './library';
 
 const startTime = Date.now();
 const PORT = parseInt(process.env['PORT'] ?? '3001', 10);
@@ -51,6 +52,9 @@ initCleanupScheduler();
 // Initialize automated daily 03:00 backups & retention monitor (PRD A Category 4)
 initBackupScheduler();
 
+// Initialize background Library historical archive refresh scheduler (PRD D Category 6)
+startLibraryRefreshScheduler();
+
 const server = app.listen(PORT, HOST, () => {
   const elapsed = Date.now() - startTime;
   console.log(`[Server] AI World News Desk running at http://${HOST}:${PORT}`);
@@ -63,6 +67,7 @@ function shutdown(): void {
   closeAppSession('clean');
   stopScheduler();
   stopBackupScheduler();
+  stopLibraryRefreshScheduler();
   closeAllSseConnections();
   server.close(() => {
     try {

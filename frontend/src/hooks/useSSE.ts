@@ -42,6 +42,9 @@ interface PendingBatchQueue {
   systemErrors: SseBusEventMap['system_error'][];
   tvUpdates: SseBusEventMap['tv_health_update'][];
   watchlistUpdates: SseBusEventMap['watchlist_update'][];
+  libraryHistoryUpdates: SseBusEventMap['library_history_update'][];
+  libraryWisdomUpdates: SseBusEventMap['library_wisdom_update'][];
+  libraryMindUpdates: SseBusEventMap['library_mind_update'][];
 }
 
 function createEmptyBatchQueue(): PendingBatchQueue {
@@ -55,6 +58,9 @@ function createEmptyBatchQueue(): PendingBatchQueue {
     systemErrors: [],
     tvUpdates: [],
     watchlistUpdates: [],
+    libraryHistoryUpdates: [],
+    libraryWisdomUpdates: [],
+    libraryMindUpdates: [],
   };
 }
 
@@ -126,7 +132,10 @@ export function useSSE(options?: UseSSEOptions): {
         q.controlRoomEvents.length > 0 ||
         q.systemErrors.length > 0 ||
         q.tvUpdates.length > 0 ||
-        q.watchlistUpdates.length > 0;
+        q.watchlistUpdates.length > 0 ||
+        q.libraryHistoryUpdates.length > 0 ||
+        q.libraryWisdomUpdates.length > 0 ||
+        q.libraryMindUpdates.length > 0;
 
       if (!hasWork) return;
 
@@ -260,6 +269,17 @@ export function useSSE(options?: UseSSEOptions): {
         for (const wlEvt of q.watchlistUpdates) {
           sseBus.emit('watchlist_update', wlEvt);
         }
+
+        // 8. Library updates (batched on live_refresh_interval_sec to prevent list jitter)
+        for (const lhEvt of q.libraryHistoryUpdates) {
+          sseBus.emit('library_history_update', lhEvt);
+        }
+        for (const lwEvt of q.libraryWisdomUpdates) {
+          sseBus.emit('library_wisdom_update', lwEvt);
+        }
+        for (const lmEvt of q.libraryMindUpdates) {
+          sseBus.emit('library_mind_update', lmEvt);
+        }
       } finally {
         isFlushing = false;
       }
@@ -327,6 +347,7 @@ export function useSSE(options?: UseSSEOptions): {
 
         if (wasReconnecting && gapMs >= EXTENDED_GAP_RESYNC_MS) {
           useAppStore.getState().performFullResync('reconnect_gap');
+          sseBus.emit('library_resync', { reason: 'reconnect_gap', timestamp: new Date().toISOString() });
         }
       });
 
@@ -355,6 +376,10 @@ export function useSSE(options?: UseSSEOptions): {
           }
           sseBus.emit('resync_required', payload);
           useAppStore.getState().performFullResync(payload.reason || 'resync_required');
+          sseBus.emit('library_resync', {
+            reason: payload.reason || 'resync_required',
+            timestamp: new Date().toISOString(),
+          });
         } catch (err) {
           console.warn('[SSE] Error handling resync_required:', err);
         }
@@ -565,6 +590,57 @@ export function useSSE(options?: UseSSEOptions): {
         }
       });
 
+      // Library Real-Time Channels (PRD D Category 6)
+      es.addEventListener('library_bookmark_update', (e: MessageEvent) => {
+        if (!recordFrameId('library_bookmark_update', e)) return;
+        try {
+          const payload = e.data ? JSON.parse(e.data) : {};
+          sseBus.emit('library_bookmark_update', payload);
+        } catch (err) {
+          console.warn('[SSE] Error handling library_bookmark_update:', err);
+        }
+      });
+
+      es.addEventListener('library_refresh_status', (e: MessageEvent) => {
+        if (!recordFrameId('library_refresh_status', e)) return;
+        try {
+          const payload = e.data ? JSON.parse(e.data) : {};
+          sseBus.emit('library_refresh_status', payload);
+        } catch (err) {
+          console.warn('[SSE] Error handling library_refresh_status:', err);
+        }
+      });
+
+      es.addEventListener('library_history_update', (e: MessageEvent) => {
+        if (!recordFrameId('library_history_update', e)) return;
+        try {
+          const payload = e.data ? JSON.parse(e.data) : {};
+          batchQueueRef.current.libraryHistoryUpdates.push(payload);
+        } catch (err) {
+          console.warn('[SSE] Error queueing library_history_update:', err);
+        }
+      });
+
+      es.addEventListener('library_wisdom_update', (e: MessageEvent) => {
+        if (!recordFrameId('library_wisdom_update', e)) return;
+        try {
+          const payload = e.data ? JSON.parse(e.data) : {};
+          batchQueueRef.current.libraryWisdomUpdates.push(payload);
+        } catch (err) {
+          console.warn('[SSE] Error queueing library_wisdom_update:', err);
+        }
+      });
+
+      es.addEventListener('library_mind_update', (e: MessageEvent) => {
+        if (!recordFrameId('library_mind_update', e)) return;
+        try {
+          const payload = e.data ? JSON.parse(e.data) : {};
+          batchQueueRef.current.libraryMindUpdates.push(payload);
+        } catch (err) {
+          console.warn('[SSE] Error queueing library_mind_update:', err);
+        }
+      });
+
       es.onerror = () => {
         if (!isMounted) return;
         setConnected(false);
@@ -615,6 +691,7 @@ export function useSSE(options?: UseSSEOptions): {
       }
       if (hiddenDurationMs >= EXTENDED_GAP_RESYNC_MS) {
         useAppStore.getState().performFullResync('visibility_wake');
+        sseBus.emit('library_resync', { reason: 'visibility_wake', timestamp: new Date().toISOString() });
       }
     };
 
@@ -622,6 +699,7 @@ export function useSSE(options?: UseSSEOptions): {
       if (!isMounted) return;
       connect();
       useAppStore.getState().performFullResync('online');
+      sseBus.emit('library_resync', { reason: 'online', timestamp: new Date().toISOString() });
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -663,6 +741,37 @@ export function useSSE(options?: UseSSEOptions): {
         case 'session_gap_update':
           store.applySessionGapUpdate(msg.status);
           sseBus.emit('session_gap_update', msg.status);
+          break;
+        case 'library_bookmark_update':
+          sseBus.emit('library_bookmark_update', {
+            action: msg.action,
+            ...(msg.bookmark_id !== undefined ? { bookmark_id: msg.bookmark_id } : {}),
+            item_type: msg.item_type,
+            item_id: msg.item_id,
+            ...(msg.bookmark !== undefined ? { bookmark: msg.bookmark } : {}),
+          });
+          break;
+        case 'library_wisdom_update':
+          sseBus.emit('library_wisdom_update', {
+            kind: msg.kind,
+            action: msg.action,
+            record: msg.record,
+          });
+          break;
+        case 'library_history_update':
+          sseBus.emit('library_history_update', {
+            action: msg.action,
+            record: msg.record,
+          });
+          break;
+        case 'library_mind_update':
+          sseBus.emit('library_mind_update', {
+            action: msg.action,
+            record: msg.record,
+          });
+          break;
+        case 'library_theme_update':
+          sseBus.emit('library_theme_update', { theme: msg.theme });
           break;
       }
     });

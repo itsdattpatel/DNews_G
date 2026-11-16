@@ -520,5 +520,102 @@ export class MindService {
 
     return this.db.prepare(sql).all(...bindings) as HelplineEntry[];
   }
+
+  public createCard(input: {
+    slug?: string | undefined;
+    title: string;
+    category: MindCategory;
+    what_it_is: string;
+    when_it_helps: string;
+    steps: string[];
+    time_needed_minutes: number;
+    source_book: string;
+    source_chapter: string;
+    source_url: string;
+    source_license: string;
+    attribution: string;
+  }): MindCard {
+    const slug =
+      input.slug?.trim() ||
+      `${input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Date.now()}`;
+    const res = this.db
+      .prepare(`
+        INSERT INTO library_mind_cards (
+          slug, title, category, what_it_is, when_it_helps, steps_json, time_needed_minutes,
+          source_book, source_chapter, source_url, source_license, attribution
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        slug,
+        input.title,
+        input.category,
+        input.what_it_is,
+        input.when_it_helps,
+        JSON.stringify(input.steps ?? []),
+        input.time_needed_minutes,
+        input.source_book,
+        input.source_chapter,
+        input.source_url,
+        input.source_license,
+        input.attribution,
+      );
+
+    const created = this.getCardById(Number(res.lastInsertRowid));
+    if (!created) throw new Error('Failed to load created mind card');
+    return created;
+  }
+
+  public updateCard(
+    id: number,
+    patch: Partial<{
+      title: string;
+      category: MindCategory;
+      what_it_is: string;
+      when_it_helps: string;
+      steps: string[];
+      time_needed_minutes: number;
+      source_book: string;
+      source_chapter: string;
+      source_url: string;
+      source_license: string;
+      attribution: string;
+    }>,
+  ): MindCard | null {
+    const existing = this.getCardById(id);
+    if (!existing) return null;
+
+    const setClauses: string[] = [];
+    const params: any[] = [];
+
+    const directFields = [
+      'title',
+      'category',
+      'what_it_is',
+      'when_it_helps',
+      'time_needed_minutes',
+      'source_book',
+      'source_chapter',
+      'source_url',
+      'source_license',
+      'attribution',
+    ] as const;
+
+    for (const f of directFields) {
+      if (patch[f] !== undefined) {
+        setClauses.push(`${f} = ?`);
+        params.push(patch[f]);
+      }
+    }
+    if (patch.steps !== undefined) {
+      setClauses.push('steps_json = ?');
+      params.push(JSON.stringify(patch.steps));
+    }
+
+    if (setClauses.length === 0) return existing;
+
+    params.push(id);
+    this.db.prepare(`UPDATE library_mind_cards SET ${setClauses.join(', ')} WHERE id = ?`).run(...params);
+    return this.getCardById(id);
+  }
 }
 

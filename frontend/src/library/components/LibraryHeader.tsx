@@ -114,7 +114,7 @@ export const LibraryHeader: React.FC = () => {
             onClick={() => setBookmarksOpen(!isBookmarksOpen)}
             aria-label="Toggle Bookmarks Drawer"
           >
-            Bookmarks ({bookmarks.length})
+            <span className="tabular-nums">Bookmarks ({bookmarks.length})</span>
           </ParchmentButton>
         </div>
       </div>

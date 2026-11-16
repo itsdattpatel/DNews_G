@@ -161,6 +161,28 @@
   background: var(--lib-ink-muted);
 }
 
+/* Scroll anchoring and fade-only live entry transitions inside Reading Room */
+.lib-scroll-anchor {
+  overflow-anchor: auto;
+}
+
+.lib-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes libRowFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.lib-row-fade-in {
+  animation: libRowFadeIn 220ms ease-out both;
+}
+
 /* Reduced-motion accessibility overrides */
 @media (prefers-reduced-motion: reduce) {
   .lib-root * {

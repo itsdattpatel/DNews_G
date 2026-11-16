@@ -27,6 +27,8 @@ export interface WisdomQuote {
   source_url: string;
   theme?: string;
   meaning?: string;
+  commentary_source?: string;
+  meaning_reviewed?: number;
   license: string;
   attribution: string;
   is_verified: number;
@@ -37,14 +39,57 @@ export interface QuoteFolioCardProps {
   quote: WisdomQuote;
   isBookmarked: boolean;
   onToggleBookmark: () => void;
+  onSaveMeaning?: (
+    quoteId: number,
+    patch: { plain_meaning: string; meaning_reviewed: number; commentary_source?: string },
+  ) => Promise<void>;
+  isSaving?: boolean;
 }
 
 export const QuoteFolioCard: React.FC<QuoteFolioCardProps> = ({
   quote,
   isBookmarked,
   onToggleBookmark,
+  onSaveMeaning,
+  isSaving = false,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [isEditingMeaning, setIsEditingMeaning] = useState(false);
+  const [draftMeaning, setDraftMeaning] = useState(quote.meaning ?? '');
+  const [draftSource, setDraftSource] = useState(quote.commentary_source ?? '');
+  const [savingLocal, setSavingLocal] = useState(false);
+
+  const isReviewed = Number(quote.meaning_reviewed ?? 0) === 1;
+
+  const handleOpenEdit = () => {
+    setDraftMeaning(quote.meaning ?? '');
+    setDraftSource(quote.commentary_source ?? '');
+    setIsEditingMeaning(true);
+  };
+
+  const handleSaveAndApprove = async () => {
+    if (!draftMeaning.trim()) return;
+    setSavingLocal(true);
+    try {
+      const patch = {
+        plain_meaning: draftMeaning.trim(),
+        meaning_reviewed: 1,
+        ...(draftSource.trim() ? { commentary_source: draftSource.trim() } : {}),
+      };
+      if (onSaveMeaning) {
+        await onSaveMeaning(quote.id, patch);
+      } else {
+        await fetch(`/api/library/wisdom/quotes/${quote.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        });
+      }
+      setIsEditingMeaning(false);
+    } finally {
+      setSavingLocal(false);
+    }
+  };
 
   const handleCopyCitation = async () => {
     const citation = `"${quote.quote_text}"\n— ${quote.author}${quote.source_work ? `, ${quote.source_work}` : ''}\nAttribution: ${quote.attribution} [${quote.license}]\nSource: ${quote.source_url}`;
@@ -131,17 +176,77 @@ export const QuoteFolioCard: React.FC<QuoteFolioCardProps> = ({
         </div>
 
         {/* Classical Meaning / Reflection Block */}
-        {quote.meaning && (
-          <div className="p-4 sm:p-5 rounded-md bg-[var(--lib-surface)] border border-[var(--lib-border-soft)] space-y-2">
-            <div className="flex items-center justify-between">
+        {(quote.meaning || isEditingMeaning || onSaveMeaning) && (
+          <div className="p-4 sm:p-5 rounded-md bg-[var(--lib-surface)] border border-[var(--lib-border-soft)] space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="lib-meta text-[10px] text-[var(--lib-accent)] font-mono tracking-widest uppercase flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--lib-accent)] inline-block" />
                 Philosophical Reflection · Plain Mode Only
               </span>
+              <div className="flex items-center gap-2">
+                {quote.commentary_source && (
+                  <span className="text-[10px] font-serif text-[var(--lib-ink-muted)] italic">
+                    {quote.commentary_source}
+                  </span>
+                )}
+                <InkStampBadge variant={isReviewed ? 'sage' : 'sepia'}>
+                  {isReviewed ? 'Reviewed' : 'Pending Review'}
+                </InkStampBadge>
+                <button
+                  id="btn-edit-quote-meaning"
+                  type="button"
+                  onClick={handleOpenEdit}
+                  className="text-[11px] font-serif px-2 py-0.5 rounded border border-[var(--lib-border)] bg-[var(--lib-surface-elevated)] text-[var(--lib-ink)] hover:border-[var(--lib-accent)] cursor-pointer"
+                >
+                  Edit / Approve
+                </button>
+              </div>
             </div>
-            <p className="font-serif text-sm sm:text-base text-[var(--lib-ink-secondary)] leading-relaxed">
-              {quote.meaning}
-            </p>
+
+            {isEditingMeaning ? (
+              <div className="space-y-2 pt-1">
+                <textarea
+                  id="input-quote-meaning"
+                  aria-label="Edit philosophical reflection"
+                  value={draftMeaning}
+                  onChange={(e) => setDraftMeaning(e.target.value)}
+                  rows={3}
+                  className="w-full p-2.5 rounded border border-[var(--lib-border)] bg-[var(--lib-surface-elevated)] text-sm font-serif text-[var(--lib-ink)] focus:outline-none focus:border-[var(--lib-accent)]"
+                />
+                <input
+                  id="input-quote-commentary-source"
+                  type="text"
+                  placeholder="Commentary source (optional)"
+                  value={draftSource}
+                  onChange={(e) => setDraftSource(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded border border-[var(--lib-border)] bg-[var(--lib-surface-elevated)] text-xs font-serif text-[var(--lib-ink)] focus:outline-none focus:border-[var(--lib-accent)]"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    id="btn-save-quote-meaning"
+                    type="button"
+                    disabled={savingLocal || isSaving || !draftMeaning.trim()}
+                    onClick={handleSaveAndApprove}
+                    className="px-3 py-1 rounded border border-[var(--lib-accent)] bg-[var(--lib-accent-soft)] text-xs font-serif font-medium text-[var(--lib-ink)] cursor-pointer disabled:opacity-50"
+                  >
+                    {savingLocal || isSaving ? 'Saving...' : 'Save & Approve'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingMeaning(false)}
+                    className="px-3 py-1 rounded border border-[var(--lib-border)] bg-[var(--lib-surface)] text-xs font-serif text-[var(--lib-ink-muted)] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              quote.meaning && (
+                <p className="font-serif text-sm sm:text-base text-[var(--lib-ink-secondary)] leading-relaxed">
+                  {quote.meaning}
+                </p>
+              )
+            )}
           </div>
         )}
 

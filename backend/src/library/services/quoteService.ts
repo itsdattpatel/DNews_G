@@ -23,6 +23,8 @@ export interface WisdomQuote {
   license: string;
   source_license?: string;
   attribution: string;
+  commentary_source?: string | null;
+  meaning_reviewed?: number;
   is_verified: boolean;
   is_bookmarked?: boolean;
 }
@@ -162,9 +164,142 @@ export class QuoteService {
       license: row.source_license || 'Public Domain',
       source_license: row.source_license || 'Public Domain',
       attribution: row.attribution,
+      commentary_source: row.commentary_source ?? null,
+      meaning_reviewed: Number(row.meaning_reviewed ?? 0),
       is_verified: Boolean(row.is_verified),
       is_bookmarked: Boolean(row.is_bookmarked),
     };
+  }
+
+  private getQuoteColumns(): Set<string> {
+    const cols = this.db.prepare('PRAGMA table_info(library_quotes)').all() as Array<{ name: string }>;
+    return new Set(cols.map((c) => c.name));
+  }
+
+  getQuoteById(id: number): WisdomQuote | null {
+    const row = this.db
+      .prepare(`
+        SELECT q.*,
+               CASE WHEN bm.id IS NOT NULL THEN 1 ELSE 0 END AS is_bookmarked
+        FROM library_quotes q
+        LEFT JOIN library_bookmarks bm
+          ON bm.item_type = 'quote' AND bm.item_id = q.id
+        WHERE q.id = ?
+      `)
+      .get(id) as any;
+    return row ? this.formatQuote(row) : null;
+  }
+
+  createQuote(input: {
+    quote_text: string;
+    author: string;
+    work_title?: string | null | undefined;
+    year_published?: number | null | undefined;
+    tradition?: string | null | undefined;
+    country?: string | null | undefined;
+    source_url: string;
+    source_license: string;
+    attribution: string;
+    is_verified?: number | boolean | undefined;
+    plain_meaning?: string | null | undefined;
+    meaning_reviewed?: number | boolean | undefined;
+    commentary_source?: string | null | undefined;
+    theme_tags?: string | null | undefined;
+  }): WisdomQuote {
+    const cols = this.getQuoteColumns();
+    const sqlCols = [
+      'quote_text',
+      'author',
+      'work_title',
+      'year_published',
+      'tradition',
+      'country',
+      'source_url',
+      'source_license',
+      'attribution',
+      'is_verified',
+      'plain_meaning',
+      'theme_tags',
+    ];
+    const values: any[] = [
+      input.quote_text,
+      input.author,
+      input.work_title ?? null,
+      input.year_published ?? null,
+      input.tradition ?? null,
+      input.country ?? null,
+      input.source_url,
+      input.source_license || 'Public Domain',
+      input.attribution,
+      input.is_verified === undefined ? 1 : input.is_verified ? 1 : 0,
+      input.plain_meaning ?? null,
+      input.theme_tags ?? null,
+    ];
+
+    if (cols.has('meaning_reviewed')) {
+      sqlCols.push('meaning_reviewed');
+      values.push(input.meaning_reviewed ? 1 : 0);
+    }
+    if (cols.has('commentary_source')) {
+      sqlCols.push('commentary_source');
+      values.push(input.commentary_source ?? null);
+    }
+
+    const placeholders = sqlCols.map(() => '?').join(', ');
+    const res = this.db
+      .prepare(`INSERT INTO library_quotes (${sqlCols.join(', ')}) VALUES (${placeholders})`)
+      .run(...values);
+
+    const created = this.getQuoteById(Number(res.lastInsertRowid));
+    if (!created) throw new Error('Failed to load created quote');
+    return created;
+  }
+
+  updateQuote(
+    id: number,
+    patch: Partial<{
+      quote_text: string;
+      work_title: string | null;
+      plain_meaning: string | null;
+      meaning_reviewed: number | boolean;
+      commentary_source: string | null;
+      source_url: string;
+      source_license: string;
+      attribution: string;
+      is_verified: number | boolean;
+      theme_tags: string | null;
+    }>,
+  ): WisdomQuote | null {
+    const existing = this.getQuoteById(id);
+    if (!existing) return null;
+
+    const cols = this.getQuoteColumns();
+    const setClauses: string[] = [];
+    const params: any[] = [];
+
+    const assign = (col: string, val: any) => {
+      if (cols.has(col)) {
+        setClauses.push(`${col} = ?`);
+        params.push(val);
+      }
+    };
+
+    if (patch.quote_text !== undefined) assign('quote_text', patch.quote_text);
+    if (patch.work_title !== undefined) assign('work_title', patch.work_title);
+    if (patch.plain_meaning !== undefined) assign('plain_meaning', patch.plain_meaning);
+    if (patch.meaning_reviewed !== undefined) assign('meaning_reviewed', patch.meaning_reviewed ? 1 : 0);
+    if (patch.commentary_source !== undefined) assign('commentary_source', patch.commentary_source);
+    if (patch.source_url !== undefined) assign('source_url', patch.source_url);
+    if (patch.source_license !== undefined) assign('source_license', patch.source_license);
+    if (patch.attribution !== undefined) assign('attribution', patch.attribution);
+    if (patch.is_verified !== undefined) assign('is_verified', patch.is_verified ? 1 : 0);
+    if (patch.theme_tags !== undefined) assign('theme_tags', patch.theme_tags);
+
+    if (setClauses.length === 0) return existing;
+
+    params.push(id);
+    this.db.prepare(`UPDATE library_quotes SET ${setClauses.join(', ')} WHERE id = ?`).run(...params);
+    return this.getQuoteById(id);
   }
 
   /**
