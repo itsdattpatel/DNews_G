@@ -40,6 +40,8 @@ export interface StatusStripProps {
   forcedPlainMode?: boolean;
   forcedSseStatus?: 'connecting' | 'connected' | 'reconnecting';
   forcedSseReconnectAttempts?: number;
+  forcedIsOnline?: boolean;
+  forcedReconnectedRecently?: boolean;
 }
 
 export const StatusStrip: React.FC<StatusStripProps> = memo(({
@@ -49,6 +51,8 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
   forcedPlainMode,
   forcedSseStatus,
   forcedSseReconnectAttempts,
+  forcedIsOnline,
+  forcedReconnectedRecently,
 }) => {
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
@@ -57,6 +61,10 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
   const storeSseReconnectAttempts = useAppStore((s) => s.sseReconnectAttempts);
   const sseStatus = forcedSseStatus ?? storeSseStatus;
   const sseReconnectAttempts = forcedSseReconnectAttempts ?? storeSseReconnectAttempts;
+  const storeIsOnline = useAppStore((s) => s.isOnline);
+  const storeReconnectedRecently = useAppStore((s) => s.reconnectedRecently);
+  const isOnline = forcedIsOnline !== undefined ? forcedIsOnline : storeIsOnline;
+  const reconnectedRecently = forcedReconnectedRecently !== undefined ? forcedReconnectedRecently : storeReconnectedRecently;
   const isAutoAdvanceManualPaused = useAppStore((s) => s.isAutoAdvanceManualPaused);
   const toggleStatusStripPlayPause = useAppStore((s) => s.toggleStatusStripPlayPause);
   const isArticlePanelHovered = useAppStore((s) => s.isArticlePanelHovered);
@@ -315,8 +323,38 @@ export const StatusStrip: React.FC<StatusStripProps> = memo(({
           </div>
         </div>
 
-        {/* Right: Reconnecting, Gap & Plain-mode chips */}
+        {/* Right: Reconnecting, Offline, Gap & Plain-mode chips */}
         <div className="flex items-center gap-2 shrink-0 font-ui text-[0.625rem]">
+          {/* Offline 15s Watchdog Chip (PRD E Category 5) */}
+          {!isOnline && (
+            <span
+              id="status-strip-offline-chip"
+              data-testid="status-strip-offline-chip"
+              role="status"
+              aria-live="polite"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-2xs border border-amber-600/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 font-mono text-[0.625rem] font-bold tabular-nums shrink-0"
+              title="Internet connection unavailable — backend checking for reconnection every 15 seconds"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+              <span>⊘ No Internet — checking every 15s</span>
+            </span>
+          )}
+
+          {/* Reconnected Back Online Pill (PRD E Category 5) */}
+          {reconnectedRecently && isOnline && (
+            <span
+              id="status-strip-reconnected-chip"
+              data-testid="status-strip-reconnected-chip"
+              role="status"
+              aria-live="polite"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-2xs border border-positive/50 bg-positive/10 text-positive font-mono text-[0.625rem] font-bold tabular-nums shrink-0 animate-fade-in"
+              title="Internet connection restored — resuming live wire sync"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-positive shrink-0" />
+              <span>↺ Back online — syncing…</span>
+            </span>
+          )}
+
           {/* Non-blocking SSE Reconnecting Chip (PRD D Cat 4) */}
           {sseStatus === 'reconnecting' && (
             <span

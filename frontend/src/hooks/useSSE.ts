@@ -440,6 +440,20 @@ export function useSSE(options?: UseSSEOptions): {
         }
       });
 
+      // Offline Resilience Watchdog Event (PRD E Category 5)
+      es.addEventListener('connectivity_change', (e: MessageEvent) => {
+        if (!recordFrameId('connectivity_change', e)) return;
+        try {
+          const payload = e.data ? JSON.parse(e.data) : {};
+          if (typeof payload.online === 'boolean') {
+            useAppStore.getState().setConnectivityOnline(payload.online, payload.checkedAt);
+            sseBus.emit('connectivity_change', payload);
+          }
+        } catch (err) {
+          console.warn('[SSE] Error handling connectivity_change:', err);
+        }
+      });
+
       // Batched domain events
       es.addEventListener('new_article', (e: MessageEvent) => {
         if (!recordFrameId('new_article', e)) return;

@@ -23,6 +23,7 @@ import { libraryRouter } from './library';
 import { getStartupGap } from './fetch/scheduler';
 import { backfillMissedWindow } from './fetch/backfill';
 import { getCurrentSession, getDowntimeGap } from './services/sessionManager';
+import { getConnectivityWatchdog } from './utils/connectivityWatchdog';
 
 export function createApp(): Express {
   const app = express();
@@ -117,6 +118,21 @@ export function createApp(): Express {
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Offline Resilience & Connectivity status (PRD E Category 5)
+  app.get('/api/connectivity', (_req, res) => {
+    const watchdog = getConnectivityWatchdog();
+    res.json(watchdog.getMetrics());
+  });
+
+  app.post('/api/connectivity/check', async (_req, res) => {
+    const watchdog = getConnectivityWatchdog();
+    const online = await watchdog.forceCheck();
+    res.json({
+      online,
+      ...watchdog.getMetrics(),
+    });
   });
 
   return app;

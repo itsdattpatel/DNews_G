@@ -75,6 +75,31 @@ describe('PRD C Category 2: Status Strip (Issue 4)', () => {
       expect(html).toContain('id="status-strip-plain-chip"');
       expect(html).toContain('Plain: ON');
     });
+
+    it('renders Offline 15s watchdog chip when disconnected from internet (PRD E Category 5)', () => {
+      const html = renderToStaticMarkup(
+        <StatusStrip forcedIsOnline={false} />
+      );
+      expect(html).toContain('id="status-strip-offline-chip"');
+      expect(html).toContain('⊘ No Internet — checking every 15s');
+    });
+
+    it('renders Reconnected chip when connectivity returns (PRD E Category 5)', () => {
+      const html = renderToStaticMarkup(
+        <StatusStrip forcedIsOnline={true} forcedReconnectedRecently={true} />
+      );
+      expect(html).toContain('id="status-strip-reconnected-chip"');
+      expect(html).toContain('↺ Back online — syncing…');
+      expect(html).not.toContain('id="status-strip-offline-chip"');
+    });
+
+    it('hides both offline and reconnected chips during steady online operation', () => {
+      const html = renderToStaticMarkup(
+        <StatusStrip forcedIsOnline={true} forcedReconnectedRecently={false} />
+      );
+      expect(html).not.toContain('id="status-strip-offline-chip"');
+      expect(html).not.toContain('id="status-strip-reconnected-chip"');
+    });
   });
 
   describe('Pause Reasons Preservation (PRD A 2.2)', () => {

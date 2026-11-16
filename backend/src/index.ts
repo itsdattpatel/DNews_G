@@ -14,6 +14,7 @@ import { initBackupScheduler, stopBackupScheduler } from './services/backupManag
 import { loadTop5Channels } from './tv/catalog';
 import { closeAllSseConnections } from './routes/sse';
 import { startLibraryRefreshScheduler, stopLibraryRefreshScheduler } from './library';
+import { getConnectivityWatchdog } from './utils/connectivityWatchdog';
 
 const startTime = Date.now();
 const PORT = parseInt(process.env['PORT'] ?? '3001', 10);
@@ -41,6 +42,9 @@ if (startupGap.detected) {
   );
 }
 
+// Initialize connectivity watchdog (PRD E Category 5)
+getConnectivityWatchdog().start();
+
 // Start scheduled fetch & enrichment
 startScheduler(async () => {
   await runEnrichmentPass();
@@ -65,6 +69,7 @@ const server = app.listen(PORT, HOST, () => {
 function shutdown(): void {
   console.log('\n[Server] Shutting down gracefully...');
   closeAppSession('clean');
+  getConnectivityWatchdog().stop();
   stopScheduler();
   stopBackupScheduler();
   stopLibraryRefreshScheduler();

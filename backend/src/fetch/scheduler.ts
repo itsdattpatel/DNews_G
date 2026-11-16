@@ -12,6 +12,7 @@ import { scrapeArticle } from './scraper';
 import { insertPendingArticles } from '../pipeline/dedup';
 import { updateSourceTelemetry, logSystemError } from '../services/controlRoom';
 import { emitSseEvent } from '../routes/sse';
+import { getConnectivityWatchdog } from '../utils/connectivityWatchdog';
 
 type FetchCallback = (articles: ArticleRaw[]) => Promise<void>;
 
@@ -63,6 +64,11 @@ export function refreshInterval(): void {
 }
 
 async function runFetchCycle(): Promise<void> {
+  if (!getConnectivityWatchdog().isCurrentlyOnline()) {
+    console.log('[Scheduler] Fetch cycle suspended — offline mode active (watchdog checking every 15s)');
+    return;
+  }
+
   if (_isCycleRunning) {
     console.log('[Scheduler] Fetch cycle already running, skipping overlapping invocation');
     return;
@@ -153,11 +159,21 @@ async function runFetchCycle(): Promise<void> {
 
 /** Manually trigger an immediate fetch cycle on demand from the Control Room */
 export async function triggerManualFetchCycle(): Promise<{
-  status: 'completed' | 'already_running';
+  status: 'completed' | 'already_running' | 'offline';
   fetched: number;
   newCount: number;
   durationMs: number;
 }> {
+  if (!getConnectivityWatchdog().isCurrentlyOnline()) {
+    console.log('[Scheduler] Manual fetch cycle skipped — device is currently offline');
+    return {
+      status: 'offline',
+      fetched: 0,
+      newCount: 0,
+      durationMs: 0,
+    };
+  }
+
   if (_isCycleRunning) {
     return {
       status: 'already_running',

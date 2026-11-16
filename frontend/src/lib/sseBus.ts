@@ -80,6 +80,7 @@ export interface SseBusEventMap {
   };
   library_resync: { reason: string; timestamp: string };
   library_theme_update: { theme: 'day' | 'night' };
+  connectivity_change: { online: boolean; checkedAt: string };
 }
 
 export type SseBusEventName = keyof SseBusEventMap;

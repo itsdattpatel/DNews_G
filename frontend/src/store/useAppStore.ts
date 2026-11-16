@@ -275,6 +275,13 @@ interface AppState {
   applySettingsFromRemote: (remoteSettings: Partial<AppSettings>) => void;
   applySessionGapUpdate: (patch: Partial<StartupStatus>) => void;
   performFullResync: (reason?: string) => Promise<void>;
+
+  // Offline Watchdog Connectivity State (PRD E Category 5)
+  isOnline: boolean;
+  reconnectedRecently: boolean;
+  connectivityCheckedAt: string | null;
+  setConnectivityOnline: (online: boolean, checkedAt?: string) => void;
+  fetchConnectivity: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -1096,6 +1103,51 @@ export const useAppStore = create<AppState>((set, get) => ({
       sseReconnectAttempts: patch.reconnectAttempts ?? state.sseReconnectAttempts,
       sseLastEventId: patch.lastEventId ?? state.sseLastEventId,
     }));
+  },
+
+  // Offline Watchdog Connectivity State (PRD E Category 5)
+  isOnline: true,
+  reconnectedRecently: false,
+  connectivityCheckedAt: null,
+  setConnectivityOnline: (online, checkedAt) => {
+    const prevState = get().isOnline;
+    if (online) {
+      if (!prevState) {
+        // Just transitioned from offline to online!
+        set({
+          isOnline: true,
+          reconnectedRecently: true,
+          connectivityCheckedAt: checkedAt ?? new Date().toISOString(),
+        });
+        setTimeout(() => {
+          set({ reconnectedRecently: false });
+        }, 3000);
+      } else {
+        set({
+          isOnline: true,
+          connectivityCheckedAt: checkedAt ?? new Date().toISOString(),
+        });
+      }
+    } else {
+      set({
+        isOnline: false,
+        reconnectedRecently: false,
+        connectivityCheckedAt: checkedAt ?? new Date().toISOString(),
+      });
+    }
+  },
+  fetchConnectivity: async () => {
+    try {
+      const res = await fetch('/api/connectivity');
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.isOnline === 'boolean') {
+          get().setConnectivityOnline(data.isOnline, data.lastCheckedAt);
+        }
+      }
+    } catch {
+      get().setConnectivityOnline(false);
+    }
   },
 
   unreadAlertsCount: 0,
