@@ -32,3 +32,17 @@ coverage/
 
 # Temporary scratch
 scratch/
+
+# User-generated runtime data (must never be committed)
+backups/
+playwright-screenshots/
+autostart/
+news.sqlite
+
+# Electron packaging outputs
+electron/dist/
+release/
+
+# User API key store (written by in-app Secrets Manager)
+user.env
+**/user.env

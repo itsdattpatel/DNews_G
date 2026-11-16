@@ -1,7 +1,8 @@
 const { chromium } = require('playwright');
 const path = require('path');
 
-const ARTIFACT_DIR = 'C:/Users/dattj/.gemini/antigravity/brain/26bd5fa2-bbf3-4423-bdff-d9b87f39e06a';
+// Screenshots are saved to playwright-screenshots/ in the project root
+const ARTIFACT_DIR = path.join(__dirname, '..', 'playwright-screenshots', 'live-news');
 
 async function capture() {
   const browser = await chromium.launch({ headless: true });
