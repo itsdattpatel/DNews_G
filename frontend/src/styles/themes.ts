@@ -750,12 +750,15 @@ export function applyThemeToDOM(tokens: DerivedThemeTokens): void {
   root.style.setProperty('--color-paper', tokens.colorPaper);
   root.style.setProperty('--color-paper-alt', tokens.colorPaperAlt);
   root.style.setProperty('--color-paper-border', tokens.colorPaperBorder);
+  root.style.setProperty('--color-paper-card', tokens.colorPaperAlt);
+  root.style.setProperty('--color-ink-border', tokens.colorPaperBorder);
   root.style.setProperty('--color-ink', tokens.colorInk);
   root.style.setProperty('--color-ink-secondary', tokens.colorInkSecondary);
   root.style.setProperty('--color-ink-muted', tokens.colorInkMuted);
   root.style.setProperty('--color-accent', tokens.colorAccent);
   root.style.setProperty('--color-accent-light', tokens.colorAccentLight);
   root.style.setProperty('--color-accent-dark', tokens.colorAccentDark);
+  root.style.setProperty('--grain-opacity', tokens.isDark ? '0.06' : '0.045');
 
   // Shadcn & Tailwind Directives mapping
   root.style.setProperty('--background', tokens.colorPaper);
@@ -785,6 +788,7 @@ export function applyThemeToDOM(tokens: DerivedThemeTokens): void {
 
   // Set theme data-attribute for high-level CSS selector matching
   root.setAttribute('data-theme', tokens.isDark ? 'night' : 'paper');
+  root.setAttribute('data-dynamic-theme', 'true');
   if (tokens.isDark) {
     root.classList.add('dark');
   } else {

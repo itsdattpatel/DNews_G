@@ -35,9 +35,35 @@
   --lib-transition: 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ─── Day Theme: Warm Aged Manuscript & Walnut Ink ─────────────────────────── */
-.lib-root,
-.lib-root[data-lib-theme="day"] {
+/* ─── Universal Theme Mapping: Seamlessly Adopts Active App Theme ─────────── */
+.lib-root {
+  --lib-bg: var(--color-paper, #F7F4EC);
+  --lib-surface: var(--color-paper-alt, #EFE9DC);
+  --lib-surface-hover: var(--color-paper-alt, #E7DFCFA0);
+  --lib-surface-elevated: var(--color-paper, #FFFDF9);
+  --lib-border: var(--color-paper-border, #D8CCB8);
+  --lib-border-soft: var(--color-paper-border, #E5DAC9);
+
+  --lib-ink: var(--color-ink, #231E18);
+  --lib-ink-secondary: var(--color-ink-secondary, #584C3C);
+  --lib-ink-muted: var(--color-ink-muted, #8E7E6B);
+  --lib-ink-faint: var(--color-ink-muted, #B7A895);
+
+  --lib-accent: var(--color-accent, #8E3B24);
+  --lib-accent-soft: var(--color-accent-light, #F2E3DC);
+  --lib-gold: #9E7B36;
+  --lib-gold-soft: #F6EEDD;
+  --lib-sage: #4E6E5A;
+  --lib-sage-soft: #E7EFEA;
+
+  --lib-shadow-page: 0 4px 24px -2px rgba(0, 0, 0, 0.2);
+  --lib-shadow-card: 0 2px 10px -1px rgba(0, 0, 0, 0.1);
+  --lib-shadow-inner: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── Day Theme Fallback (Only when no dynamic theme active) ────────────────── */
+:root:not([data-dynamic-theme="true"]) .lib-root,
+:root:not([data-dynamic-theme="true"]) .lib-root[data-lib-theme="day"] {
   --lib-bg: #F7F4EC;
   --lib-surface: #EFE9DC;
   --lib-surface-hover: #E7DFCFA0;
@@ -50,20 +76,16 @@
   --lib-ink-muted: #8E7E6B;
   --lib-ink-faint: #B7A895;
 
-  --lib-accent: #8E3B24;       /* Terracotta bookmark */
-  --lib-accent-soft: #F2E3DC;  /* Terracotta wash */
-  --lib-gold: #9E7B36;         /* Illumination gold */
-  --lib-gold-soft: #F6EEDD;    /* Pale gold leaf */
-  --lib-sage: #4E6E5A;         /* Calming botanical sage */
-  --lib-sage-soft: #E7EFEA;    /* Herbal wash */
-
-  --lib-shadow-page: 0 4px 24px -2px rgba(35, 30, 24, 0.08);
-  --lib-shadow-card: 0 2px 10px -1px rgba(35, 30, 24, 0.05);
-  --lib-shadow-inner: inset 0 1px 3px rgba(35, 30, 24, 0.04);
+  --lib-accent: #8E3B24;
+  --lib-accent-soft: #F2E3DC;
+  --lib-gold: #9E7B36;
+  --lib-gold-soft: #F6EEDD;
+  --lib-sage: #4E6E5A;
+  --lib-sage-soft: #E7EFEA;
 }
 
-/* ─── Night Theme: Dark Mahogany Reading Stack & Candlelit Vellum ──────────── */
-.lib-root[data-lib-theme="night"] {
+/* ─── Night Theme Fallback (Only when no dynamic theme active) ──────────────── */
+:root:not([data-dynamic-theme="true"]) .lib-root[data-lib-theme="night"] {
   --lib-bg: #13110E;
   --lib-surface: #1C1915;
   --lib-surface-hover: #26221D;
@@ -76,16 +98,12 @@
   --lib-ink-muted: #746755;
   --lib-ink-faint: #443B30;
 
-  --lib-accent: #D46949;       /* Candlelit terracotta */
+  --lib-accent: #D46949;
   --lib-accent-soft: #382119;
-  --lib-gold: #D6AB4E;         /* Gilt illumination */
+  --lib-gold: #D6AB4E;
   --lib-gold-soft: #382E19;
-  --lib-sage: #70A27E;         /* Night sage */
+  --lib-sage: #70A27E;
   --lib-sage-soft: #1B2C21;
-
-  --lib-shadow-page: 0 8px 32px rgba(0, 0, 0, 0.65);
-  --lib-shadow-card: 0 3px 14px rgba(0, 0, 0, 0.45);
-  --lib-shadow-inner: inset 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 /* ─── Root Scoped Container Rules ──────────────────────────────────────────── */

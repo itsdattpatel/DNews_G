@@ -2,14 +2,14 @@
  * frontend/src/App.tsx
  * Application Root: Initializes hooks, live SSE stream, and mounts the App Shell.
  */
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Shell } from './components/layout/Shell';
 import { DesignSystemShowcase } from './components/dev/DesignSystemShowcase';
 import { useArticles } from './hooks/useArticles';
 import { useSSE } from './hooks/useSSE';
 import { useAppStore } from './store/useAppStore';
 
-const LibraryRoot = React.lazy(() => import('./library/LibraryRoot'));
+import { LibraryRoot } from './library/LibraryRoot';
 
 if (typeof window !== 'undefined') {
   (window as any).useAppStore = useAppStore;
@@ -112,11 +112,7 @@ export const App: React.FC = () => {
   }
 
   if (isLibraryPath || isLibraryOpen) {
-    return (
-      <Suspense fallback={<div className="min-h-screen bg-[#F7F4EC] text-[#231E18] flex items-center justify-center font-serif text-lg">Opening The Reading Room...</div>}>
-        <LibraryRoot />
-      </Suspense>
-    );
+    return <LibraryRoot />;
   }
 
   return <Shell />;

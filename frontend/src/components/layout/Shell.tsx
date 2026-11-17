@@ -66,10 +66,6 @@ export const Shell: React.FC = () => {
     }
   }, []);
 
-  // Sync theme attribute on mount
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
 
   // Global Keyboard Shortcuts (PRD §6 & UI_SPEC §Keyboard Shortcuts)
   useEffect(() => {
@@ -223,7 +219,6 @@ export const Shell: React.FC = () => {
   return (
     <div
       id="app-shell"
-      data-theme={theme}
       className="flex flex-col w-screen h-screen overflow-hidden bg-paper text-ink relative font-ui transition-colors duration-200 select-none"
     >
       {/* 1. Master TopBar (z-40) */}

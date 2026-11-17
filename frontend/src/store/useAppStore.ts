@@ -318,11 +318,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   theme: (typeof window !== 'undefined' && (localStorage.getItem('news_desk_theme') as ThemeMode)) || 'paper',
   setTheme: (theme) => {
+    playButtonSound(get().settings.sound_enabled);
+    const targetId = theme === 'night' ? 'obsidian-nocturne' : 'london-broadsheet-1920';
+    const preset = THEME_CATALOG.find((t) => t.id === targetId) || THEME_CATALOG[theme === 'night' ? 30 : 10];
+    const tokens = deriveThemePalette(preset.bg, preset.accent);
+    applyThemeToDOM(tokens);
     if (typeof window !== 'undefined') {
       localStorage.setItem('news_desk_theme', theme);
-      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('dnews_theme_id', preset.id);
+      localStorage.removeItem('dnews_custom_bg');
     }
-    set({ theme });
+    set({
+      theme,
+      activeThemeId: preset.id,
+      customBgColor: null,
+    });
   },
   isBatMenuOpen: false,
   setBatMenuOpen: (open) => set({ isBatMenuOpen: open }),
@@ -1002,7 +1012,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isLibraryOpen: true });
     try {
       if (typeof window !== 'undefined') {
-        window.history.pushState(null, '', '/library');
+        if (window.location.protocol === 'file:') {
+          window.location.hash = '#/library';
+        } else {
+          window.history.pushState(null, '', '/library');
+        }
         window.dispatchEvent(new PopStateEvent('popstate'));
       }
     } catch {
@@ -1014,7 +1028,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isLibraryOpen: false });
     try {
       if (typeof window !== 'undefined') {
-        if (window.history.length > 1) {
+        if (window.location.protocol === 'file:') {
+          window.location.hash = '';
+        } else if (window.history.length > 1) {
           window.history.back();
         } else {
           window.history.pushState(null, '', '/');

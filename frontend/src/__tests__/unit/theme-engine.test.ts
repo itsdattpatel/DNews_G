@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * frontend/src/__tests__/unit/theme-engine.test.ts
  * Unit tests for the 50-Theme Broadsheet Catalog & Mathematical Contrast Derivation Engine.
@@ -13,6 +14,7 @@ import {
   rgbToHsl,
   hslToRgb,
   normalizeHex,
+  applyThemeToDOM,
 } from '../../styles/themes';
 
 describe('Broadsheet 50-Theme Catalog & Contrast Engine', () => {
@@ -113,5 +115,20 @@ describe('Broadsheet 50-Theme Catalog & Contrast Engine', () => {
       const ratio = getContrastRatio(palette.colorPaper, palette.colorInk);
       expect(ratio).toBeGreaterThanOrEqual(4.5); // Guaranteed WCAG AA across arbitrary user colors
     });
+  });
+
+  it('applyThemeToDOM injects complete token set and sets data-dynamic-theme', () => {
+    const palette = deriveThemePalette('#1C1024', '#D4AF37'); // Byzantine Tyrian
+    applyThemeToDOM(palette);
+
+    const root = document.documentElement;
+    expect(root.getAttribute('data-dynamic-theme')).toBe('true');
+    expect(root.getAttribute('data-theme')).toBe('night');
+    expect(root.classList.contains('dark')).toBe(true);
+
+    expect(root.style.getPropertyValue('--color-paper')).toBe('#1C1024');
+    expect(root.style.getPropertyValue('--color-paper-card')).toBe(palette.colorPaperAlt);
+    expect(root.style.getPropertyValue('--color-ink-border')).toBe(palette.colorPaperBorder);
+    expect(root.style.getPropertyValue('--lib-bg')).toBe('#1C1024');
   });
 });

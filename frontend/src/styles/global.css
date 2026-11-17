@@ -9,11 +9,13 @@
 @tailwind utilities;
 
 /* ─── 1. Design System Tokens ───────────────────────────────────────────── */
-:root, [data-theme="paper"] {
-  /* Paper Theme (Default Broadsheet) */
+:root:not([data-dynamic-theme="true"]) {
+  /* Paper Theme (Default Broadsheet fallback) */
   --color-paper:          #FAF7F0;   /* Warm off-white */
   --color-paper-alt:      #F2EDE2;   /* Surface & card background */
   --color-paper-border:   #D9D0BE;   /* Column rules & dividers */
+  --color-paper-card:     #F2EDE2;
+  --color-ink-border:     #D9D0BE;
   --color-ink:            #1A1208;   /* Primary ink text */
   --color-ink-secondary:  #5C4E3A;   /* Bylines & metadata */
   --color-ink-muted:      #9A8878;   /* Disabled & placeholder text */
@@ -88,11 +90,13 @@
   --radius:               var(--radius-md);
 }
 
-[data-theme="night"], .dark {
-  /* Night Edition Theme */
+:root.dark:not([data-dynamic-theme="true"]) {
+  /* Night Edition Theme (Default fallback when no dynamic theme active) */
   --color-paper:          #0E0C09;   /* Obsidian broadsheet */
   --color-paper-alt:      #1A1710;   /* Elevated card surface */
   --color-paper-border:   #2E2A22;   /* Subtle etched column lines */
+  --color-paper-card:     #1A1710;
+  --color-ink-border:     #2E2A22;
   --color-ink:            #E8E4DA;   /* Warm moonlight ink text */
   --color-ink-secondary:  #A89880;   /* Secondary captions */
   --color-ink-muted:      #5C5448;   /* Muted elements */

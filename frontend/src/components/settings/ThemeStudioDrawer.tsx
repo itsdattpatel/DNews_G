@@ -61,8 +61,30 @@ export const ThemeStudioDrawer: React.FC = () => {
       setG(rgb.g);
       setB(rgb.b);
       setHexInput(customBgColor);
+    } else {
+      const preset = THEME_CATALOG.find((t) => t.id === activeThemeId);
+      if (preset) {
+        const rgb = hexToRgb(preset.bg);
+        setR(rgb.r);
+        setG(rgb.g);
+        setB(rgb.b);
+        setHexInput(preset.bg);
+      }
     }
-  }, [customBgColor]);
+  }, [customBgColor, activeThemeId]);
+
+  // Close drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setThemeStudioOpen(false);
+      }
+    };
+    if (isThemeStudioOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isThemeStudioOpen, setThemeStudioOpen]);
 
   // Handle RGB slider change
   const handleRgbChange = (newR: number, newG: number, newB: number) => {
@@ -107,6 +129,7 @@ export const ThemeStudioDrawer: React.FC = () => {
 
         {/* Drawer Panel */}
         <motion.div
+          id="theme-studio-drawer"
           initial={{ x: '100%' }}
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
@@ -125,8 +148,9 @@ export const ThemeStudioDrawer: React.FC = () => {
               </div>
             </div>
             <button
+              id="btn-close-theme-studio"
               onClick={() => setThemeStudioOpen(false)}
-              className="p-1.5 hover:bg-[var(--color-paper-border)] rounded-sm transition-colors"
+              className="p-1.5 hover:bg-[var(--color-paper-border)] rounded-sm transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -276,6 +300,7 @@ export const ThemeStudioDrawer: React.FC = () => {
                     </label>
                     <div className="flex items-center gap-2">
                       <input
+                        id="theme-custom-hex"
                         type="text"
                         value={hexInput}
                         onChange={handleHexChange}

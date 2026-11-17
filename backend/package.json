@@ -1,6 +1,6 @@
 {
   "name": "ai-world-news-desk-backend",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "type": "commonjs",
   "main": "dist/index.js",
