@@ -232,6 +232,9 @@ function spawnBackend(): Promise<void> {
           DNEWS_APP_DATA_DIR: APP_DATA_ROOT,
           PORT: '3001',
           HOST: '127.0.0.1',
+          FRONTEND_DIST: app.isPackaged
+            ? path.join(process.resourcesPath, 'frontend', 'dist')
+            : path.resolve(__dirname, '../../frontend/dist'),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -347,14 +350,16 @@ function createMainWindow(): void {
   if (!app.isPackaged && process.env['ELECTRON_START_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_START_URL']);
   } else if (!app.isPackaged && process.env['NODE_ENV'] === 'development') {
-    // In local dev, try 5173, fallback to packaged index.html
+    // In local dev, try 5173, fallback to backend 3001
     void mainWindow.loadURL('http://localhost:5173').catch(() => {
+      void mainWindow?.loadURL('http://127.0.0.1:3001');
+    });
+  } else {
+    // Packaged production mode: connect to Express server at 127.0.0.1:3001 which serves frontend and API
+    void mainWindow.loadURL('http://127.0.0.1:3001').catch(() => {
       const indexPath = path.resolve(__dirname, '../../frontend/dist/index.html');
       void mainWindow?.loadFile(indexPath);
     });
-  } else {
-    const indexPath = path.resolve(__dirname, '../../frontend/dist/index.html');
-    void mainWindow.loadFile(indexPath);
   }
 
   mainWindow.once('ready-to-show', () => {

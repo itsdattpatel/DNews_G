@@ -5,6 +5,8 @@
 import 'dotenv/config';
 import express, { type Express } from 'express';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
 import { articlesRouter } from './routes/articles';
 import { clustersRouter } from './routes/clusters';
 import { sseRouter } from './routes/sse';
@@ -29,7 +31,7 @@ export function createApp(): Express {
   const app = express();
 
   // Middleware
-  app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
+  app.use(cors({ origin: true, credentials: true }));
   app.use(express.json());
 
   // Routes
@@ -134,6 +136,27 @@ export function createApp(): Express {
       ...watchdog.getMetrics(),
     });
   });
+
+  // Static frontend serving (PRD E Desktop App support)
+  const frontendCandidates = [
+    process.env['FRONTEND_DIST'],
+    path.resolve(process.cwd(), 'frontend', 'dist'),
+    path.resolve(__dirname, '../../frontend/dist'),
+    path.resolve(__dirname, '../../../frontend/dist'),
+    path.resolve(__dirname, '../../../../frontend/dist'),
+  ].filter(Boolean) as string[];
+
+  const resolvedFrontend = frontendCandidates.find(
+    (p) => fs.existsSync(p) && fs.existsSync(path.join(p, 'index.html')),
+  );
+
+  if (resolvedFrontend) {
+    app.use(express.static(resolvedFrontend));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) return next();
+      res.sendFile(path.join(resolvedFrontend, 'index.html'));
+    });
+  }
 
   return app;
 }

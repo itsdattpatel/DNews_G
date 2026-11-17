@@ -25,6 +25,10 @@
       "to": "backend/dist"
     },
     {
+      "from": "frontend/dist",
+      "to": "frontend/dist"
+    },
+    {
       "from": "config/",
       "to": "config/"
     },
