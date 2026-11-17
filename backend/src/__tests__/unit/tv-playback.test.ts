@@ -157,6 +157,20 @@ chunk1.m4s`;
       const h2 = parseYouTubeInput('@abcnews');
       expect(h2.type).toBe('handle');
       expect(h2.idOrHandle).toBe('@abcnews');
+
+      // 7. raw <iframe> embed snippet
+      const iframeSnippet =
+        '<iframe width="560" height="315" src="https://www.youtube.com/embed/dQw4w9WgXcQ?si=abcdef" title="YouTube video player" frameborder="0" allowfullscreen></iframe>';
+      const ifr = parseYouTubeInput(iframeSnippet);
+      expect(ifr.type).toBe('video');
+      expect(ifr.idOrHandle).toBe('dQw4w9WgXcQ');
+
+      // 8. /embed/live_stream?channel=UC...
+      const liveStream = parseYouTubeInput(
+        'https://www.youtube.com/embed/live_stream?channel=UCt4t-jeY85JegMlZ-E5UWtA'
+      );
+      expect(liveStream.type).toBe('channel');
+      expect(liveStream.idOrHandle).toBe('UCt4t-jeY85JegMlZ-E5UWtA');
     });
 
     it('returns helpful channel ID guide for @handle without API key', async () => {

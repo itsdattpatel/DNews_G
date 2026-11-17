@@ -33,8 +33,14 @@ export const AddYouTubeChannelModal: React.FC<AddYouTubeChannelModalProps> = ({
   if (!isOpen) return null;
 
   const handlePreview = async () => {
-    if (!urlInput.trim()) {
-      setPreviewError('Please enter a YouTube video URL, channel link, or @handle.');
+    let cleanInput = urlInput.trim();
+    const iframeMatch = cleanInput.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+    if (iframeMatch && iframeMatch[1]) {
+      cleanInput = iframeMatch[1].trim();
+    }
+
+    if (!cleanInput) {
+      setPreviewError('Please enter a YouTube video URL, embed code, or @handle.');
       return;
     }
 
@@ -46,7 +52,7 @@ export const AddYouTubeChannelModal: React.FC<AddYouTubeChannelModalProps> = ({
       const res = await fetch('/api/tv/preview-youtube', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlInput.trim() }),
+        body: JSON.stringify({ url: cleanInput }),
       });
 
       const data = await res.json();
@@ -95,7 +101,7 @@ export const AddYouTubeChannelModal: React.FC<AddYouTubeChannelModalProps> = ({
         payload.stream_url = previewData.embed_url;
       } else if (canonicalChannelId.trim()) {
         payload.youtube_channel_id = canonicalChannelId.trim();
-        payload.youtube_live_url = `https://www.youtube-nocookie.com/embed/live_stream?channel=${canonicalChannelId.trim()}&autoplay=1&enablejsapi=1`;
+        payload.youtube_live_url = `https://www.youtube.com/embed/live_stream?channel=${canonicalChannelId.trim()}&autoplay=1&enablejsapi=1`;
         payload.stream_url = payload.youtube_live_url;
       } else if (previewData?.embed_url) {
         payload.youtube_live_url = previewData.embed_url;
@@ -168,7 +174,7 @@ export const AddYouTubeChannelModal: React.FC<AddYouTubeChannelModalProps> = ({
               htmlFor="input-youtube-url"
               className="font-ui text-xs font-bold uppercase tracking-wider text-ink-secondary block"
             >
-              YouTube Link or @Handle
+              YouTube Link, Embed Code, or @Handle
             </label>
             <div className="flex gap-2">
               <input
@@ -176,7 +182,7 @@ export const AddYouTubeChannelModal: React.FC<AddYouTubeChannelModalProps> = ({
                 type="text"
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
-                placeholder="e.g. https://www.youtube.com/watch?v=... or @handle"
+                placeholder="e.g. https://www.youtube.com/watch?v=..., <iframe ...>, or @handle"
                 className="flex-1 px-3 py-1.5 bg-paper-alt border border-paper-border focus:border-ink rounded-xs font-mono text-xs text-ink placeholder:text-ink-muted focus:outline-none"
               />
               <button
@@ -191,7 +197,7 @@ export const AddYouTubeChannelModal: React.FC<AddYouTubeChannelModalProps> = ({
               </button>
             </div>
             <p className="font-ui text-[0.6875rem] text-ink-muted">
-              Accepts live streams, regular video links, channel URLs, or official @handles.
+              Accepts video links, full &lt;iframe&gt; embed snippets, channel URLs, or official @handles.
             </p>
           </div>
 

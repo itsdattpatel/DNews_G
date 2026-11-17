@@ -52,7 +52,19 @@ function getCountryFlag(code?: string | null): string {
 
 export function getYouTubeEmbedUrl(url?: string | null): string {
   if (!url) return '';
-  const trimmed = url.trim();
+  let trimmed = url.trim();
+
+  // 0. Extract URL from <iframe> embed code snippet if pasted
+  const iframeMatch = trimmed.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+  if (iframeMatch && iframeMatch[1]) {
+    trimmed = iframeMatch[1].trim();
+  }
+
+  // Handle protocol-relative URL
+  if (trimmed.startsWith('//')) {
+    trimmed = `https:${trimmed}`;
+  }
+
   // 1. /watch?v=VIDEO_ID
   const vMatch = trimmed.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
   if (vMatch) {
@@ -68,12 +80,17 @@ export function getYouTubeEmbedUrl(url?: string | null): string {
   if (liveMatch) {
     return `https://www.youtube-nocookie.com/embed/${liveMatch[1]}?autoplay=1&mute=1&enablejsapi=1`;
   }
-  // 4. If already an embed URL
+  // 4. /embed/live_stream?channel=CHANNEL_ID
+  if (trimmed.includes('/embed/live_stream')) {
+    const sep = trimmed.includes('?') ? '&' : '?';
+    return `${trimmed}${sep}autoplay=1&mute=1&enablejsapi=1`;
+  }
+  // 5. If already an embed URL
   if (trimmed.includes('/embed/')) {
     const sep = trimmed.includes('?') ? '&' : '?';
     return `${trimmed}${sep}autoplay=1&mute=1&enablejsapi=1`;
   }
-  // 5. Raw 11-char video ID
+  // 6. Raw 11-char video ID
   if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
     return `https://www.youtube-nocookie.com/embed/${trimmed}?autoplay=1&mute=1&enablejsapi=1`;
   }
@@ -748,6 +765,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
                   title={selectedChannel.name}
                   className="w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="no-referrer-when-downgrade"
                   allowFullScreen
                 />
               ) : (
@@ -981,6 +999,28 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
                   >
                     {copiedUrl ? <Check size={14} className="text-positive" /> : <Copy size={14} />}
                   </button>
+
+                  {/* Open in YouTube (External Browser Link) */}
+                  {selectedChannel?.youtube_live_url && (
+                    <button
+                      type="button"
+                      id="btn-open-youtube-external"
+                      onClick={() => {
+                        const targetUrl = selectedChannel.youtube_live_url?.startsWith('http')
+                          ? selectedChannel.youtube_live_url
+                          : `https://www.youtube.com/watch?v=${selectedChannel.youtube_live_url}`;
+                        if (window.electronBridge?.openExternal) {
+                          void window.electronBridge.openExternal(targetUrl);
+                        } else {
+                          window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                        }
+                      }}
+                      className="p-1.5 border border-paper-border hover:border-ink bg-paper rounded-xs text-ink hover:text-accent transition-colors"
+                      title="Open Broadcast on YouTube in External Browser"
+                    >
+                      <ExternalLink size={14} />
+                    </button>
+                  )}
 
                   {/* Probe Health */}
                   <button

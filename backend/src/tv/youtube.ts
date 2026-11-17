@@ -30,7 +30,18 @@ export function parseYouTubeInput(input: string): {
   idOrHandle: string;
   normalizedUrl: string;
 } {
-  const trimmed = input.trim();
+  let trimmed = input.trim();
+
+  // 0. Extract URL from <iframe> embed code snippet if pasted
+  const iframeMatch = trimmed.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+  if (iframeMatch && iframeMatch[1]) {
+    trimmed = iframeMatch[1].trim();
+  }
+
+  // Handle protocol-relative URLs (//www.youtube.com/...)
+  if (trimmed.startsWith('//')) {
+    trimmed = `https:${trimmed}`;
+  }
 
   // 1. Direct handle string: @cnn, @bbcnews
   if (/^@[a-zA-Z0-9_.-]+$/.test(trimmed)) {
@@ -58,7 +69,7 @@ export function parseYouTubeInput(input: string): {
       }
     }
 
-    if (host === 'youtube.com' || host === 'm.youtube.com') {
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
       // /watch?v=VIDEO_ID
       const vParam = url.searchParams.get('v');
       if (vParam) {
@@ -81,9 +92,21 @@ export function parseYouTubeInput(input: string): {
         }
       }
 
+      // /embed/live_stream?channel=CHANNEL_ID
+      if (url.pathname.startsWith('/embed/live_stream')) {
+        const cParam = url.searchParams.get('channel');
+        if (cParam) {
+          return {
+            type: 'channel',
+            idOrHandle: cParam,
+            normalizedUrl: `https://www.youtube.com/channel/${cParam}`,
+          };
+        }
+      }
+
       // /embed/VIDEO_ID
       if (url.pathname.startsWith('/embed/')) {
-        const vid = url.pathname.split('/embed/')[1]?.split('/')[0];
+        const vid = url.pathname.split('/embed/')[1]?.split('/')[0]?.split('?')[0];
         if (vid && vid !== 'live_stream') {
           return {
             type: 'video',
@@ -107,7 +130,7 @@ export function parseYouTubeInput(input: string): {
 
       // /@handle
       if (url.pathname.startsWith('/@')) {
-        const handle = url.pathname.split('/')[1];
+        const handle = url.pathname.split('/')[1]?.split('?')[0];
         if (handle) {
           return {
             type: 'handle',
@@ -119,6 +142,15 @@ export function parseYouTubeInput(input: string): {
     }
   } catch {
     // Not a valid URL
+  }
+
+  // Check if raw 11-character video ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return {
+      type: 'video',
+      idOrHandle: trimmed,
+      normalizedUrl: `https://www.youtube.com/watch?v=${trimmed}`,
+    };
   }
 
   // Check if raw channel ID starting with UC

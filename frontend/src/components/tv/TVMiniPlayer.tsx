@@ -171,6 +171,7 @@ export const TVMiniPlayer: React.FC<TVMiniPlayerProps> = ({
             title={activeChannel.name}
             className="w-full h-full border-0 pointer-events-auto"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            referrerPolicy="no-referrer-when-downgrade"
             allowFullScreen
           />
         ) : (

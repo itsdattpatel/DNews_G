@@ -12,7 +12,7 @@
  * 7. IPC Bridge for version, notifications, external browser links.
  * 8. Graceful shutdown with WAL checkpoint flush.
  */
-import { app, BrowserWindow, Menu, Tray, ipcMain, shell, Notification, screen } from 'electron';
+import { app, BrowserWindow, Menu, Tray, ipcMain, shell, Notification, screen, session } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { spawn, type ChildProcess } from 'child_process';
@@ -557,6 +557,47 @@ app.on('second-instance', () => {
 app.whenReady().then(async () => {
   console.log('[Electron] App ready, launching DNews desktop environment...');
   logDesktop('App ready, launching DNews desktop environment...');
+
+  // Bypass YouTube and media embed restrictions in Electron (PRD Live News Embed Resilience)
+  try {
+    const youtubeFilter = {
+      urls: [
+        '*://*.youtube.com/*',
+        '*://*.youtube-nocookie.com/*',
+        '*://*.googlevideo.com/*',
+      ],
+    };
+
+    session.defaultSession.webRequest.onBeforeSendHeaders(youtubeFilter, (details, callback) => {
+      const requestHeaders = { ...details.requestHeaders };
+      requestHeaders['Referer'] = 'https://www.youtube.com/';
+      requestHeaders['Origin'] = 'https://www.youtube.com';
+      requestHeaders['Sec-Fetch-Site'] = 'same-origin';
+      callback({ requestHeaders });
+    });
+
+    session.defaultSession.webRequest.onHeadersReceived(youtubeFilter, (details, callback) => {
+      const responseHeaders = { ...details.responseHeaders };
+      delete responseHeaders['x-frame-options'];
+      delete responseHeaders['X-Frame-Options'];
+
+      if (responseHeaders['content-security-policy']) {
+        responseHeaders['content-security-policy'] = responseHeaders['content-security-policy'].map((csp) =>
+          csp.replace(/frame-ancestors[^;]+;?/gi, '')
+        );
+      }
+      if (responseHeaders['Content-Security-Policy']) {
+        responseHeaders['Content-Security-Policy'] = responseHeaders['Content-Security-Policy'].map((csp) =>
+          csp.replace(/frame-ancestors[^;]+;?/gi, '')
+        );
+      }
+
+      callback({ responseHeaders });
+    });
+    logDesktop('Configured YouTube embed Referer/Origin webRequest filters.');
+  } catch (err: any) {
+    logDesktop(`Failed to register YouTube webRequest filters: ${err.message}`);
+  }
 
   createMenu();
   createTray();
