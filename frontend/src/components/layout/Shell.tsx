@@ -32,6 +32,10 @@ import { ControlRoomDesk } from '../control-room/ControlRoomDesk';
 import { CommandPalette } from '../common/CommandPalette';
 import { TVMiniPlayer } from '../tv/TVMiniPlayer';
 import { ErrorBoundary } from '../common/ErrorBoundary';
+import { ZoomHUD } from '../common/ZoomHUD';
+import { ThemeStudioDrawer } from '../settings/ThemeStudioDrawer';
+import { usePinchZoom } from '../../hooks/usePinchZoom';
+import { THEME_CATALOG, deriveThemePalette, applyThemeToDOM } from '../../styles/themes';
 import { useAppStore } from '../../store/useAppStore';
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle, type ImperativePanelGroupHandle } from 'react-resizable-panels';
 
@@ -46,6 +50,21 @@ export const Shell: React.FC = () => {
   const isPlainMode = useAppStore((s) => s.settings.plain_mode_enabled ?? false);
   const layoutPreset = useAppStore((s) => s.layoutPreset);
   const setLayoutPreset = useAppStore((s) => s.setLayoutPreset);
+
+  // Activate trackpad pinch-to-zoom and keyboard font scaling
+  usePinchZoom();
+
+  // Initialize and apply custom or preset broadsheet theme on mount
+  useEffect(() => {
+    const activeThemeId = useAppStore.getState().activeThemeId;
+    const customBgColor = useAppStore.getState().customBgColor;
+    if (customBgColor) {
+      applyThemeToDOM(deriveThemePalette(customBgColor));
+    } else {
+      const preset = THEME_CATALOG.find((t) => t.id === activeThemeId) || THEME_CATALOG[10];
+      applyThemeToDOM(deriveThemePalette(preset.bg, preset.accent));
+    }
+  }, []);
 
   // Sync theme attribute on mount
   useEffect(() => {
@@ -116,6 +135,10 @@ export const Shell: React.FC = () => {
         case ',':
           e.preventDefault();
           useAppStore.getState().setSettingsOpen(true);
+          break;
+        case 'p':
+          e.preventDefault();
+          useAppStore.getState().setThemeStudioOpen(true);
           break;
         case '/':
           e.preventDefault();
@@ -410,6 +433,14 @@ export const Shell: React.FC = () => {
       <ErrorBoundary panelName="TV Mini-Player Dock">
         <TVMiniPlayer />
       </ErrorBoundary>
+
+      {/* 50-Theme Studio Drawer & Custom RGB Studio */}
+      <ErrorBoundary panelName="Theme Studio">
+        <ThemeStudioDrawer />
+      </ErrorBoundary>
+
+      {/* Touchpad Pinch & Scale HUD */}
+      <ZoomHUD />
 
       {/* 7. Broadsheet Toast Notifications */}
       <Toaster

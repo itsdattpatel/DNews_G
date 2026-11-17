@@ -48,6 +48,8 @@ export interface ElectronBridge {
   onUpdateDownloaded: (callback: (info: { version: string }) => void) => () => void;
   onUpdateNotAvailable: (callback: (info: { version: string }) => void) => () => void;
   onUpdateError: (callback: (err: { message: string }) => void) => () => void;
+  setZoomFactor?: (factor: number) => void;
+  getZoomFactor?: () => number;
   platform: 'win32' | 'darwin' | 'linux';
 }
 

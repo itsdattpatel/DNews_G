@@ -3,7 +3,7 @@
  * Secure IPC Context Bridge (PRD E Category 6.3 & 9).
  * Exposes controlled native capabilities to the frontend renderer process via contextBridge.
  */
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webFrame } from 'electron';
 
 export interface UpdateInfo {
   version: string;
@@ -40,6 +40,8 @@ export interface ElectronBridge {
   onUpdateDownloaded: (callback: (info: { version: string }) => void) => () => void;
   onUpdateNotAvailable: (callback: (info: { version: string }) => void) => () => void;
   onUpdateError: (callback: (err: { message: string }) => void) => () => void;
+  setZoomFactor?: (factor: number) => void;
+  getZoomFactor?: () => number;
   platform: 'win32' | 'darwin' | 'linux';
 }
 
@@ -47,6 +49,8 @@ const bridge: ElectronBridge = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppDataDir: () => ipcRenderer.invoke('get-app-data-dir'),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+  setZoomFactor: (factor: number) => webFrame.setZoomFactor(factor),
+  getZoomFactor: () => webFrame.getZoomFactor(),
   showNotification: (title: string, body: string, action?: { type?: string; id?: number; url?: string }) =>
     ipcRenderer.send('show-notification', { title, body, action }),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),

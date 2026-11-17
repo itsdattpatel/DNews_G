@@ -24,6 +24,7 @@ import {
   RadioTower,
   Activity,
   Library,
+  Palette,
   Sun,
   Moon,
   X,
@@ -231,6 +232,20 @@ export const BatMenuOverlay: React.FC = () => {
                 >
                   <Moon size={13} className="text-accent" />
                   <span>Night Edition</span>
+                </button>
+
+                <div className="w-px h-4 bg-paper-border mx-1" />
+
+                <button
+                  id="btn-bat-theme-studio"
+                  onClick={() => {
+                    setBatMenuOpen(false);
+                    useAppStore.getState().setThemeStudioOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xs border border-ink/40 bg-paper-alt hover:border-ink text-xs font-semibold text-ink transition-colors"
+                >
+                  <Palette size={13} className="text-accent" />
+                  <span>50 Themes & RGB</span>
                 </button>
               </div>
 

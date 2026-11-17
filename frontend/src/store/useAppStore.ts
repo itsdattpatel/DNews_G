@@ -14,6 +14,11 @@ import {
   mergePendingArticles,
   type ActiveArticleFilters,
 } from '../utils/liveDesk';
+import {
+  THEME_CATALOG,
+  deriveThemePalette,
+  applyThemeToDOM,
+} from '../styles/themes';
 
 function buildOverlayViewPatch(
   state: AppState,
@@ -198,6 +203,21 @@ interface AppState {
   isLibraryOpen: boolean;
   openLibrary: () => void;
   closeLibrary: () => void;
+
+  // Dynamic Theming & 50-Theme Studio
+  activeThemeId: string;
+  customBgColor: string | null;
+  setThemeId: (id: string) => void;
+  setCustomBgColor: (hex: string | null) => void;
+  isThemeStudioOpen: boolean;
+  setThemeStudioOpen: (open: boolean) => void;
+
+  // Desktop Pinch & Font Zoom (75% - 175%)
+  zoomFactor: number;
+  setZoomFactor: (factor: number) => void;
+  resetZoom: () => void;
+  isZoomHUDVisible: boolean;
+  setIsZoomHUDVisible: (visible: boolean) => void;
 
   // Resizable Panels State (Persistent layout)
   panelSizesH: [number, number];
@@ -1004,6 +1024,100 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch {
       // Ignore pushState errors on file:// or restricted origins
     }
+  },
+
+  // Dynamic Theming & 50-Theme Studio
+  activeThemeId: (() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('dnews_theme_id') || 'london-broadsheet-1920';
+    }
+    return 'london-broadsheet-1920';
+  })(),
+  customBgColor: (() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('dnews_custom_bg') || null;
+    }
+    return null;
+  })(),
+  isThemeStudioOpen: false,
+  setThemeStudioOpen: (open) => {
+    playButtonSound(get().settings.sound_enabled);
+    set({ isThemeStudioOpen: open });
+  },
+  setThemeId: (id) => {
+    playButtonSound(get().settings.sound_enabled);
+    const preset = THEME_CATALOG.find((t) => t.id === id) || THEME_CATALOG[10];
+    const tokens = deriveThemePalette(preset.bg, preset.accent);
+    applyThemeToDOM(tokens);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dnews_theme_id', id);
+      localStorage.removeItem('dnews_custom_bg');
+    }
+    set({
+      activeThemeId: id,
+      customBgColor: null,
+      theme: tokens.isDark ? 'night' : 'paper',
+    });
+  },
+  setCustomBgColor: (hex) => {
+    if (!hex) return;
+    const tokens = deriveThemePalette(hex);
+    applyThemeToDOM(tokens);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dnews_custom_bg', hex);
+      localStorage.setItem('dnews_theme_id', 'custom');
+    }
+    set({
+      activeThemeId: 'custom',
+      customBgColor: hex,
+      theme: tokens.isDark ? 'night' : 'paper',
+    });
+  },
+
+  // Desktop Pinch & Font Zoom (75% - 175%)
+  zoomFactor: (() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dnews_zoom_factor');
+      if (saved) {
+        const val = parseFloat(saved);
+        if (!isNaN(val) && val >= 0.75 && val <= 1.75) return val;
+      }
+    }
+    return 1.0;
+  })(),
+  isZoomHUDVisible: false,
+  setIsZoomHUDVisible: (visible) => set({ isZoomHUDVisible: visible }),
+  setZoomFactor: (factor) => {
+    const clamped = Math.max(0.75, Math.min(1.75, Math.round(factor * 100) / 100));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dnews_zoom_factor', clamped.toString());
+      document.documentElement.style.fontSize = `${16 * clamped}px`;
+      document.documentElement.style.setProperty('--root-zoom', clamped.toString());
+      try {
+        if (window.electronBridge?.setZoomFactor) {
+          window.electronBridge.setZoomFactor(clamped);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    set({ zoomFactor: clamped });
+  },
+  resetZoom: () => {
+    playButtonSound(get().settings.sound_enabled);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dnews_zoom_factor', '1');
+      document.documentElement.style.fontSize = '16px';
+      document.documentElement.style.setProperty('--root-zoom', '1');
+      try {
+        if (window.electronBridge?.setZoomFactor) {
+          window.electronBridge.setZoomFactor(1);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    set({ zoomFactor: 1.0 });
   },
 
   // Live Feed Counter & Telemetry (PRD A Category 8)

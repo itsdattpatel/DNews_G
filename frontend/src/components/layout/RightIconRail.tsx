@@ -22,6 +22,7 @@ import {
   Sparkles,
   Sun,
   Moon,
+  Palette,
   Sliders,
   Pin,
   PinOff,
@@ -164,6 +165,8 @@ export const RightIconRail: React.FC<RightIconRailProps> = ({
   const setControlRoomOpen = useAppStore((s) => s.setControlRoomOpen);
   const isAlertsOpen = useAppStore((s) => s.isAlertsOpen);
   const setAlertsOpen = useAppStore((s) => s.setAlertsOpen);
+  const isThemeStudioOpen = useAppStore((s) => s.isThemeStudioOpen);
+  const setThemeStudioOpen = useAppStore((s) => s.setThemeStudioOpen);
 
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
@@ -338,6 +341,18 @@ export const RightIconRail: React.FC<RightIconRailProps> = ({
                 {settings.plain_mode_enabled ? 'ON' : 'OFF'}
               </span>
             }
+          />
+
+          {/* Theme Studio & Palette */}
+          <RailItem
+            id="btn-rail-theme-studio"
+            icon={<Palette size={16} />}
+            label="Theme Studio"
+            sublabel="50 Themes & RGB Studio"
+            shortcut="p"
+            isActive={isThemeStudioOpen}
+            isPinned={isRailPinned}
+            onClick={() => setThemeStudioOpen(true)}
           />
 
           {/* Theme Switcher */}
