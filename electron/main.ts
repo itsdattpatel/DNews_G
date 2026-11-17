@@ -272,7 +272,7 @@ function spawnBackend(): Promise<void> {
 /**
  * Polls http://127.0.0.1:3001/api/health until server responds.
  */
-function waitForBackendHealth(timeoutMs = 15000): Promise<boolean> {
+function waitForBackendHealth(timeoutMs = 60000): Promise<boolean> {
   const start = Date.now();
   return new Promise((resolve) => {
     const check = () => {
@@ -355,11 +355,28 @@ function createMainWindow(): void {
       void mainWindow?.loadURL('http://127.0.0.1:3001');
     });
   } else {
-    // Packaged production mode: connect to Express server at 127.0.0.1:3001 which serves frontend and API
-    void mainWindow.loadURL('http://127.0.0.1:3001').catch(() => {
-      const indexPath = path.resolve(__dirname, '../../frontend/dist/index.html');
-      void mainWindow?.loadFile(indexPath);
-    });
+    // Packaged production mode: connect to Express server at 127.0.0.1:3001 which serves frontend and API.
+    // Never fall back immediately to file:// on initial connection failure; retry with backoff.
+    const targetUrl = 'http://127.0.0.1:3001';
+    let loaded = false;
+    const tryLoad = async (retries = 60) => {
+      if (loaded || !mainWindow || mainWindow.isDestroyed()) return;
+      try {
+        await mainWindow.loadURL(targetUrl);
+        loaded = true;
+        logDesktop('Successfully loaded http://127.0.0.1:3001 into BrowserWindow');
+      } catch (err) {
+        logDesktop(`BrowserWindow connection to ${targetUrl} pending (${retries} attempts left): ${String(err)}`);
+        if (retries > 0) {
+          setTimeout(() => void tryLoad(retries - 1), 500);
+        } else {
+          logDesktop('Retries exhausted for http://127.0.0.1:3001. Falling back to local file load as emergency measure.');
+          const indexPath = path.resolve(__dirname, '../../frontend/dist/index.html');
+          void mainWindow?.loadFile(indexPath);
+        }
+      }
+    };
+    void tryLoad();
   }
 
   mainWindow.once('ready-to-show', () => {
