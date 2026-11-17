@@ -194,6 +194,11 @@ interface AppState {
   isControlRoomOpen: boolean;
   setControlRoomOpen: (open: boolean) => void;
 
+  // The Library ("The Reading Room")
+  isLibraryOpen: boolean;
+  openLibrary: () => void;
+  closeLibrary: () => void;
+
   // Resizable Panels State (Persistent layout)
   panelSizesH: [number, number];
   panelSizesV: [number, number];
@@ -968,6 +973,37 @@ export const useAppStore = create<AppState>((set, get) => ({
   setControlRoomOpen: (open) => {
     playButtonSound(get().settings.sound_enabled);
     set((state) => buildOverlayViewPatch(state, 'isControlRoomOpen', open, 'control-room'));
+  },
+
+  // The Library ("The Reading Room")
+  isLibraryOpen: typeof window !== 'undefined' && (window.location.pathname.startsWith('/library') || window.location.hash.startsWith('#/library')),
+  openLibrary: () => {
+    playButtonSound(get().settings.sound_enabled);
+    set({ isLibraryOpen: true });
+    try {
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', '/library');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
+    } catch {
+      // Ignore pushState errors on file:// or restricted origins
+    }
+  },
+  closeLibrary: () => {
+    playButtonSound(get().settings.sound_enabled);
+    set({ isLibraryOpen: false });
+    try {
+      if (typeof window !== 'undefined') {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.history.pushState(null, '', '/');
+        }
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
+    } catch {
+      // Ignore pushState errors on file:// or restricted origins
+    }
   },
 
   // Live Feed Counter & Telemetry (PRD A Category 8)

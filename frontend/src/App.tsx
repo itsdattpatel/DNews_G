@@ -17,13 +17,20 @@ if (typeof window !== 'undefined') {
 
 export const App: React.FC = () => {
   const isShowcase = typeof window !== 'undefined' && window.location.search.includes('showcase');
-  const [isLibrary, setIsLibrary] = useState(() => {
+  const isLibraryOpen = useAppStore((s) => s.isLibraryOpen);
+  const [isLibraryPath, setIsLibraryPath] = useState(() => {
     return typeof window !== 'undefined' && (window.location.pathname.startsWith('/library') || window.location.hash.startsWith('#/library'));
   });
 
   useEffect(() => {
     const handleLocationChange = () => {
-      setIsLibrary(window.location.pathname.startsWith('/library') || window.location.hash.startsWith('#/library'));
+      const active = window.location.pathname.startsWith('/library') || window.location.hash.startsWith('#/library');
+      setIsLibraryPath(active);
+      if (active && !useAppStore.getState().isLibraryOpen) {
+        useAppStore.setState({ isLibraryOpen: true });
+      } else if (!active && useAppStore.getState().isLibraryOpen) {
+        useAppStore.setState({ isLibraryOpen: false });
+      }
     };
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
@@ -104,7 +111,7 @@ export const App: React.FC = () => {
     return <DesignSystemShowcase />;
   }
 
-  if (isLibrary) {
+  if (isLibraryPath || isLibraryOpen) {
     return (
       <Suspense fallback={<div className="min-h-screen bg-[#F7F4EC] text-[#231E18] flex items-center justify-center font-serif text-lg">Opening The Reading Room...</div>}>
         <LibraryRoot />

@@ -79,8 +79,7 @@ export const BatMenuOverlay: React.FC = () => {
   const handleSelect = (view: AppView | 'library') => {
     if (view === 'library') {
       setBatMenuOpen(false);
-      window.history.pushState(null, '', '/library');
-      window.dispatchEvent(new PopStateEvent('popstate'));
+      useAppStore.getState().openLibrary();
       return;
     }
 

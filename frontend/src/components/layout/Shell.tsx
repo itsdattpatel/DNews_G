@@ -111,8 +111,7 @@ export const Shell: React.FC = () => {
           break;
         case 'l':
           e.preventDefault();
-          window.history.pushState(null, '', '/library');
-          window.dispatchEvent(new PopStateEvent('popstate'));
+          useAppStore.getState().openLibrary();
           break;
         case ',':
           e.preventDefault();

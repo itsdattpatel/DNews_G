@@ -182,15 +182,17 @@ export const RightIconRail: React.FC<RightIconRailProps> = ({
       : rolling24Total.toString();
 
   // Navigation handlers
+  const openLibrary = useAppStore((s) => s.openLibrary);
+  const isLibraryOpen = useAppStore((s) => s.isLibraryOpen);
   const handleOpenLibrary = () => {
-    window.history.pushState(null, '', '/library');
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    openLibrary();
   };
 
   const isLibraryActive =
-    typeof window !== 'undefined' &&
-    (window.location.pathname.startsWith('/library') ||
-      window.location.hash.startsWith('#/library'));
+    isLibraryOpen ||
+    (typeof window !== 'undefined' &&
+      (window.location.pathname.startsWith('/library') ||
+        window.location.hash.startsWith('#/library')));
 
   return (
     <aside

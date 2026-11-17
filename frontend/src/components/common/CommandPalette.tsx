@@ -190,8 +190,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ forcedOpen }) =>
 
               <Command.Item
                 onSelect={() => runCommand(() => {
-                  window.history.pushState(null, '', '/library');
-                  window.dispatchEvent(new PopStateEvent('popstate'));
+                  useAppStore.getState().openLibrary();
                 })}
                 className="flex items-center justify-between px-2.5 py-1.5 rounded-2xs cursor-pointer text-ink hover:bg-paper-alt aria-selected:bg-paper-alt aria-selected:text-accent font-medium transition-colors"
               >

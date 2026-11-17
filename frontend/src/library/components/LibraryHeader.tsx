@@ -5,6 +5,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useLibraryStore, type LibraryTab } from '../store/useLibraryStore';
+import { useAppStore } from '../../store/useAppStore';
 import { ParchmentButton } from '../ui/ParchmentButton';
 import {
   ArrowLeft,
@@ -31,13 +32,7 @@ export const LibraryHeader: React.FC = () => {
   const setSearchQuery = useLibraryStore((s) => s.setSearchQuery);
 
   const handleReturnToDesk = () => {
-    if (typeof window !== 'undefined') {
-      if (window.history.length > 1) {
-        window.history.back();
-      } else {
-        window.location.href = '/';
-      }
-    }
+    useAppStore.getState().closeLibrary();
   };
 
   const tabs: { id: LibraryTab; label: string; icon: React.ReactNode; subtitle: string }[] = [
@@ -68,6 +63,7 @@ export const LibraryHeader: React.FC = () => {
         {/* Left: Return & Plain Mode Tag */}
         <div className="flex items-center gap-3">
           <ParchmentButton
+            id="btn-library-return-desk"
             variant="secondary"
             size="sm"
             icon={<ArrowLeft className="w-3.5 h-3.5" />}
