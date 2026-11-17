@@ -32,3 +32,7 @@ const targetConfig = path.resolve(__dirname, '../dist/config');
 copyFolder(srcConfig, targetConfig);
 
 console.log('[copy-assets] Successfully copied migration SQL files and config to dist.');
+
+// Bundle all backend production dependencies into dist/node_modules/
+// so the packaged app.asar.unpacked backend can resolve them without NODE_PATH tricks.
+require('./bundle-deps.cjs');

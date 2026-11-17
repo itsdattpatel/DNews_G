@@ -161,10 +161,10 @@ function spawnBackend(): Promise<void> {
   return new Promise((resolve, reject) => {
     const candidates = app.isPackaged
       ? [
-          path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'dist', 'backend', 'src', 'index.js'),
-          path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'dist', 'index.js'),
           path.join(process.resourcesPath, 'backend', 'dist', 'backend', 'src', 'index.js'),
           path.join(process.resourcesPath, 'backend', 'dist', 'index.js'),
+          path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'dist', 'backend', 'src', 'index.js'),
+          path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'dist', 'index.js'),
           path.join(app.getAppPath(), 'backend', 'dist', 'backend', 'src', 'index.js'),
           path.join(app.getAppPath(), 'backend', 'dist', 'index.js'),
         ]
@@ -214,6 +214,8 @@ function spawnBackend(): Promise<void> {
 
       const nodePath = app.isPackaged
         ? [
+            path.join(process.resourcesPath, 'backend', 'dist', 'node_modules'),
+            path.join(process.resourcesPath, 'app.asar.unpacked', 'backend', 'dist', 'node_modules'),
             path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules'),
             path.join(process.resourcesPath, 'app.asar', 'node_modules'),
             path.join(app.getAppPath(), 'node_modules'),
