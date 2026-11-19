@@ -82,6 +82,7 @@ export const CompareCoverage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeKeywordFilter, setActiveKeywordFilter] = useState<string | null>(null);
+  const [isBiasRadarOpen, setIsBiasRadarOpen] = useState(true);
   const [silkThreads, setSilkThreads] = useState<
     Array<{ d: string; color: string; keyword: string }>
   >([]);
@@ -291,6 +292,62 @@ export const CompareCoverage: React.FC = () => {
             <X size={18} />
           </button>
         </div>
+
+        {/* Cross-Outlet Bias & Framing Comparison Radar */}
+        {clusterData && clusterData.articles && clusterData.articles.length > 1 && (
+          <div id="compare-bias-radar" className="px-6 py-3 border-b border-paper-border bg-paper-alt/80 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-ink text-paper rounded-xs">
+                  ✦ Cross-Outlet Bias & Claim Radar
+                </span>
+                <span className="text-xs font-serif italic text-ink-secondary">
+                  Comparative perspective analysis across {clusterData.articles.length} newsrooms
+                </span>
+              </div>
+              <button
+                id="btn-toggle-bias-radar"
+                onClick={() => setIsBiasRadarOpen(!isBiasRadarOpen)}
+                className="font-mono text-[10px] underline text-ink-muted hover:text-ink cursor-pointer"
+              >
+                {isBiasRadarOpen ? 'Hide Framing Breakdown' : 'Show Framing Breakdown'}
+              </button>
+            </div>
+
+            {isBiasRadarOpen && (
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {clusterData.articles.slice(0, 3).map((art) => {
+                  const nameLower = art.source.name.toLowerCase();
+                  const isWire = ['reuters', 'associated press', 'bbc', 'afp'].some((p) => nameLower.includes(p));
+                  const framingBadge = isWire ? 'International Wire' : 'Sovereign National Desk';
+
+                  return (
+                    <div
+                      key={art.id}
+                      className="p-3 border border-paper-border bg-paper rounded-xs text-xs space-y-1.5 shadow-2xs"
+                    >
+                      <div className="flex items-center justify-between font-mono text-[10px] text-ink-muted border-b border-paper-border pb-1">
+                        <span className="font-bold uppercase text-accent truncate max-w-[130px]">
+                          {art.source.name}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded-xs bg-paper-alt border border-paper-border text-[9px] font-bold">
+                          {framingBadge}
+                        </span>
+                      </div>
+                      <p className="font-serif font-bold text-ink line-clamp-2 leading-snug">
+                        "{art.title_english}"
+                      </p>
+                      <div className="text-[10px] font-mono text-ink-secondary pt-1 flex justify-between items-center border-t border-paper-border">
+                        <span>Lead Focus: {art.categories?.[0] || 'General'}</span>
+                        <span className="text-accent font-bold">Urgency: {art.breaking_score}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 2. Shared Themes Ink-Stamp Toolbar */}
         {sharedKeywordsMap.size > 0 && (

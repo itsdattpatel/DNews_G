@@ -12,6 +12,7 @@ import { ExternalLink, Globe2, Languages, BookOpen, Sparkles, Layers, Clock, Sta
 import { DualTimestamp } from '../common/DualTimestamp';
 import { WelcomeBackCard } from './WelcomeBackCard';
 import { ConfirmationBadge } from '../common/ConfirmationBadge';
+import { EntityDossierDrawer } from './EntityDossierDrawer';
 import type { Article } from '../../types';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
@@ -108,6 +109,22 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
     if (!rawBody) return [];
     return rawBody.split(/\n\s*\n/).filter((p: string) => p.trim().length > 0);
   }, [rawBody]);
+
+  // Entity Dossier state
+  const [selectedEntityForDossier, setSelectedEntityForDossier] = useState<string | null>(null);
+
+  const entityKeywords = useMemo(() => {
+    if (!article) return [];
+    if (article.keywords && article.keywords.length > 0) {
+      return Array.from(new Set(article.keywords)).slice(0, 8);
+    }
+    // Fallback: extract key proper nouns from the title
+    const titleWords = (article.title_english || '')
+      .split(/\s+/)
+      .map((w) => w.replace(/[^a-zA-Z0-9]/g, ''))
+      .filter((w) => w.length > 3 && w[0] === w[0].toUpperCase());
+    return Array.from(new Set(titleWords)).slice(0, 5);
+  }, [article]);
 
   // Reset showOriginal when article changes
   useEffect(() => {
@@ -353,6 +370,30 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
         <div className="h-[1px] bg-ink/50 w-full" />
       </div>
 
+      {/* Entity & Key Figures Dossier Bar */}
+      {entityKeywords.length > 0 && (
+        <div id="entity-dossier-bar" className="my-4 p-3 bg-paper-alt border border-paper-border rounded-xs flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-ink-muted font-mono text-[10px] uppercase font-bold tracking-wider mr-1">
+            <span className="text-accent font-bold">✦</span>
+            <span>Key Figures:</span>
+          </div>
+          {entityKeywords.map((kw, i) => (
+            <button
+              key={i}
+              id={`btn-entity-dossier-${i}`}
+              onClick={() => setSelectedEntityForDossier(kw)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 border border-paper-border hover:border-ink bg-paper rounded-xs font-mono text-xs text-ink transition-colors hover:shadow-2xs cursor-pointer group"
+              title={`Inspect Intelligence Dossier for ${kw}`}
+            >
+              <span className="text-accent text-[10px]">✦</span>
+              <span className="font-semibold underline decoration-accent/60 underline-offset-2 group-hover:text-accent">
+                {kw}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Pass 1 Lightweight Triage Banner */}
       {!article.summary && !isPlainMode && (
         <div
@@ -555,6 +596,12 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
         <span>The World Desk Dispatch Archives · Published under Fair Use News Monitoring</span>
         <span className="font-mono text-[0.625rem]">REF #{article.id}</span>
       </div>
+
+      {/* Slide-over Entity Dossier Panel */}
+      <EntityDossierDrawer
+        entityName={selectedEntityForDossier}
+        onClose={() => setSelectedEntityForDossier(null)}
+      />
     </div>
   );
 };

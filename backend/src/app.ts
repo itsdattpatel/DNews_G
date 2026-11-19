@@ -21,6 +21,7 @@ import { sourcesRouter } from './routes/sources';
 import { backupsRouter } from './routes/backups';
 import { feedCounterRouter } from './routes/feedCounter';
 import { controlRoomRouter } from './routes/controlRoom';
+import { entitiesRouter } from './routes/entities';
 import { libraryRouter } from './library';
 import { getStartupGap } from './fetch/scheduler';
 import { backfillMissedWindow } from './fetch/backfill';
@@ -49,6 +50,7 @@ export function createApp(): Express {
   app.use('/api/backups', backupsRouter);
   app.use('/api/feed/counter', feedCounterRouter);
   app.use('/api/control-room', controlRoomRouter);
+  app.use('/api/entities', entitiesRouter);
   app.use('/api/library', libraryRouter);
 
   // Clock synchronization endpoint (PRD A Category 1B)
