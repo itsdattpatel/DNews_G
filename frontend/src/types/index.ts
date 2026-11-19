@@ -320,6 +320,7 @@ export interface AppSettings {
   gallery_shadow?: number;
   gallery_grayscale?: boolean;
   gallery_auto_scroll?: number;
+  gallery_auto_drop_delay?: number;
 
   // Data & Storage (PRD A Cat 4)
   auto_cleanup_enabled: boolean;

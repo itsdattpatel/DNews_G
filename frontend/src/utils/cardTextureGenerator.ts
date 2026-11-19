@@ -5,10 +5,12 @@
  */
 import type { Article } from '../types';
 
-interface CardStyleOptions {
+export interface CardStyleOptions {
   isDark?: boolean;
+  themeId?: string;
   paperColor?: string;
   inkColor?: string;
+  inkSecondaryColor?: string;
   borderColor?: string;
   accentColor?: string;
 }
@@ -22,15 +24,37 @@ export function generateArticleCardTexture(
   options: CardStyleOptions = {}
 ): string {
   const isDark = options.isDark ?? false;
-  const paper = options.paperColor || (isDark ? '#1C1914' : '#FDFCFA');
-  const ink = options.inkColor || (isDark ? '#E8E4DA' : '#1A1208');
-  const inkSecondary = isDark ? '#A89880' : '#5C4E3A';
-  const border = isSelected
-    ? (isDark ? '#C0392B' : '#1A1208')
-    : (options.borderColor || (isDark ? '#3D362A' : '#D9D0BE'));
-  const accent = options.accentColor || '#C0392B';
+  const computed = typeof document !== 'undefined' ? getComputedStyle(document.documentElement) : null;
 
-  const cacheKey = `${article.id}-${isSelected ? 'sel' : 'std'}-${isDark ? 'dark' : 'light'}-${article.title_english?.slice(0, 20)}`;
+  const paper =
+    options.paperColor ||
+    computed?.getPropertyValue('--color-paper-card')?.trim() ||
+    computed?.getPropertyValue('--color-paper-alt')?.trim() ||
+    (isDark ? '#1C1914' : '#FDFCFA');
+
+  const ink =
+    options.inkColor ||
+    computed?.getPropertyValue('--color-ink')?.trim() ||
+    (isDark ? '#E8E4DA' : '#1A1208');
+
+  const inkSecondary =
+    options.inkSecondaryColor ||
+    computed?.getPropertyValue('--color-ink-secondary')?.trim() ||
+    (isDark ? '#A89880' : '#5C4E3A');
+
+  const border = isSelected
+    ? (options.accentColor || computed?.getPropertyValue('--color-accent')?.trim() || '#C0392B')
+    : (options.borderColor ||
+       computed?.getPropertyValue('--color-paper-border')?.trim() ||
+       (isDark ? '#3D362A' : '#D9D0BE'));
+
+  const accent =
+    options.accentColor ||
+    computed?.getPropertyValue('--color-accent')?.trim() ||
+    '#C0392B';
+
+  const themeTag = options.themeId || `${isDark ? 'dark' : 'light'}-${paper.replace(/[^a-zA-Z0-9]/g, '')}`;
+  const cacheKey = `${article.id}-${isSelected ? 'sel' : 'std'}-${themeTag}-${article.title_english?.slice(0, 20)}`;
   if (textureCache.has(cacheKey)) {
     return textureCache.get(cacheKey)!;
   }

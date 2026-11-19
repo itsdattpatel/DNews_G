@@ -12,7 +12,6 @@ import { ExternalLink, Globe2, Languages, BookOpen, Sparkles, Layers, Clock, Sta
 import { DualTimestamp } from '../common/DualTimestamp';
 import { WelcomeBackCard } from './WelcomeBackCard';
 import { ConfirmationBadge } from '../common/ConfirmationBadge';
-import { ScrambledText } from '../ui/ScrambledText';
 import type { Article } from '../../types';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
@@ -59,13 +58,6 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
   const setCompareClusterId = useAppStore((s) => s.setCompareClusterId);
   const setTimelineClusterId = useAppStore((s) => s.setTimelineClusterId);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
-
-  // Scramble text settings from store
-  const scrambleEnabled = useAppStore((s) => s.settings.scramble_enabled ?? true);
-  const scrambleSpeed = useAppStore((s) => s.settings.scramble_speed ?? 35);
-  const scrambleMaxIterations = useAppStore((s) => s.settings.scramble_max_iterations ?? 12);
-  const scrambleSequential = useAppStore((s) => s.settings.scramble_sequential ?? false);
-  const scrambleCharset = useAppStore((s) => s.settings.scramble_charset ?? 'broadsheet');
 
   const [showOriginal, setShowOriginal] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
@@ -347,23 +339,12 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
         </div>
       </div>
 
-      {/* 2. Main Broadsheet Headline with ScrambledText Animation */}
+      {/* 2. Main Broadsheet Headline */}
       <h1
         id="article-headline"
         className="font-headline text-3xl sm:text-4xl lg:text-[2.65rem] font-bold text-ink tracking-tight leading-[1.18] my-6"
       >
-        {scrambleEnabled ? (
-          <ScrambledText
-            key={`${article.id}-${showOriginal}`}
-            text={title}
-            speed={scrambleSpeed}
-            maxIterations={scrambleMaxIterations}
-            sequential={scrambleSequential}
-            charsetPreset={scrambleCharset}
-          />
-        ) : (
-          title
-        )}
+        {title}
       </h1>
 
       {/* 3. Broadsheet Double Rule Divider */}

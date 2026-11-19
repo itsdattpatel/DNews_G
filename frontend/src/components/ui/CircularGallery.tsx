@@ -352,6 +352,11 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
     }
   }, [activeIndex]);
 
+  // Wake engine when bend, scale, or aspect changes
+  useEffect(() => {
+    engineRef.current?.wake();
+  }, [bend, itemSize, itemAspect]);
+
   useEffect(() => {
     let alive = true;
     fontRef.current = font;
@@ -452,7 +457,8 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
       drag: null,
       lastInput: 0,
       active: 0,
-      spacing: 1
+      spacing: 1,
+      currentBend: settingsRef.current.bend
     };
 
     let cards: any[] = [];
@@ -518,15 +524,15 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
     };
 
     const arcOf = (x: number) => {
-      const s = settingsRef.current;
-      if (!s.bend) return { y: 0, angle: 0 };
-      const depth = (Math.abs(s.bend) * view.height) / WORLD_HEIGHT;
+      const bendVal = state.currentBend !== undefined ? state.currentBend : settingsRef.current.bend;
+      if (!bendVal || Math.abs(bendVal) < 0.01) return { y: 0, angle: 0 };
+      const depth = (Math.abs(bendVal) * view.height) / WORLD_HEIGHT;
       const half = Math.max(view.width, view.height * 1.9) / 2;
       const radius = (half * half + depth * depth) / (2 * depth);
       const reach = Math.min(Math.abs(x), half, radius * 0.999);
       const arc = radius - Math.sqrt(radius * radius - reach * reach);
       const angle = Math.sign(x) * Math.asin(reach / radius);
-      return s.bend > 0 ? { y: -arc, angle: -angle } : { y: arc, angle };
+      return bendVal > 0 ? { y: -arc, angle: -angle } : { y: arc, angle };
     };
 
     const captionSize = () => clamp(view.height * 0.045, 14, 20);
@@ -806,6 +812,12 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
       if (Math.abs((state.keyboard ? 1 : 0) - state.ring) < 0.002) state.ring = state.keyboard ? 1 : 0;
       if (state.intro < 1) state.intro = Math.min(1, state.intro + dt / INTRO_SECONDS);
 
+      // Smoothly animate bend curvature transitions (e.g. unbending to flat when idle)
+      const targetBend = s.bend;
+      const bendFollow = reduce ? 1 : 1 - Math.exp(-dt / 0.16);
+      state.currentBend = (state.currentBend ?? targetBend) + (targetBend - (state.currentBend ?? targetBend)) * bendFollow;
+      if (Math.abs(targetBend - state.currentBend) < 0.005) state.currentBend = targetBend;
+
       let settling = false;
       state.hover.forEach((value: number, slot: number) => {
         const goal = slot === state.hovered ? 1 : 0;
@@ -857,6 +869,7 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
         state.open !== state.openTarget ||
         state.intro < 1 ||
         (state.ring !== 0 && state.ring !== 1) ||
+        Math.abs(s.bend - state.currentBend) >= 0.005 ||
         settling;
 
       if (moving) raf = requestAnimationFrame(frame);

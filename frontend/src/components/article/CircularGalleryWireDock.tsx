@@ -2,11 +2,14 @@
  * frontend/src/components/article/CircularGalleryWireDock.tsx
  * Orbit Wire Dispatch Docker powered by React Bits <CircularGallery /> WebGL Component.
  * - Pure floating 3D broadsheet cards with zero background box or backdrop blur
- * - Synchronizes active focus bidirectionally with main desk (j/k, arrows, auto-advance, click)
- * - Zero white flashing on focused/unfocused cards (stable textures & theme-toned placeholder)
- * - All tuning controls migrated to Unified Settings Dialog with comprehensive customization
+ * - Dynamic Idle Auto-Drop & Flattening:
+ *   - Automatically drops down as a straight flat line (half-shown over wire ticker) and dims to 35%
+ *     when unhovered and idle for N seconds (configurable from 1.0s to 7.0s, default 2.5s).
+ *   - Smoothly rises up and bends back into the circular grid whenever hovered OR when news changes!
+ * - Full Dynamic Theme Synchronization: adapts colors to any active theme (50 themes + custom).
+ * - Zero white flashing on focused/unfocused cards.
  */
-import React, { useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { CircularGallery, type CircularGalleryItem, type CircularGalleryHandle } from '../ui/CircularGallery';
 import { generateArticleCardTexture } from '../../utils/cardTextureGenerator';
@@ -27,9 +30,11 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
   const selectedArticleId = forcedSelectedArticleId !== undefined ? forcedSelectedArticleId : storeSelectedArticleId;
   const selectArticleById = useAppStore((s) => s.selectArticleById);
   const theme = useAppStore((s) => s.theme);
+  const activeThemeId = useAppStore((s) => s.activeThemeId);
+  const customBgColor = useAppStore((s) => s.customBgColor);
 
   // Gallery settings from store (user editable via main Settings dialog)
-  const bend = useAppStore((s) => s.settings.gallery_bend ?? 2.5);
+  const configuredBend = useAppStore((s) => s.settings.gallery_bend ?? 2.5);
   const itemSize = useAppStore((s) => s.settings.gallery_item_size ?? 0.72);
   const itemAspect = useAppStore((s) => s.settings.gallery_item_aspect ?? 2.0);
   const scrollSpeed = useAppStore((s) => s.settings.gallery_scroll_speed ?? 1.8);
@@ -41,8 +46,56 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
   const shadow = useAppStore((s) => s.settings.gallery_shadow ?? 0.25);
   const grayscale = useAppStore((s) => s.settings.gallery_grayscale ?? false);
   const autoScroll = useAppStore((s) => s.settings.gallery_auto_scroll ?? 0);
+  const autoDropDelaySec = useAppStore((s) => s.settings.gallery_auto_drop_delay ?? 2.5);
 
   const galleryRef = useRef<CircularGalleryHandle>(null);
+
+  // Idle state & timer tracking
+  const [isHovered, setIsHovered] = useState(false);
+  const [isIdle, setIsIdle] = useState(false);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Reset idle state and restart timer
+  const scheduleIdleTimeout = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+    // Only schedule drop if not currently hovered
+    if (!isHovered) {
+      idleTimerRef.current = setTimeout(() => {
+        setIsIdle(true);
+      }, Math.max(1000, autoDropDelaySec * 1000));
+    }
+  }, [isHovered, autoDropDelaySec]);
+
+  // When selected article changes from any source (j/k, arrows, auto-advance):
+  // Immediately wake up into circular grid and reset the countdown timer
+  useEffect(() => {
+    setIsIdle(false);
+    scheduleIdleTimeout();
+
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+    };
+  }, [selectedArticleId, scheduleIdleTimeout]);
+
+  // Handle mouse enter/leave on the dock
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+    setIsIdle(false);
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+    scheduleIdleTimeout();
+  }, [scheduleIdleTimeout]);
 
   // Compute active index
   const activeIndex = useMemo(() => {
@@ -58,8 +111,27 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
     }
   }, [activeIndex]);
 
+  // Resolve theme colors dynamically for matching styling
+  const themeColors = useMemo(() => {
+    const isDark = theme === 'night';
+    if (typeof document === 'undefined') {
+      return {
+        textColor: isDark ? '#E8E4DA' : '#1A1208',
+        placeholderColor: isDark ? '#1C1914' : '#FDFCFA',
+      };
+    }
+    const comp = getComputedStyle(document.documentElement);
+    return {
+      textColor: comp.getPropertyValue('--color-ink')?.trim() || (isDark ? '#E8E4DA' : '#1A1208'),
+      placeholderColor:
+        comp.getPropertyValue('--color-paper-card')?.trim() ||
+        comp.getPropertyValue('--color-paper-alt')?.trim() ||
+        (isDark ? '#1C1914' : '#FDFCFA'),
+    };
+  }, [theme, activeThemeId, customBgColor]);
+
   // Generate rectangular broadsheet card textures for all articles
-  // Note: Textures are static per article and theme to ensure zero reloading/white flashing
+  // Note: Textures are static per article & theme to ensure zero reloading/white flashing
   const galleryItems = useMemo<CircularGalleryItem[]>(() => {
     if (!articles || articles.length === 0) return [];
     const isDark = theme === 'night';
@@ -67,6 +139,7 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
     return articles.map((art) => {
       const textureDataUrl = generateArticleCardTexture(art, false, {
         isDark,
+        themeId: activeThemeId || theme,
       });
 
       return {
@@ -78,15 +151,18 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
         article: art,
       };
     });
-  }, [articles, theme]);
+  }, [articles, theme, activeThemeId, customBgColor]);
 
   const handleItemClick = useCallback(
     (item: CircularGalleryItem) => {
+      // Waking up immediately on click
+      setIsIdle(false);
+      scheduleIdleTimeout();
       if (item.id) {
         selectArticleById(item.id);
       }
     },
-    [selectArticleById]
+    [selectArticleById, scheduleIdleTimeout]
   );
 
   const handleActiveChange = useCallback(
@@ -102,18 +178,28 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
     return null;
   }
 
+  // When idle: bend unbends smoothly to 0 (flat straight line).
+  // When active/hovered: bend uses the configured circular curvature.
+  const activeBend = isIdle ? 0 : configuredBend;
+
   return (
     <aside
       id="circular-dock"
       aria-label="Orbit Wire Dispatch Docker"
-      className="absolute bottom-1 left-0 right-0 z-30 pointer-events-none flex flex-col justify-end items-center px-2 sm:px-6"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={`absolute bottom-0 left-0 right-0 z-30 pointer-events-none flex flex-col justify-end items-center px-2 sm:px-6 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        isIdle
+          ? 'translate-y-[85px] sm:translate-y-[92px] opacity-35 hover:opacity-100 hover:translate-y-0'
+          : 'translate-y-0 opacity-100'
+      }`}
     >
       {/* Pure WebGL2 CircularGallery: 100% transparent floating cards, no background box, no blur */}
       <div className="relative w-full max-w-7xl h-[185px] sm:h-[210px] pointer-events-auto">
         <CircularGallery
           ref={galleryRef}
           items={galleryItems}
-          bend={bend}
+          bend={activeBend}
           itemSize={itemSize}
           itemAspect={itemAspect}
           gap={gap}
@@ -131,8 +217,8 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
           activeIndex={activeIndex}
           onItemClick={handleItemClick}
           onActiveChange={handleActiveChange}
-          textColor={theme === 'night' ? '#E8E4DA' : '#1A1208'}
-          placeholderColor={theme === 'night' ? '#1C1914' : '#FDFCFA'}
+          textColor={themeColors.textColor}
+          placeholderColor={themeColors.placeholderColor}
           showRing={false}
           className="w-full h-full"
         />
