@@ -235,6 +235,8 @@ interface AppState {
   setIsArticlePanelHovered: (hovered: boolean) => void;
   autoAdvanceResetToken: number;
   triggerAutoAdvanceReset: () => void;
+  autoAdvanceProgressPercent: number;
+  setAutoAdvanceProgressPercent: (percent: number) => void;
 
   // Live Feed Counter & Telemetry (PRD A Category 8)
   feedCounter: FeedCounterMetrics | null;
@@ -431,6 +433,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   autoAdvanceResetToken: 0,
   triggerAutoAdvanceReset: () =>
     set((state) => ({ autoAdvanceResetToken: state.autoAdvanceResetToken + 1 })),
+  autoAdvanceProgressPercent: 0,
+  setAutoAdvanceProgressPercent: (percent: number) => set({ autoAdvanceProgressPercent: percent }),
 
   articles: [],
   pendingNewArticles: [],
@@ -738,6 +742,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     alert_threshold: 75,
     sound_enabled: true,
     browser_notifications: false,
+    breaking_notifications_enabled: true,
+    breaking_audio_enabled: true,
+    audio_volume: 0.6,
+    audio_teletype_enabled: true,
 
     // Appearance
     theme: 'paper',

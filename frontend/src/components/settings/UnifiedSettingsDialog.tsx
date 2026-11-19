@@ -205,6 +205,10 @@ const SECTION_DEFAULTS: Record<SettingsSectionId, Partial<AppSettings>> = {
     alert_threshold: 75,
     sound_enabled: true,
     browser_notifications: false,
+    breaking_notifications_enabled: true,
+    breaking_audio_enabled: true,
+    audio_volume: 0.6,
+    audio_teletype_enabled: true,
   },
   appearance: {
     theme: 'paper',
@@ -1705,7 +1709,78 @@ export const UnifiedSettingsDialog: React.FC<{
                     </label>
                   </div>
 
-                  {/* Desktop Browser Notifications */}
+                  {/* Teletype Acoustic Clicks */}
+                  <div className="flex items-center justify-between py-2 border-b border-[var(--color-ink-border,#e5e7eb)]">
+                    <div>
+                      <div className="font-semibold text-sm font-serif">Mechanical Teletype Navigation Audio</div>
+                      <div className="text-[var(--color-ink-muted,#6b7280)] text-[11px]">
+                        Tactile typewriter click when stepping through stories (j/k) or clicking dock cards.
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        id="toggle-teletype-audio"
+                        type="checkbox"
+                        checked={storeSettings.audio_teletype_enabled ?? true}
+                        onChange={(e) => saveSetting({ audio_teletype_enabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-ink,#111827)]" />
+                    </label>
+                  </div>
+
+                  {/* Master Acoustic Volume */}
+                  <div className="py-2 border-b border-[var(--color-ink-border,#e5e7eb)]">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-semibold text-sm font-serif">Acoustic Audio Volume</span>
+                      <span className="font-mono text-xs font-bold px-2 py-0.5 bg-paper border border-[var(--color-ink-border,#d1d5db)] rounded-xs">
+                        {Math.round((storeSettings.audio_volume ?? 0.6) * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      id="slider-acoustic-volume"
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={storeSettings.audio_volume ?? 0.6}
+                      onChange={(e) => saveSetting({ audio_volume: parseFloat(e.target.value) })}
+                      className="w-full accent-[var(--color-ink,#111827)] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Breaking News Notifications Toggle (Master Silence Control) */}
+                  <div className="flex items-center justify-between py-2 border-b border-[var(--color-ink-border,#e5e7eb)]">
+                    <div>
+                      <div className="font-semibold text-sm font-serif">Breaking News Notifications</div>
+                      <div className="text-[var(--color-ink-muted,#6b7280)] text-[11px]">
+                        Turn off or on breaking news popups, banner alerts, and system notifications.
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        id="btn-toggle-breaking-notifications"
+                        onClick={() => {
+                          const next = !(storeSettings.breaking_notifications_enabled ?? true);
+                          saveSetting({
+                            breaking_notifications_enabled: next,
+                            browser_notifications: next ? storeSettings.browser_notifications : false,
+                          });
+                          if (next) toast.success('Breaking news notifications enabled.');
+                          else toast.info('Breaking news notifications turned off.');
+                        }}
+                        className={`px-3 py-1 text-xs font-mono font-bold rounded-xs cursor-pointer border transition-colors ${
+                          (storeSettings.breaking_notifications_enabled ?? true)
+                            ? 'bg-[var(--color-ink,#111827)] text-paper border-[var(--color-ink,#111827)]'
+                            : 'bg-paper text-ink-muted border-[var(--color-ink-border,#d1d5db)] hover:border-ink'
+                        }`}
+                      >
+                        {(storeSettings.breaking_notifications_enabled ?? true) ? 'Notifications: ON' : 'Notifications: OFF'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Desktop Browser Notifications Permission */}
                   <div className="flex items-center justify-between py-2 border-b border-[var(--color-ink-border,#e5e7eb)]">
                     <div>
                       <div className="font-semibold text-sm font-serif">Desktop System Notifications</div>
@@ -1717,12 +1792,15 @@ export const UnifiedSettingsDialog: React.FC<{
                       onClick={async () => {
                         if (typeof window !== 'undefined' && 'Notification' in window) {
                           const perm = await Notification.requestPermission();
-                          saveSetting({ browser_notifications: perm === 'granted' });
+                          saveSetting({
+                            browser_notifications: perm === 'granted',
+                            breaking_notifications_enabled: perm === 'granted',
+                          });
                           if (perm === 'granted') toast.success('Desktop notifications enabled.');
                           else toast.error('Notification permission denied.');
                         }
                       }}
-                      className="px-2.5 py-1 text-xs border border-[var(--color-ink-border,#d1d5db)] hover:border-[var(--color-ink,#111827)] rounded-xs cursor-pointer"
+                      className="px-2.5 py-1 text-xs border border-[var(--color-ink-border,#d1d5db)] hover:border-[var(--color-ink,#111827)] rounded-xs cursor-pointer font-mono"
                     >
                       {storeSettings.browser_notifications ? 'Enabled' : 'Request Permission'}
                     </button>

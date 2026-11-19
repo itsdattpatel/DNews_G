@@ -17,6 +17,7 @@ export const AutoAdvanceProgressBar = memo(() => {
   const toggleAutoAdvanceManualPaused = useAppStore((s) => s.toggleAutoAdvanceManualPaused);
   const isArticlePanelHovered = useAppStore((s) => s.isArticlePanelHovered);
   const autoAdvanceResetToken = useAppStore((s) => s.autoAdvanceResetToken);
+  const setAutoAdvanceProgressPercent = useAppStore((s) => s.setAutoAdvanceProgressPercent);
 
   // Modals & view states from store
   const currentView = useAppStore((s) => s.currentView);
@@ -123,6 +124,7 @@ export const AutoAdvanceProgressBar = memo(() => {
   useEffect(() => {
     if (!isEnabled) {
       setProgressPercent(0);
+      setAutoAdvanceProgressPercent(0);
       setRemainingSeconds(intervalSec);
       elapsedMsRef.current = 0;
       return;
@@ -132,6 +134,7 @@ export const AutoAdvanceProgressBar = memo(() => {
     if (wasPausedRef.current && !isPaused) {
       elapsedMsRef.current = 0;
       setProgressPercent(0);
+      setAutoAdvanceProgressPercent(0);
       setRemainingSeconds(intervalSec);
     }
     wasPausedRef.current = isPaused;
@@ -148,6 +151,7 @@ export const AutoAdvanceProgressBar = memo(() => {
       elapsedMsRef.current += tickMs;
       const progress = Math.min(100, (elapsedMsRef.current / totalMs) * 100);
       setProgressPercent(progress);
+      setAutoAdvanceProgressPercent(progress);
 
       const remSec = Math.max(1, Math.ceil((totalMs - elapsedMsRef.current) / 1000));
       setRemainingSeconds(remSec);
@@ -155,20 +159,22 @@ export const AutoAdvanceProgressBar = memo(() => {
       if (elapsedMsRef.current >= totalMs) {
         elapsedMsRef.current = 0;
         setProgressPercent(0);
+        setAutoAdvanceProgressPercent(0);
         setRemainingSeconds(intervalSec);
         nextArticle();
       }
     }, tickMs);
 
     return () => clearInterval(timer);
-  }, [isEnabled, isPaused, intervalSec, nextArticle]);
+  }, [isEnabled, isPaused, intervalSec, nextArticle, setAutoAdvanceProgressPercent]);
 
   // Reset countdown whenever an article is manually selected (autoAdvanceResetToken changes)
   useEffect(() => {
     elapsedMsRef.current = 0;
     setProgressPercent(0);
+    setAutoAdvanceProgressPercent(0);
     setRemainingSeconds(intervalSec);
-  }, [autoAdvanceResetToken, intervalSec]);
+  }, [autoAdvanceResetToken, intervalSec, setAutoAdvanceProgressPercent]);
 
   if (!isEnabled) {
     return null;

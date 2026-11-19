@@ -60,6 +60,7 @@ export interface CircularGalleryProps {
   intro?: boolean;
   activeIndex?: number;
   onItemClick?: (item: CircularGalleryItem, index: number) => void;
+  onItemHover?: (item: CircularGalleryItem | null, index: number | null, coords?: { clientX: number; clientY: number } | null) => void;
   onActiveChange?: (index: number) => void;
   dpr?: number;
   className?: string;
@@ -287,6 +288,7 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
   intro = true,
   activeIndex,
   onItemClick,
+  onItemHover,
   onActiveChange,
   dpr,
   className = '',
@@ -327,6 +329,7 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
     openOnClick,
     intro,
     onItemClick,
+    onItemHover,
     onActiveChange,
     dpr
   };
@@ -922,15 +925,20 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
       return null;
     };
 
-    const setPointer = (card: any) => {
+    const setPointer = (card: any, coords?: { clientX: number; clientY: number } | null) => {
       const slot = card ? card.slot : null;
       if (slot !== state.hovered) {
         state.hovered = slot;
         if (slot !== null && !state.hover.has(slot)) state.hover.set(slot, 0);
         wake();
       }
-      if (card) container.setAttribute('data-pointer', '');
-      else container.removeAttribute('data-pointer');
+      if (card) {
+        container.setAttribute('data-pointer', '');
+        settingsRef.current.onItemHover?.(card.item, card.index, coords ?? null);
+      } else {
+        container.removeAttribute('data-pointer');
+        settingsRef.current.onItemHover?.(null, null, null);
+      }
     };
 
     const snapNow = () => {
@@ -979,7 +987,7 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
         }
         return;
       }
-      if (event.pointerType === 'mouse') setPointer(hit(point(event)));
+      if (event.pointerType === 'mouse') setPointer(hit(point(event)), { clientX: event.clientX, clientY: event.clientY });
     };
 
     const onPointerUp = (event: PointerEvent) => {

@@ -10,9 +10,11 @@
  * - Zero white flashing on focused/unfocused cards.
  */
 import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppStore } from '../../store/useAppStore';
 import { CircularGallery, type CircularGalleryItem, type CircularGalleryHandle } from '../ui/CircularGallery';
 import { generateArticleCardTexture } from '../../utils/cardTextureGenerator';
+import { broadsheetAudio } from '../../utils/broadsheetAudio';
 import type { Article } from '../../types';
 
 export interface CircularGalleryWireDockProps {
@@ -48,12 +50,54 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
   const autoScroll = useAppStore((s) => s.settings.gallery_auto_scroll ?? 0);
   const autoDropDelaySec = useAppStore((s) => s.settings.gallery_auto_drop_delay ?? 2.5);
 
+  // Audio & Auto-Advance settings from store
+  const soundEnabled = useAppStore((s) => s.settings.sound_enabled ?? true);
+  const audioVolume = useAppStore((s) => s.settings.audio_volume ?? 0.6);
+  const audioTeletypeEnabled = useAppStore((s) => s.settings.audio_teletype_enabled ?? true);
+  const autoAdvanceEnabled = useAppStore((s) => s.settings.auto_advance_enabled ?? false);
+  const isAutoAdvanceManualPaused = useAppStore((s) => s.isAutoAdvanceManualPaused);
+  const autoAdvanceProgressPercent = useAppStore((s) => s.autoAdvanceProgressPercent);
+
   const galleryRef = useRef<CircularGalleryHandle>(null);
+
+  // Sync volume & mute settings to synthesized audio engine
+  useEffect(() => {
+    broadsheetAudio.setMuted(!soundEnabled);
+    broadsheetAudio.setVolume(audioVolume);
+  }, [soundEnabled, audioVolume]);
+
+  // Teletype acoustic click on story transition
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
+    if (soundEnabled && audioTeletypeEnabled) {
+      broadsheetAudio.playTeletypeClick();
+    }
+  }, [selectedArticleId, soundEnabled, audioTeletypeEnabled]);
 
   // Idle state & timer tracking
   const [isHovered, setIsHovered] = useState(false);
   const [isIdle, setIsIdle] = useState(false);
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Quick-Peek Hover Tooltip State
+  const [peekState, setPeekState] = useState<{
+    item: CircularGalleryItem;
+    index: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const peekTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Paper rustle on dock unbend / drop
+  useEffect(() => {
+    if (soundEnabled) {
+      broadsheetAudio.playPaperRustle();
+    }
+  }, [isIdle, soundEnabled]);
 
   // Reset idle state and restart timer
   const scheduleIdleTimeout = useCallback(() => {
@@ -153,10 +197,34 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
     });
   }, [articles, theme, activeThemeId, customBgColor]);
 
+  const handleItemHover = useCallback(
+    (item: CircularGalleryItem | null, index: number | null, coords?: { clientX: number; clientY: number } | null) => {
+      if (peekTimerRef.current) {
+        clearTimeout(peekTimerRef.current);
+        peekTimerRef.current = null;
+      }
+
+      if (item && coords && index !== null) {
+        peekTimerRef.current = setTimeout(() => {
+          setPeekState({
+            item,
+            index,
+            x: coords.clientX,
+            y: coords.clientY,
+          });
+        }, 120);
+      } else {
+        setPeekState(null);
+      }
+    },
+    []
+  );
+
   const handleItemClick = useCallback(
     (item: CircularGalleryItem) => {
       // Waking up immediately on click
       setIsIdle(false);
+      setPeekState(null);
       scheduleIdleTimeout();
       if (item.id) {
         selectArticleById(item.id);
@@ -194,6 +262,54 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
           : 'translate-y-0 opacity-100'
       }`}
     >
+      {/* 1.1 Auto-Advance Countdown Indicator on Active Focused Card */}
+      {autoAdvanceEnabled && !isAutoAdvanceManualPaused && (
+        <div
+          id="dock-auto-advance-bar"
+          className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-48 sm:w-60 h-1.5 bg-[var(--color-paper-border,#D9D0BE)]/80 rounded-full overflow-hidden shadow-xs pointer-events-none z-40 border border-[var(--color-paper-border,#D9D0BE)]"
+          title={`Auto-advancing: ${Math.round(autoAdvanceProgressPercent)}%`}
+        >
+          <div
+            className="h-full bg-accent transition-all duration-75 ease-linear rounded-full"
+            style={{ width: `${Math.max(5, autoAdvanceProgressPercent)}%` }}
+          />
+        </div>
+      )}
+
+      {/* 1.2 Quick-Peek Broadsheet Floating Tooltip for Unfocused Cards */}
+      {peekState && peekState.item && typeof document !== 'undefined' && createPortal(
+        <div
+          id="dock-quick-peek-tooltip"
+          className="fixed z-50 pointer-events-none transition-opacity duration-200 ease-out animate-in fade-in"
+          style={{
+            left: `${Math.max(16, Math.min(window.innerWidth - 320, peekState.x - 150))}px`,
+            top: `${Math.max(20, peekState.y - 145)}px`,
+          }}
+        >
+          <div className="w-[300px] p-3 rounded-xs border border-[var(--color-paper-border,#D9D0BE)] bg-[var(--color-paper-alt,#F2EDE2)] text-ink shadow-2xl backdrop-blur-xs font-sans text-xs">
+            <div className="flex items-center justify-between border-b border-[var(--color-paper-border,#D9D0BE)] pb-1 mb-1.5 font-mono text-[9px] uppercase tracking-wider text-ink-muted">
+              <span className="font-bold text-accent truncate max-w-[170px]">
+                {peekState.item.article?.source?.name || 'World Desk'}
+              </span>
+              <span>{peekState.item.article?.country || 'Global'}</span>
+            </div>
+            <h4 className="font-serif font-bold text-xs leading-snug line-clamp-2 text-ink mb-1">
+              {peekState.item.article?.title_english || peekState.item.text}
+            </h4>
+            {peekState.item.description && (
+              <p className="text-[10px] text-ink-secondary italic line-clamp-2">
+                "{peekState.item.description}"
+              </p>
+            )}
+            <div className="mt-1.5 pt-1 border-t border-[var(--color-paper-border,#D9D0BE)] text-[8px] font-mono text-ink-muted flex justify-between items-center">
+              <span>Quick Peek Dispatch</span>
+              <span className="text-accent font-bold">Click to Read</span>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Pure WebGL2 CircularGallery: 100% transparent floating cards, no background box, no blur */}
       <div className="relative w-full max-w-7xl h-[185px] sm:h-[210px] pointer-events-auto">
         <CircularGallery
@@ -216,6 +332,7 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
           snap={true}
           activeIndex={activeIndex}
           onItemClick={handleItemClick}
+          onItemHover={handleItemHover}
           onActiveChange={handleActiveChange}
           textColor={themeColors.textColor}
           placeholderColor={themeColors.placeholderColor}

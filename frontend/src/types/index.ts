@@ -294,6 +294,10 @@ export interface AppSettings {
   alert_threshold: number;
   sound_enabled: boolean;
   browser_notifications?: boolean;
+  breaking_notifications_enabled?: boolean;
+  breaking_audio_enabled?: boolean;
+  audio_volume?: number;
+  audio_teletype_enabled?: boolean;
 
   // Appearance & Broadsheet Typography
   theme?: 'paper' | 'night';
