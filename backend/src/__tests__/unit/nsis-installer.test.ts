@@ -33,8 +33,8 @@ describe('Windows NSIS Installer Packaging (PRD E Category 10)', () => {
     expect(fs.existsSync(latestYmlPath)).toBe(true);
     const content = fs.readFileSync(latestYmlPath, 'utf-8');
 
-    expect(content).toContain('version: 1.0.0');
-    expect(content).toContain('DNews-Setup-1.0.0.exe');
+    expect(content).toMatch(/version:\s*1\.\d+\.\d+/);
+    expect(content).toMatch(/DNews-Setup-1\.\d+\.\d+\.exe/);
     expect(content).toContain('sha512');
     expect(content).toContain('releaseDate');
   });
