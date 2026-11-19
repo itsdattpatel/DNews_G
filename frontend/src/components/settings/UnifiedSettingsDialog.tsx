@@ -922,6 +922,121 @@ export const UnifiedSettingsDialog: React.FC<{
                       </div>
                     </div>
                   </div>
+
+                  {/* React Bits CircularGallery Orbit Tuning */}
+                  <div className="p-4 rounded-lg border-2 border-[var(--color-ink-border,#e5e7eb)] bg-[var(--color-paper-card,#f4efe6)]/60 space-y-4">
+                    <div>
+                      <div className="font-semibold text-sm font-serif flex items-center gap-1.5">
+                        <Compass size={14} className="text-accent" />
+                        <span>Orbit Wire Gallery Tuning (React Bits 3D)</span>
+                      </div>
+                      <div className="text-[var(--color-ink-muted,#6b7280)] text-[11px]">
+                        Adjust the 3D cylindrical arc curvature, card scale, and motion fluidity of the bottom dispatch dock.
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Arc Curvature (Bend) */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-semibold text-xs font-serif">Arc Bend (Curvature)</span>
+                          <span className="font-mono text-xs font-bold px-2 py-0.5 bg-paper border border-[var(--color-ink-border,#d1d5db)] rounded-xs">
+                            {storeSettings.gallery_bend ?? 2.5}
+                          </span>
+                        </div>
+                        <input
+                          id="slider-gallery-bend"
+                          type="range"
+                          min={-3}
+                          max={5}
+                          step={0.5}
+                          value={storeSettings.gallery_bend ?? 2.5}
+                          onChange={(e) => saveSetting({ gallery_bend: parseFloat(e.target.value) })}
+                          className="w-full accent-[var(--color-ink,#111827)] cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-ink-muted mt-0.5">
+                          <span>Flat (0)</span>
+                          <span>Standard Arc (2.5)</span>
+                          <span>Deep Curve (5)</span>
+                        </div>
+                      </div>
+
+                      {/* Card Scale (Item Size) */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-semibold text-xs font-serif">Card Height Scale</span>
+                          <span className="font-mono text-xs font-bold px-2 py-0.5 bg-paper border border-[var(--color-ink-border,#d1d5db)] rounded-xs">
+                            {storeSettings.gallery_item_size ?? 0.72}
+                          </span>
+                        </div>
+                        <input
+                          id="slider-gallery-size"
+                          type="range"
+                          min={0.4}
+                          max={1.2}
+                          step={0.04}
+                          value={storeSettings.gallery_item_size ?? 0.72}
+                          onChange={(e) => saveSetting({ gallery_item_size: parseFloat(e.target.value) })}
+                          className="w-full accent-[var(--color-ink,#111827)] cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-ink-muted mt-0.5">
+                          <span>Compact (0.5)</span>
+                          <span>Default (0.72)</span>
+                          <span>Prominent (1.0)</span>
+                        </div>
+                      </div>
+
+                      {/* Scroll Fluidity (Scroll Ease) */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-semibold text-xs font-serif">Scroll Damping (Fluidity)</span>
+                          <span className="font-mono text-xs font-bold px-2 py-0.5 bg-paper border border-[var(--color-ink-border,#d1d5db)] rounded-xs">
+                            {storeSettings.gallery_scroll_ease ?? 0.08}
+                          </span>
+                        </div>
+                        <input
+                          id="slider-gallery-ease"
+                          type="range"
+                          min={0.02}
+                          max={0.25}
+                          step={0.01}
+                          value={storeSettings.gallery_scroll_ease ?? 0.08}
+                          onChange={(e) => saveSetting({ gallery_scroll_ease: parseFloat(e.target.value) })}
+                          className="w-full accent-[var(--color-ink,#111827)] cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-ink-muted mt-0.5">
+                          <span>Floaty (0.03)</span>
+                          <span>Smooth (0.08)</span>
+                          <span>Instant (0.2)</span>
+                        </div>
+                      </div>
+
+                      {/* Edge Fade */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-semibold text-xs font-serif">Flank Edge Fade</span>
+                          <span className="font-mono text-xs font-bold px-2 py-0.5 bg-paper border border-[var(--color-ink-border,#d1d5db)] rounded-xs">
+                            {storeSettings.gallery_fade_edges ?? 0.18}
+                          </span>
+                        </div>
+                        <input
+                          id="slider-gallery-fade"
+                          type="range"
+                          min={0.05}
+                          max={0.35}
+                          step={0.02}
+                          value={storeSettings.gallery_fade_edges ?? 0.18}
+                          onChange={(e) => saveSetting({ gallery_fade_edges: parseFloat(e.target.value) })}
+                          className="w-full accent-[var(--color-ink,#111827)] cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-ink-muted mt-0.5">
+                          <span>Subtle (0.1)</span>
+                          <span>Standard (0.18)</span>
+                          <span>Deep Vignette (0.3)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 

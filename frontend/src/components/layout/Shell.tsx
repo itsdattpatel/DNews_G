@@ -12,7 +12,7 @@ import { RightIconRail } from './RightIconRail';
 import { BatMenuOverlay } from '../bat/BatMenuOverlay';
 import { NewsTicker } from './NewsTicker';
 import { ArticlePanel } from '../article/ArticlePanel';
-import { CircularDock } from '../article/CircularDock';
+import { CircularGalleryWireDock } from '../article/CircularGalleryWireDock';
 import { UnifiedSettingsDialog } from '../settings/UnifiedSettingsDialog';
 import { SourcesSettingsDesk } from '../sources/SourcesSettingsDesk';
 import { AlertBanner } from '../alert/AlertBanner';
@@ -207,10 +207,10 @@ export const Shell: React.FC = () => {
                 </ErrorBoundary>
               </div>
 
-              {/* Circling Bottom Docker overlaying the unified reader desk */}
+              {/* React Bits Circular Gallery Docker overlaying the unified reader desk */}
               <div id="reader-bottom-strip-panel" className="absolute bottom-0 left-0 right-0 pointer-events-none z-30">
-                <ErrorBoundary panelName="Circling Wire Docker">
-                  <CircularDock />
+                <ErrorBoundary panelName="React Bits Circular Wire Docker">
+                  <CircularGalleryWireDock />
                 </ErrorBoundary>
               </div>
             </div>

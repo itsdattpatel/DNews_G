@@ -751,6 +751,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     scramble_sequential: true,
     scramble_charset: 'telegraph',
 
+    // React Bits CircularGallery Settings
+    gallery_bend: 2.5,
+    gallery_item_size: 0.72,
+    gallery_item_aspect: 2.0,
+    gallery_scroll_speed: 1.8,
+    gallery_scroll_ease: 0.08,
+    gallery_wave: 0.2,
+    gallery_fade_edges: 0.18,
+    gallery_gap: 0.18,
+
     // Data & Storage
     auto_cleanup_enabled: false,
     retention_days: 30,

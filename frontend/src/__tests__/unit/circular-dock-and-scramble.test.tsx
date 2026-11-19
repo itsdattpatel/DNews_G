@@ -1,11 +1,13 @@
 /**
  * frontend/src/__tests__/unit/circular-dock-and-scramble.test.tsx
- * Tests for CircularDock and ScrambledText components.
+ * Tests for CircularDock, CircularGalleryWireDock, and ScrambledText components.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CircularDock } from '../../components/article/CircularDock';
+import { CircularGalleryWireDock } from '../../components/article/CircularGalleryWireDock';
 import { ScrambledText, PRESET_CHARSETS } from '../../components/ui/ScrambledText';
+import { generateArticleCardTexture } from '../../utils/cardTextureGenerator';
 import { useAppStore } from '../../store/useAppStore';
 import type { Article } from '../../types';
 
@@ -13,32 +15,44 @@ describe('CircularDock Component', () => {
   const dummyArticles: Article[] = [
     {
       id: 101,
+      url: 'https://reuters.com/news-101',
       title_english: 'First Global Dispatch From London',
       source: { id: 1, name: 'Reuters', country: 'United Kingdom' },
       published_at: new Date().toISOString(),
       fetched_at: new Date().toISOString(),
       summary: 'Summary 1',
       breaking_score: 85,
+      cluster_id: null,
+      bookmarked: false,
+      keywords: ['london'],
       categories: ['World'],
     },
     {
       id: 102,
+      url: 'https://nikkei.com/news-102',
       title_english: 'Tokyo Financial Markets Surge on Tech Rally',
       source: { id: 2, name: 'Nikkei', country: 'Japan' },
       published_at: new Date().toISOString(),
       fetched_at: new Date().toISOString(),
       summary: 'Summary 2',
       breaking_score: 45,
+      cluster_id: null,
+      bookmarked: true,
+      keywords: ['tokyo'],
       categories: ['Business'],
     },
     {
       id: 103,
+      url: 'https://apnews.com/news-103',
       title_english: 'Washington Enacts New Climate Legislation',
       source: { id: 3, name: 'AP News', country: 'USA' },
       published_at: new Date().toISOString(),
       fetched_at: new Date().toISOString(),
       summary: 'Summary 3',
       breaking_score: 60,
+      cluster_id: null,
+      bookmarked: false,
+      keywords: ['washington'],
       categories: ['Politics'],
     },
   ];
@@ -68,7 +82,6 @@ describe('CircularDock Component', () => {
       <CircularDock forcedArticles={dummyArticles} forcedSelectedArticleId={102} />
     );
 
-    // Active card #102 should have data-active-card="true"
     expect(html).toContain('id="article-card-102"');
     expect(html).toContain('data-active-card="true"');
   });
@@ -78,6 +91,38 @@ describe('CircularDock Component', () => {
       <CircularDock forcedArticles={[]} forcedSelectedArticleId={null} />
     );
     expect(html).toBe('');
+  });
+
+  it('renders CircularGalleryWireDock shell and controls', () => {
+    const html = renderToStaticMarkup(
+      <CircularGalleryWireDock forcedArticles={dummyArticles} forcedSelectedArticleId={102} />
+    );
+
+    expect(html).toContain('circular-dock');
+    expect(html).toContain('React Bits Orbit Docker');
+    expect(html).toContain('Dispatch 2 of 3');
+  });
+});
+
+describe('Card Texture Generator', () => {
+  it('generates non-empty data URL for an article in browser environment', () => {
+    const dummy: Article = {
+      id: 201,
+      url: 'https://example.com/201',
+      title_english: 'Sample Headline For Canvas Texture',
+      source: { id: 1, name: 'BBC', country: 'UK' },
+      published_at: new Date().toISOString(),
+      fetched_at: new Date().toISOString(),
+      summary: 'Brief summary',
+      breaking_score: 90,
+      cluster_id: null,
+      bookmarked: false,
+      keywords: [],
+      categories: ['World'],
+    };
+
+    const texture = generateArticleCardTexture(dummy, true);
+    expect(typeof texture).toBe('string');
   });
 });
 

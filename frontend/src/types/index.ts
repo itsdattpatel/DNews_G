@@ -305,7 +305,17 @@ export interface AppSettings {
   scramble_speed?: number;
   scramble_max_iterations?: number;
   scramble_sequential?: boolean;
-  scramble_charset?: 'telegraph' | 'crypto' | 'matrix' | 'numbers';
+  scramble_charset?: 'telegraph' | 'crypto' | 'matrix' | 'numbers' | string;
+
+  // React Bits CircularGallery Settings
+  gallery_bend?: number;
+  gallery_item_size?: number;
+  gallery_item_aspect?: number;
+  gallery_scroll_speed?: number;
+  gallery_scroll_ease?: number;
+  gallery_wave?: number;
+  gallery_fade_edges?: number;
+  gallery_gap?: number;
 
   // Data & Storage (PRD A Cat 4)
   auto_cleanup_enabled: boolean;
