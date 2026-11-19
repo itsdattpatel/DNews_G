@@ -1,15 +1,18 @@
 /**
  * frontend/src/components/article/ArticlePanel.tsx
- * Left Main Reader Column (60%): Broadsheet newspaper article desk.
- * Pure Tailwind, authentic ink-and-paper typography (Playfair Display + Source Serif 4),
- * original language toggle, anchor phrase highlights, and complete loading/empty/error states.
+ * Unified Full-Box Broadsheet Reader Desk:
+ * - Pure broadsheet typography (Playfair Display + Source Serif 4)
+ * - Telegraphic Scrambled Text headline animation with full custom settings
+ * - Integrated Executive Wire Synthesis & Evidence Anchor Highlights
+ * - Expansive single-box layout with bottom clearance for floating Circular Dock
  */
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { ExternalLink, Globe2, Languages, BookOpen, Sparkles, Radio, RefreshCw } from 'lucide-react';
+import { ExternalLink, Globe2, Languages, BookOpen, Sparkles, Layers, Clock, Star, Radio, RefreshCw } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
 import { WelcomeBackCard } from './WelcomeBackCard';
 import { ConfirmationBadge } from '../common/ConfirmationBadge';
+import { ScrambledText } from '../ui/ScrambledText';
 import type { Article } from '../../types';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
@@ -52,6 +55,17 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
   );
   const setIsArticlePanelHovered = useAppStore((s) => s.setIsArticlePanelHovered);
   const enrichArticlePass2 = useAppStore((s) => s.enrichArticlePass2);
+  const toggleBookmark = useAppStore((s) => s.toggleBookmark);
+  const setCompareClusterId = useAppStore((s) => s.setCompareClusterId);
+  const setTimelineClusterId = useAppStore((s) => s.setTimelineClusterId);
+  const setCurrentView = useAppStore((s) => s.setCurrentView);
+
+  // Scramble text settings from store
+  const scrambleEnabled = useAppStore((s) => s.settings.scramble_enabled ?? true);
+  const scrambleSpeed = useAppStore((s) => s.settings.scramble_speed ?? 35);
+  const scrambleMaxIterations = useAppStore((s) => s.settings.scramble_max_iterations ?? 12);
+  const scrambleSequential = useAppStore((s) => s.settings.scramble_sequential ?? false);
+  const scrambleCharset = useAppStore((s) => s.settings.scramble_charset ?? 'broadsheet');
 
   const [showOriginal, setShowOriginal] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
@@ -90,6 +104,13 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
     ? article.body_original
     : (article?.body_english || article?.body_original || article?.summary || '');
 
+  // Split summary into sentences for executive highlights
+  const summarySentences = useMemo(() => {
+    if (!article?.summary) return [];
+    const raw = article.summary.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [article.summary];
+    return raw.map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+  }, [article?.summary]);
+
   // Paragraphs formatting with anchor phrase highlighting
   const paragraphs = useMemo(() => {
     if (!rawBody) return [];
@@ -99,30 +120,10 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
   // Reset showOriginal when article changes
   useEffect(() => {
     setShowOriginal(false);
-  }, [article?.id]);
-
-  // Ensure unmount (e.g. Plain/Dual switch or Category view) never strands hover pause
-  useEffect(() => {
-    return () => {
-      setIsArticlePanelHovered(false);
-    };
-  }, [setIsArticlePanelHovered]);
-
-  // Scroll to active anchor when activeSentenceIndex changes (respecting reduced-motion)
-  useEffect(() => {
-    if (activeSentenceIndex !== null && scrollContainerRef.current) {
-      const el = scrollContainerRef.current.querySelector(`#anchor-sentence-${activeSentenceIndex}`);
-      if (el) {
-        const prefersReducedMotion =
-          typeof window !== 'undefined' &&
-          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        el.scrollIntoView({
-          behavior: prefersReducedMotion ? 'auto' : 'smooth',
-          block: 'center',
-        });
-      }
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
     }
-  }, [activeSentenceIndex]);
+  }, [article?.id]);
 
   // Loading Skeleton State
   if (isLoading) {
@@ -130,26 +131,15 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
       <div
         id="article-panel-loading"
         data-lenis-prevent="true"
-        className="w-full h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain p-8 sm:p-12 border-r border-paper-border bg-paper animate-pulse"
+        className="w-full h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain p-6 sm:p-10 lg:p-12 bg-paper animate-pulse space-y-6"
       >
-        <div className="flex items-center gap-3 mb-6">
-          <div className="h-6 w-20 bg-paper-border rounded-xs" />
-          <div className="h-4 w-32 bg-paper-border rounded-xs" />
-        </div>
-        <div className="h-10 w-4/5 bg-paper-border rounded-xs mb-3" />
-        <div className="h-10 w-3/5 bg-paper-border rounded-xs mb-8" />
-        <div className="w-full flex flex-col gap-[3px] my-6">
-          <div className="h-[2px] bg-paper-border w-full" />
-          <div className="h-[1px] bg-paper-border w-full" />
-        </div>
-        <div className="space-y-4 max-w-prose">
-          <div className="h-4 w-full bg-paper-border rounded-xs" />
-          <div className="h-4 w-11/12 bg-paper-border rounded-xs" />
-          <div className="h-4 w-full bg-paper-border rounded-xs" />
-          <div className="h-4 w-4/5 bg-paper-border rounded-xs" />
-          <div className="h-16 w-full" />
-          <div className="h-4 w-full bg-paper-border rounded-xs" />
-          <div className="h-4 w-10/12 bg-paper-border rounded-xs" />
+        <div className="h-4 bg-paper-border/60 rounded-xs w-1/4" />
+        <div className="h-10 bg-paper-border/80 rounded-xs w-3/4" />
+        <div className="h-2 bg-paper-border/40 rounded-xs w-full" />
+        <div className="space-y-3 pt-4">
+          <div className="h-4 bg-paper-border/60 rounded-xs w-full" />
+          <div className="h-4 bg-paper-border/60 rounded-xs w-5/6" />
+          <div className="h-4 bg-paper-border/60 rounded-xs w-4/6" />
         </div>
       </div>
     );
@@ -157,12 +147,12 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
 
   // Empty State
   if (!article) {
-    if (articles.length === 0) {
+    if (!articles || articles.length === 0) {
       return (
         <div
           id="article-panel-first-run"
           data-lenis-prevent="true"
-          className="w-full h-full min-h-0 min-w-0 flex flex-col items-center justify-center p-8 text-center border-r border-paper-border bg-paper"
+          className="w-full h-full min-h-0 min-w-0 flex flex-col items-center justify-center p-8 text-center bg-paper"
         >
           <div className="inline-block px-3 py-1 border border-accent/40 bg-accent/10 rounded-xs font-mono text-[11px] font-bold tracking-widest text-accent uppercase mb-4">
             ★ HOT OFF THE PRESS — FIRST EDITION ★
@@ -201,7 +191,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
       <div
         id="article-panel-empty"
         data-lenis-prevent="true"
-        className="w-full h-full min-h-0 min-w-0 flex flex-col items-center justify-center p-8 text-center border-r border-paper-border bg-paper"
+        className="w-full h-full min-h-0 min-w-0 flex flex-col items-center justify-center p-8 text-center bg-paper"
       >
         <div className="p-4 border-2 border-ink rounded-xs bg-paper-alt mb-4 shadow-xs">
           <BookOpen size={36} className="text-ink" />
@@ -210,7 +200,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
           The Wire Dispatch Desk
         </h2>
         <p className="font-ui text-sm text-ink-secondary max-w-sm mb-4">
-          Select any news story from the category rail or the bottom dispatch feed to read the full report.
+          Select any news story from the category rail or the bottom circling docker to read the full report.
         </p>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-paper-border bg-paper-alt rounded-xs font-mono text-xs text-ink-muted">
           <span>Tip: Use keyboard <kbd className="font-bold text-ink">j</kbd> / <kbd className="font-bold text-ink">k</kbd> to cycle dispatches</span>
@@ -222,7 +212,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
   const primaryCategory = (article.categories && article.categories[0]) || 'World';
   const catStyle = CATEGORY_STYLES[primaryCategory] || CATEGORY_STYLES.World;
 
-  const title = showOriginal && article.title_original ? article.title_original : article.title_english;
+  const title = (showOriginal && article.title_original ? article.title_original : article.title_english) || 'Untitled Dispatch';
 
   // Words count & reading time estimate
   const wordCount = rawBody ? rawBody.split(/\s+/).length : 0;
@@ -242,9 +232,9 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
       data-lenis-prevent="true"
       onMouseEnter={() => setIsArticlePanelHovered(true)}
       onMouseLeave={() => setIsArticlePanelHovered(false)}
-      className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain p-6 sm:p-10 lg:p-12 border-r border-paper-border bg-paper text-ink transition-colors duration-150 scroll-anchor-auto"
+      className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain px-6 sm:px-12 lg:px-20 pt-6 sm:pt-10 pb-56 sm:pb-64 bg-paper text-ink transition-colors duration-150 scroll-anchor-auto"
     >
-      {/* Real-time Downtime Welcome-Back Card (PRD A Category 1B) */}
+      {/* Real-time Downtime Welcome-Back Card */}
       <WelcomeBackCard />
 
       {/* 1. Broadsheet Kicker & Wire Byline Metadata */}
@@ -272,7 +262,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
 
           <span className="text-ink-muted text-xs">·</span>
 
-          {/* Dual Timestamp (Category 1) */}
+          {/* Dual Timestamp */}
           <DualTimestamp
             publishedAt={article.published_at}
             ingestedAt={article.ingested_at || article.fetched_at}
@@ -288,7 +278,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
 
           <span className="text-ink-muted text-xs">·</span>
 
-          {/* Multi-Source Story Corroboration Stamp (PRD A Category 9) */}
+          {/* Multi-Source Story Corroboration Stamp */}
           <ConfirmationBadge article={article} />
 
           {isPlainMode && (
@@ -305,28 +295,36 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
           )}
         </div>
 
-        {/* Translation Switch & Direct Source Link */}
+        {/* Right Action Links: Translation Toggle & Original Publisher */}
         <div className="flex items-center gap-2">
-          {isPlainMode ? (
-            <div
-              id="badge-plainmode-translation"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xs border border-paper-border bg-paper-alt text-xs font-mono text-ink-muted"
-              title="Plain Mode active: AI translation is offline"
-            >
-              <Languages size={12} className="text-ink-muted" />
-              <span>Translation offline (Plain Mode)</span>
-            </div>
-          ) : (
-            hasOriginal && (
+          <button
+            onClick={() => toggleBookmark(article.id)}
+            className="p-1.5 rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-amber-600 transition-colors"
+            title={article.bookmarked ? 'Remove bookmark' : 'Bookmark story'}
+          >
+            <Star
+              size={13}
+              fill={article.bookmarked ? 'currentColor' : 'none'}
+              className={article.bookmarked ? 'text-amber-600' : 'text-ink-muted'}
+            />
+          </button>
+
+          {hasOriginal && (
+            isPlainMode ? (
+              <span
+                id="tooltip-plainmode-trans-toggle"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xs border border-paper-border/60 bg-paper-alt/40 text-xs font-semibold text-ink-muted opacity-60 cursor-not-allowed"
+                title="Language switching disabled while in Plain Mode"
+              >
+                <Languages size={13} />
+                <span>Original ({article.language_detected?.toUpperCase()})</span>
+              </span>
+            ) : (
               <button
-                id="language-toggle-btn"
+                id="btn-language-toggle"
                 onClick={() => setShowOriginal(!showOriginal)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xs border text-xs font-semibold transition-all shadow-xs ${
-                  showOriginal
-                    ? 'border-ink bg-ink text-paper'
-                    : 'border-paper-border bg-paper-alt text-ink hover:border-ink hover:bg-paper'
-                }`}
-                title="Toggle Original vs English Translation"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer"
+                title={showOriginal ? 'Switch to English translation' : 'Switch to original language text'}
               >
                 <Languages size={13} />
                 <span>{showOriginal ? `Original (${article.language_detected?.toUpperCase()})` : 'English Edition'}</span>
@@ -349,12 +347,23 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
         </div>
       </div>
 
-      {/* 2. Main Broadsheet Headline */}
+      {/* 2. Main Broadsheet Headline with ScrambledText Animation */}
       <h1
         id="article-headline"
         className="font-headline text-3xl sm:text-4xl lg:text-[2.65rem] font-bold text-ink tracking-tight leading-[1.18] my-6"
       >
-        {title}
+        {scrambleEnabled ? (
+          <ScrambledText
+            key={`${article.id}-${showOriginal}`}
+            text={title}
+            speed={scrambleSpeed}
+            maxIterations={scrambleMaxIterations}
+            sequential={scrambleSequential}
+            charsetPreset={scrambleCharset}
+          />
+        ) : (
+          title
+        )}
       </h1>
 
       {/* 3. Broadsheet Double Rule Divider */}
@@ -363,7 +372,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
         <div className="h-[1px] bg-ink/50 w-full" />
       </div>
 
-      {/* Pass 1 Lightweight Triage Banner & Summarize Story Action (PRD A Category 10) */}
+      {/* Pass 1 Lightweight Triage Banner */}
       {!article.summary && !isPlainMode && (
         <div
           id="pass1-triage-callout"
@@ -406,10 +415,77 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
         </div>
       )}
 
+      {/* Integrated Executive Synthesis Brief */}
+      {article.summary && (
+        <section
+          id="executive-wire-brief"
+          aria-label="Executive Wire Dispatch"
+          className="my-6 p-5 sm:p-6 rounded-lg border-2 border-ink/30 bg-paper-alt/80 shadow-sm"
+        >
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-paper-border">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-accent" />
+              <h3 className="font-headline text-base sm:text-lg font-bold text-ink uppercase tracking-wide">
+                Executive Dispatch Brief
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              {article.cluster_id && (
+                <>
+                  <button
+                    onClick={() => {
+                      setCompareClusterId(article.cluster_id);
+                      setCurrentView('compare');
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded border border-paper-border bg-paper hover:border-ink text-ink transition-colors"
+                    title="Compare coverage across global newsrooms"
+                  >
+                    <Layers size={12} />
+                    <span>Compare Outlets</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTimelineClusterId(article.cluster_id);
+                      setCurrentView('timeline');
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded border border-paper-border bg-paper hover:border-ink text-ink transition-colors"
+                    title="View evolutionary timeline of this story"
+                  >
+                    <Clock size={12} />
+                    <span>Story Timeline</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2.5 font-body text-base sm:text-[1.0625rem] text-ink leading-relaxed">
+            {summarySentences.map((s, idx) => {
+              const isActive = activeSentenceIndex === idx;
+              return (
+                <p
+                  key={idx}
+                  onMouseEnter={() => setActiveSentenceIndex(idx)}
+                  onMouseLeave={() => setActiveSentenceIndex(null)}
+                  className={`p-1.5 rounded transition-colors cursor-pointer ${
+                    isActive ? 'bg-amber-100/70 dark:bg-amber-950/40 font-semibold' : 'hover:bg-paper/60'
+                  }`}
+                >
+                  <span className="font-mono text-xs text-ink-muted mr-2 font-bold select-none">
+                    §{idx + 1}
+                  </span>
+                  {s}
+                </p>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* 4. Article Body Reading Surface */}
       <article
         id="article-body-surface"
-        className="font-body text-[1.125rem] leading-[1.8] text-ink font-normal space-y-5 max-w-prose select-text"
+        className="font-body text-[1.125rem] sm:text-[1.1875rem] leading-[1.85] text-ink font-normal space-y-6 max-w-3xl select-text my-8"
       >
         {paragraphs.map((para: string, pIdx: number) => {
           const anchors = article.anchor_phrases || [];
@@ -483,7 +559,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
               key={pIdx}
               className={`${
                 pIdx === 0
-                  ? 'first-letter:text-5xl first-letter:font-headline first-letter:font-bold first-letter:float-left first-letter:mr-3 first-letter:leading-none first-letter:text-ink'
+                  ? 'first-letter:text-5xl first-letter:font-headline first-letter:font-bold first-letter:float-left first-letter:mr-3.5 first-letter:leading-none first-letter:text-ink'
                   : ''
               }`}
             >

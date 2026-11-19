@@ -744,6 +744,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     layout_density: 'comfortable',
     reduce_motion_override: 'system',
 
+    // Telegraph Scramble Animation (React-Bits ScrambledText)
+    scramble_enabled: true,
+    scramble_speed: 35,
+    scramble_max_iterations: 12,
+    scramble_sequential: true,
+    scramble_charset: 'telegraph',
+
     // Data & Storage
     auto_cleanup_enabled: false,
     retention_days: 30,

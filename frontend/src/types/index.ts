@@ -300,6 +300,13 @@ export interface AppSettings {
   layout_density?: 'comfortable' | 'compact';
   reduce_motion_override?: 'system' | 'reduce' | 'allow';
 
+  // Telegraph Scramble Animation (React-Bits ScrambledText)
+  scramble_enabled?: boolean;
+  scramble_speed?: number;
+  scramble_max_iterations?: number;
+  scramble_sequential?: boolean;
+  scramble_charset?: 'telegraph' | 'crypto' | 'matrix' | 'numbers';
+
   // Data & Storage (PRD A Cat 4)
   auto_cleanup_enabled: boolean;
   retention_days: number;

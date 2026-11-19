@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SecretsManagerSection } from './SecretsManagerSection';
+import { ScrambledText } from '../ui/ScrambledText';
 
 interface BackupRecord {
   filename: string;
@@ -800,6 +801,126 @@ export const UnifiedSettingsDialog: React.FC<{
                       />
                       <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-ink,#111827)]" />
                     </label>
+                  </div>
+
+                  {/* Broadsheet Telegraphic Scramble Text Animation */}
+                  <div className="p-4 rounded-lg border-2 border-[var(--color-ink-border,#e5e7eb)] bg-[var(--color-paper-card,#f4efe6)]/60 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-sm font-serif flex items-center gap-1.5">
+                          <Sparkles size={14} className="text-accent" />
+                          <span>Headline Telegraph Scramble Animation</span>
+                        </div>
+                        <div className="text-[var(--color-ink-muted,#6b7280)] text-[11px]">
+                          Animates broadsheet headlines with telegraphic character decryption when switching stories.
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          id="toggle-scramble-enabled"
+                          type="checkbox"
+                          checked={storeSettings.scramble_enabled ?? true}
+                          onChange={(e) => saveSetting({ scramble_enabled: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-ink,#111827)]" />
+                      </label>
+                    </div>
+
+                    {/* Interactive Live Preview Badge */}
+                    <div className="p-3 bg-paper border border-[var(--color-ink-border,#d1d5db)] rounded-md">
+                      <div className="text-[10px] uppercase font-mono tracking-wider text-ink-muted mb-1">
+                        Live Preview (Click to replay)
+                      </div>
+                      <div className="font-headline text-base font-bold text-ink">
+                        <ScrambledText
+                          key={`preview-${storeSettings.scramble_speed}-${storeSettings.scramble_max_iterations}-${storeSettings.scramble_charset}-${storeSettings.scramble_sequential}`}
+                          text="THE WORLD DESK · TELEGRAPH WIRE DISPATCH"
+                          speed={storeSettings.scramble_speed || 35}
+                          maxIterations={storeSettings.scramble_max_iterations || 12}
+                          sequential={storeSettings.scramble_sequential || false}
+                          charsetPreset={storeSettings.scramble_charset || 'broadsheet'}
+                          revealOnHover={true}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Scramble Speed Slider */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-semibold text-xs font-serif">Scramble Frame Speed</span>
+                        <span className="font-mono text-xs font-bold px-2 py-0.5 bg-paper border border-[var(--color-ink-border,#d1d5db)] rounded-xs">
+                          {storeSettings.scramble_speed || 35}ms
+                        </span>
+                      </div>
+                      <input
+                        id="slider-scramble-speed"
+                        type="range"
+                        min={15}
+                        max={100}
+                        step={5}
+                        value={storeSettings.scramble_speed || 35}
+                        onChange={(e) => saveSetting({ scramble_speed: parseInt(e.target.value, 10) })}
+                        className="w-full accent-[var(--color-ink,#111827)] cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Scramble Max Iterations Slider */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-semibold text-xs font-serif">Decryption Iterations</span>
+                        <span className="font-mono text-xs font-bold px-2 py-0.5 bg-paper border border-[var(--color-ink-border,#d1d5db)] rounded-xs">
+                          {storeSettings.scramble_max_iterations || 12} cycles
+                        </span>
+                      </div>
+                      <input
+                        id="slider-scramble-iterations"
+                        type="range"
+                        min={4}
+                        max={30}
+                        step={1}
+                        value={storeSettings.scramble_max_iterations || 12}
+                        onChange={(e) => saveSetting({ scramble_max_iterations: parseInt(e.target.value, 10) })}
+                        className="w-full accent-[var(--color-ink,#111827)] cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Character Set Preset & Sequential Reveal */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="block font-semibold text-xs font-serif mb-1">
+                          Telegraph Glyph Preset
+                        </label>
+                        <select
+                          id="select-scramble-charset"
+                          value={storeSettings.scramble_charset || 'broadsheet'}
+                          onChange={(e) => saveSetting({ scramble_charset: e.target.value as any })}
+                          className="w-full px-2.5 py-1 text-xs border border-[var(--color-ink-border,#d1d5db)] bg-paper text-ink rounded cursor-pointer"
+                        >
+                          <option value="broadsheet">Broadsheet Telegraph (A-Z 0-9 — · / [ ])</option>
+                          <option value="cipher">Cryptographic Cipher (!@#$%&*)</option>
+                          <option value="matrix">Matrix Code (Japanese Katakana & Digits)</option>
+                          <option value="alphanumeric">Clean Alphanumeric (A-Z a-z 0-9)</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center justify-between sm:justify-end gap-3 pt-4 sm:pt-0">
+                        <div>
+                          <div className="font-semibold text-xs font-serif">Sequential Reveal</div>
+                          <div className="text-[10px] text-ink-muted">Left-to-right cascade</div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            id="toggle-scramble-sequential"
+                            type="checkbox"
+                            checked={storeSettings.scramble_sequential ?? false}
+                            onChange={(e) => saveSetting({ scramble_sequential: e.target.checked })}
+                            className="sr-only peer"
+                          />
+                          <div className="w-8 h-4 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[var(--color-ink,#111827)]" />
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

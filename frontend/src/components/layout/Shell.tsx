@@ -3,7 +3,7 @@
  * Broadsheet Newspaper Application Shell (v2.0)
  * Orchestrates TopBar, Bat Masthead Menu, Main Split Reader, Global Router, Bottom Ticker, and Lenis Scroll.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { Toaster } from 'sonner';
 import { TopBar } from './TopBar';
 import { StatusStrip } from './StatusStrip';
@@ -12,8 +12,7 @@ import { RightIconRail } from './RightIconRail';
 import { BatMenuOverlay } from '../bat/BatMenuOverlay';
 import { NewsTicker } from './NewsTicker';
 import { ArticlePanel } from '../article/ArticlePanel';
-import { SummaryPanel } from '../article/SummaryPanel';
-import { CardStrip } from '../article/CardStrip';
+import { CircularDock } from '../article/CircularDock';
 import { UnifiedSettingsDialog } from '../settings/UnifiedSettingsDialog';
 import { SourcesSettingsDesk } from '../sources/SourcesSettingsDesk';
 import { AlertBanner } from '../alert/AlertBanner';
@@ -37,7 +36,6 @@ import { ThemeStudioDrawer } from '../settings/ThemeStudioDrawer';
 import { usePinchZoom } from '../../hooks/usePinchZoom';
 import { THEME_CATALOG, deriveThemePalette, applyThemeToDOM } from '../../styles/themes';
 import { useAppStore } from '../../store/useAppStore';
-import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle, type ImperativePanelGroupHandle } from 'react-resizable-panels';
 
 export const Shell: React.FC = () => {
   const currentView = useAppStore((s) => s.currentView);
@@ -47,8 +45,6 @@ export const Shell: React.FC = () => {
   const nextArticle = useAppStore((s) => s.nextArticle);
   const prevArticle = useAppStore((s) => s.prevArticle);
   const theme = useAppStore((s) => s.theme);
-  const isPlainMode = useAppStore((s) => s.settings.plain_mode_enabled ?? false);
-  const layoutPreset = useAppStore((s) => s.layoutPreset);
   const setLayoutPreset = useAppStore((s) => s.setLayoutPreset);
 
   // Activate trackpad pinch-to-zoom and keyboard font scaling
@@ -167,55 +163,6 @@ export const Shell: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isBatMenuOpen, setBatMenuOpen, nextArticle, prevArticle, setCurrentView]);
 
-  // Resizable Panels State & Handlers
-  const panelSizesH = useAppStore((s) => s.panelSizesH);
-  const panelSizesV = useAppStore((s) => s.panelSizesV);
-  const setPanelSizesH = useAppStore((s) => s.setPanelSizesH);
-  const setPanelSizesV = useAppStore((s) => s.setPanelSizesV);
-
-  const stripPanelRef = useRef<ImperativePanelHandle>(null);
-  const horizontalGroupRef = useRef<ImperativePanelGroupHandle>(null);
-  const verticalGroupRef = useRef<ImperativePanelGroupHandle>(null);
-
-  const handleHorizontalLayout = (sizes: number[]) => {
-    if (sizes.length === 2 && sizes[0] && sizes[1]) {
-      setPanelSizesH([sizes[0], sizes[1]]);
-    }
-  };
-
-  const handleVerticalLayout = (sizes: number[]) => {
-    if (sizes.length === 2 && sizes[0] && sizes[1]) {
-      setPanelSizesV([sizes[0], sizes[1]]);
-    }
-  };
-
-  const handleResetH = () => {
-    horizontalGroupRef.current?.setLayout([60, 40]);
-    setPanelSizesH([60, 40]);
-  };
-
-  const handleResetV = () => {
-    if (stripPanelRef.current?.isCollapsed()) {
-      stripPanelRef.current.expand();
-    }
-    verticalGroupRef.current?.setLayout([78, 22]);
-    setPanelSizesV([78, 22]);
-  };
-
-  // Synchronize layout preset with imperative panel group handles (S3)
-  useEffect(() => {
-    if (layoutPreset === 'balanced') {
-      horizontalGroupRef.current?.setLayout([60, 40]);
-      verticalGroupRef.current?.setLayout([78, 22]);
-    } else if (layoutPreset === 'focus') {
-      horizontalGroupRef.current?.setLayout([85, 15]);
-      verticalGroupRef.current?.setLayout([85, 15]);
-    } else if (layoutPreset === 'split') {
-      horizontalGroupRef.current?.setLayout([50, 50]);
-      verticalGroupRef.current?.setLayout([70, 30]);
-    }
-  }, [layoutPreset]);
-
   return (
     <div
       id="app-shell"
@@ -252,101 +199,21 @@ export const Shell: React.FC = () => {
               <CategoryRailView />
             </ErrorBoundary>
           ) : (
-            /* Main Reader View with Accessible Resizable Panels */
-            <PanelGroup
-              ref={verticalGroupRef}
-              direction="vertical"
-              id="reader-vertical-group"
-              onLayout={handleVerticalLayout}
-              className="w-full h-full min-h-0 min-w-0 flex flex-col"
-            >
-              {/* Top Reader Desk: Article + Summary (or Full-Width Reader in Plain Mode) */}
-              <Panel
-                id="reader-top-panel"
-                defaultSize={panelSizesV[0]}
-                minSize={50}
-                maxSize={90}
-                className="min-h-0 min-w-0"
-              >
-                {isPlainMode ? (
-                  <div id="reader-plain-mode-container" className="w-full h-full min-h-0 min-w-0">
-                    <ErrorBoundary panelName="Article Reader Desk (Plain Mode)">
-                      <ArticlePanel />
-                    </ErrorBoundary>
-                  </div>
-                ) : (
-                  <PanelGroup
-                    ref={horizontalGroupRef}
-                    direction="horizontal"
-                    id="reader-horizontal-group"
-                    onLayout={handleHorizontalLayout}
-                    className="w-full h-full min-h-0 min-w-0 flex"
-                  >
-                    {/* Left Panel: Article Column */}
-                    <Panel
-                      id="reader-article-panel"
-                      defaultSize={panelSizesH[0]}
-                      minSize={30}
-                      maxSize={75}
-                      className="min-h-0 min-w-0 h-full"
-                    >
-                      <ErrorBoundary panelName="Article Reader Desk">
-                        <ArticlePanel />
-                      </ErrorBoundary>
-                    </Panel>
-
-                    {/* Vertical Drag Handle between Article & Summary */}
-                    <PanelResizeHandle
-                      id="handle-article-summary"
-                      onDoubleClick={handleResetH}
-                      aria-label="Resize article and summary columns (Double-click to reset)"
-                      className="resize-handle-vertical"
-                    >
-                      <div className="resize-handle-grip-v" />
-                    </PanelResizeHandle>
-
-                    {/* Right Panel: Summary Column */}
-                    <Panel
-                      id="reader-summary-panel"
-                      defaultSize={panelSizesH[1]}
-                      minSize={25}
-                      maxSize={70}
-                      className="min-h-0 min-w-0 h-full"
-                    >
-                      <ErrorBoundary panelName="Summary Wire Desk">
-                        <SummaryPanel />
-                      </ErrorBoundary>
-                    </Panel>
-                  </PanelGroup>
-                )}
-              </Panel>
-
-              {/* Horizontal Drag Handle between Reading Desk & Bottom Card Strip */}
-              <PanelResizeHandle
-                id="handle-desk-strip"
-                onDoubleClick={handleResetV}
-                aria-label="Resize wire dispatch strip (Double-click to reset, drag down to snap-collapse)"
-                className="resize-handle-horizontal"
-              >
-                <div className="resize-handle-grip-h" />
-              </PanelResizeHandle>
-
-              {/* Bottom Strip: Snap-collapsible Wire Cards */}
-              <Panel
-                id="reader-bottom-strip-panel"
-                ref={stripPanelRef}
-                defaultSize={panelSizesV[1]}
-                minSize={12}
-                maxSize={45}
-                collapsible={true}
-                collapsedSize={0}
-                className="min-h-0 min-w-0"
-              >
-                <ErrorBoundary panelName="Dispatch Wire Strip">
-                  <CardStrip />
+            /* Main Reader View: Unified Full-Box Broadsheet Desk with Circling Floating Docker */
+            <div id="unified-reader-desk" className="relative w-full h-full min-h-0 min-w-0 overflow-hidden">
+              <div id="reader-article-panel" className="w-full h-full min-h-0 min-w-0">
+                <ErrorBoundary panelName="Article Reader Desk">
+                  <ArticlePanel />
                 </ErrorBoundary>
-              </Panel>
-            </PanelGroup>
+              </div>
+
+              {/* Circling Bottom Docker overlaying the unified reader desk */}
+              <div id="reader-bottom-strip-panel" className="absolute bottom-0 left-0 right-0 pointer-events-none z-30">
+                <ErrorBoundary panelName="Circling Wire Docker">
+                  <CircularDock />
+                </ErrorBoundary>
+              </div>
+            </div>
           )}
         </main>
 
