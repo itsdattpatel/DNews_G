@@ -93,14 +93,13 @@ describe('CircularDock Component', () => {
     expect(html).toBe('');
   });
 
-  it('renders CircularGalleryWireDock shell and controls', () => {
+  it('renders CircularGalleryWireDock pure floating cards container', () => {
     const html = renderToStaticMarkup(
       <CircularGalleryWireDock forcedArticles={dummyArticles} forcedSelectedArticleId={102} />
     );
 
     expect(html).toContain('circular-dock');
-    expect(html).toContain('React Bits Orbit Docker');
-    expect(html).toContain('Dispatch 2 of 3');
+    expect(html).toContain('circular-gallery');
   });
 });
 

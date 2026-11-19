@@ -316,6 +316,10 @@ export interface AppSettings {
   gallery_wave?: number;
   gallery_fade_edges?: number;
   gallery_gap?: number;
+  gallery_border_radius?: number;
+  gallery_shadow?: number;
+  gallery_grayscale?: boolean;
+  gallery_auto_scroll?: number;
 
   // Data & Storage (PRD A Cat 4)
   auto_cleanup_enabled: boolean;

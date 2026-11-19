@@ -760,6 +760,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     gallery_wave: 0.2,
     gallery_fade_edges: 0.18,
     gallery_gap: 0.18,
+    gallery_border_radius: 0.04,
+    gallery_shadow: 0.25,
+    gallery_grayscale: false,
+    gallery_auto_scroll: 0,
 
     // Data & Storage
     auto_cleanup_enabled: false,

@@ -18,7 +18,7 @@ const textureCache = new Map<string, string>();
 
 export function generateArticleCardTexture(
   article: Article,
-  isSelected: boolean,
+  isSelected: boolean = false,
   options: CardStyleOptions = {}
 ): string {
   const isDark = options.isDark ?? false;
@@ -26,11 +26,11 @@ export function generateArticleCardTexture(
   const ink = options.inkColor || (isDark ? '#E8E4DA' : '#1A1208');
   const inkSecondary = isDark ? '#A89880' : '#5C4E3A';
   const border = isSelected
-    ? (isDark ? '#F5F2EB' : '#1A1208')
+    ? (isDark ? '#C0392B' : '#1A1208')
     : (options.borderColor || (isDark ? '#3D362A' : '#D9D0BE'));
   const accent = options.accentColor || '#C0392B';
 
-  const cacheKey = `${article.id}-${isSelected ? 'sel' : 'def'}-${isDark ? 'dark' : 'light'}-${article.title_english?.slice(0, 20)}`;
+  const cacheKey = `${article.id}-${isSelected ? 'sel' : 'std'}-${isDark ? 'dark' : 'light'}-${article.title_english?.slice(0, 20)}`;
   if (textureCache.has(cacheKey)) {
     return textureCache.get(cacheKey)!;
   }

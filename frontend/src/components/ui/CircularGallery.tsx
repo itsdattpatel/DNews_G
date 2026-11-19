@@ -39,6 +39,8 @@ export interface CircularGalleryProps {
   items?: CircularGalleryItem[];
   bend?: number;
   textColor?: string;
+  placeholderColor?: string;
+  showRing?: boolean;
   borderRadius?: number;
   font?: string;
   fontUrl?: string;
@@ -264,6 +266,8 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
   items = [],
   bend = 2.5,
   textColor = '#1A1208',
+  placeholderColor,
+  showRing = false,
   borderRadius = 0.04,
   font = DEFAULT_FONT,
   fontUrl,
@@ -305,6 +309,8 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
     items: list,
     bend,
     textColor,
+    placeholderColor: placeholderColor || (textColor === '#E8E4DA' ? '#1C1914' : '#FDFCFA'),
+    showRing,
     borderRadius: clamp(borderRadius, 0, 0.5),
     scrollSpeed: Math.max(0, scrollSpeed),
     scrollEase: clamp(scrollEase, 0.001, 1),
@@ -462,7 +468,8 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
       if (!url) return { texture: null, aspect: 1, ready: 0, loaded: false };
       const existing = textures.get(url);
       if (existing) return existing;
-      const entry = { texture: null as any, aspect: 1, ready: 0, loaded: false };
+      const isDataUri = typeof url === 'string' && url.startsWith('data:');
+      const entry = { texture: null as any, aspect: 1, ready: isDataUri ? 1 : 0, loaded: false };
       textures.set(url, entry);
       const image = new Image();
       image.crossOrigin = 'anonymous';
@@ -486,6 +493,7 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
         entry.texture = texture;
         entry.aspect = image.naturalWidth / Math.max(1, image.naturalHeight);
         entry.loaded = true;
+        entry.ready = 1;
         wake();
       };
       image.src = url;
@@ -625,10 +633,10 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
       gl.uniform1f(u.uFocal, view.height * 1.207 * ratio);
       gl.uniform1f(u.uWaveTime, state.waveTime);
       gl.uniform1f(u.uFade, s.fadeEdges);
-      gl.uniform3fv(u.uPlaceholder, parse(s.textColor));
-      gl.uniform3fv(u.uRingColor, parse(s.textColor));
-      gl.uniform1f(u.uRingWidth, 2.5 * ratio);
-      gl.uniform1f(u.uRingGap, 4 * ratio);
+      gl.uniform3fv(u.uPlaceholder, parse(s.placeholderColor));
+      gl.uniform3fv(u.uRingColor, s.showRing ? parse(s.textColor) : [0, 0, 0]);
+      gl.uniform1f(u.uRingWidth, s.showRing ? 2.5 * ratio : 0);
+      gl.uniform1f(u.uRingGap, s.showRing ? 4 * ratio : 0);
       gl.activeTexture(gl.TEXTURE0);
       gl.uniform1i(u.uTexture, 0);
 
@@ -666,7 +674,7 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
         gl.uniform1f(u.uReady, entry?.ready ?? 1);
         gl.uniform1f(u.uGray, card.gray);
         gl.uniform1f(u.uDim, card.dim);
-        gl.uniform1f(u.uRing, card.slot === state.active ? (1 - card.focus) : 0);
+        gl.uniform1f(u.uRing, s.showRing && card.slot === state.active ? (1 - card.focus) : 0);
         gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_SHORT, 0);
       });
     };
