@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SecretsManagerSection } from './SecretsManagerSection';
+import { useAppUpdate } from '../../hooks/useAppUpdate';
 
 interface BackupRecord {
   filename: string;
@@ -240,6 +241,7 @@ export const UnifiedSettingsDialog: React.FC<{
   const updateStoreSettings = useAppStore((s) => s.updateSettings);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
+  const appUpdate = useAppUpdate();
 
   // Active section & search
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(initialSection ?? 'general');
@@ -662,6 +664,62 @@ export const UnifiedSettingsDialog: React.FC<{
                       />
                       <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-ink,#111827)]" />
                     </label>
+                  </div>
+
+                  {/* App Edition & GitHub Releases Update Desk */}
+                  <div className="p-3 bg-[var(--color-paper-card,#f4efe6)] border border-[var(--color-ink-border,#d1d5db)] rounded-xs space-y-2">
+                    <div className="flex items-center justify-between border-b border-[var(--color-ink-border,#d1d5db)] pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-serif font-bold text-xs uppercase tracking-wide">
+                          Edition & Version Updates
+                        </span>
+                        <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 bg-ink text-paper rounded-2xs">
+                          v{appUpdate.currentVersion}
+                        </span>
+                      </div>
+                      <button
+                        id="btn-check-github-updates"
+                        onClick={() => appUpdate.checkForUpdates()}
+                        disabled={appUpdate.isChecking}
+                        className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-semibold border border-ink/40 bg-paper hover:bg-paper-alt text-ink rounded-xs disabled:opacity-50 transition-colors cursor-pointer"
+                      >
+                        <RefreshCw size={12} className={appUpdate.isChecking ? 'animate-spin' : ''} />
+                        <span>{appUpdate.isChecking ? 'Checking...' : 'Check GitHub'}</span>
+                      </button>
+                    </div>
+
+                    <div className="text-[11px] text-ink-secondary">
+                      {appUpdate.isChecking ? (
+                        <p className="font-mono">Connecting to GitHub releases repository...</p>
+                      ) : appUpdate.isUpdateAvailable ? (
+                        <div className="space-y-1.5">
+                          <p className="text-accent font-bold font-mono">
+                            Extra Edition available: {appUpdate.latestVersion}
+                          </p>
+                          <p className="text-ink text-[10px]">
+                            {appUpdate.apkAsset
+                              ? `Direct APK package available (${(appUpdate.apkAsset.size / (1024 * 1024)).toFixed(1)} MB).`
+                              : 'New release assets published on repository.'}
+                          </p>
+                          <button
+                            onClick={appUpdate.downloadAndInstall}
+                            className="flex items-center gap-1.5 px-3 py-1 bg-accent text-white font-mono text-xs font-bold rounded-xs shadow-sm hover:bg-accent-dark transition-colors"
+                          >
+                            <Download size={13} />
+                            <span>Download APK Update</span>
+                          </button>
+                        </div>
+                      ) : appUpdate.error ? (
+                        <p className="text-red-600 font-mono text-[10px]">
+                          Update check notice: {appUpdate.error}
+                        </p>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-positive font-mono text-[10px]">
+                          <Check size={12} />
+                          <span>Desk is up to date (running release v{appUpdate.currentVersion}).</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

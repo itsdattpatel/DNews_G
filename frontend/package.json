@@ -8,9 +8,15 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "cap:sync": "npx cap sync android",
+    "cap:open": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
+    "@capacitor/core": "^8.6.2",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource/cormorant-garamond": "5.3.0",
     "@fontsource/eb-garamond": "5.3.0",
@@ -53,6 +59,7 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
     "@playwright/test": "1.48.2",
     "@tailwindcss/typography": "0.5.15",
     "@types/node": "20.16.11",

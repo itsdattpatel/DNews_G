@@ -15,6 +15,8 @@
     "prepackage": "node scripts/ensure-binaries.cjs",
     "package:win": "npm run prepackage && npm run build:all && electron-builder --win --x64",
     "package:win:portable": "npm run prepackage && npm run build:all && electron-builder --win portable --x64",
+    "package:android": "npm run build --workspace=frontend && cd frontend && npx cap sync android && cd android && .\\gradlew.bat assembleDebug",
+    "open:android": "cd frontend && npx cap open android",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "test": "npm run test --workspace=backend && npm run test --workspace=frontend",

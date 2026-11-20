@@ -31,6 +31,7 @@ import { ControlRoomDesk } from '../control-room/ControlRoomDesk';
 import { CommandPalette } from '../common/CommandPalette';
 import { TVMiniPlayer } from '../tv/TVMiniPlayer';
 import { ErrorBoundary } from '../common/ErrorBoundary';
+import { AppUpdateBanner } from '../common/AppUpdateBanner';
 import { ZoomHUD } from '../common/ZoomHUD';
 import { ThemeStudioDrawer } from '../settings/ThemeStudioDrawer';
 import { usePinchZoom } from '../../hooks/usePinchZoom';
@@ -231,6 +232,7 @@ export const Shell: React.FC = () => {
       {/* 6. Notifications & Modals */}
       <ErrorBoundary panelName="Alert Banners">
         <AlertBanner />
+        <AppUpdateBanner />
       </ErrorBoundary>
 
       <ErrorBoundary panelName="Settings Dialog">

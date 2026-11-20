@@ -47,3 +47,9 @@ assets/bin/
 # User API key store (written by in-app Secrets Manager)
 user.env
 **/user.env
+
+# Android build outputs
+.gradle/
+**/android/.gradle/
+**/android/app/build/
+**/android/build/
