@@ -240,6 +240,41 @@ export const api = {
     return handleResponse<Source>(res);
   },
 
+  async testSourceFeed(url: string): Promise<{
+    success: boolean;
+    title?: string;
+    description?: string;
+    link?: string;
+    targetUrl?: string;
+    faviconUrl?: string;
+    total_items?: number;
+    sample_items?: Array<{ title: string; link: string; pubDate: string; snippet: string }>;
+    error?: string;
+  }> {
+    const res = await fetch('/api/sources/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    return res.json();
+  },
+
+  async addCustomSource(source: { name: string; url: string; country?: string; fetch_type?: string; region?: string; language?: string }): Promise<{ success: boolean; source: Source }> {
+    const res = await fetch('/api/sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(source),
+    });
+    return handleResponse<{ success: boolean; source: Source }>(res);
+  },
+
+  async deleteSource(id: number): Promise<{ success: boolean; deletedId: number }> {
+    const res = await fetch(`/api/sources/${id}`, {
+      method: 'DELETE',
+    });
+    return handleResponse<{ success: boolean; deletedId: number }>(res);
+  },
+
   // ─── Archive Search ───────────────────────────────────────────────────────
   async searchArchive(query: string): Promise<SearchResponse> {
     const res = await fetch('/api/search', {

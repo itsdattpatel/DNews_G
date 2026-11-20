@@ -13,6 +13,7 @@ import { DualTimestamp } from '../common/DualTimestamp';
 import { WelcomeBackCard } from './WelcomeBackCard';
 import { ConfirmationBadge } from '../common/ConfirmationBadge';
 import { EntityDossierDrawer } from './EntityDossierDrawer';
+import { ReaderLayoutSwitcher } from './ReaderLayoutSwitcher';
 import type { Article } from '../../types';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
@@ -59,6 +60,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
   const setCompareClusterId = useAppStore((s) => s.setCompareClusterId);
   const setTimelineClusterId = useAppStore((s) => s.setTimelineClusterId);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
+  const readerLayout = useAppStore((s) => s.readerLayout);
 
   const [showOriginal, setShowOriginal] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
@@ -304,8 +306,10 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
           )}
         </div>
 
-        {/* Right Action Links: Translation Toggle & Original Publisher */}
-        <div className="flex items-center gap-2">
+        {/* Right Action Links: Layout Switcher, Translation Toggle & Original Publisher */}
+        <div className="flex flex-wrap items-center gap-2">
+          <ReaderLayoutSwitcher />
+
           <button
             onClick={() => toggleBookmark(article.id)}
             className="p-1.5 rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-amber-600 transition-colors"
@@ -356,19 +360,79 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
         </div>
       </div>
 
-      {/* 2. Main Broadsheet Headline */}
-      <h1
-        id="article-headline"
-        className="font-headline text-3xl sm:text-4xl lg:text-[2.65rem] font-bold text-ink tracking-tight leading-[1.18] my-6"
-      >
-        {title}
-      </h1>
+      {/* 2. Main Headline Presentation based on readerLayout */}
+      {readerLayout === 'wire' ? (
+        <div id="wire-terminal-headline-box" className="my-6 p-4 border-2 border-ink bg-paper-alt shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-accent font-mono text-[11px] font-bold uppercase tracking-widest pb-2 border-b border-paper-border mb-3">
+            <span>&gt;&gt;&gt; URGENT WIRE TELETYPE DISPATCH // REF #{article.id}</span>
+            <span className="px-2 py-0.5 bg-accent/15 border border-accent rounded-xs">
+              URGENCY: {article.breaking_score}%
+            </span>
+          </div>
+          <h1
+            id="article-headline"
+            className="font-mono text-2xl sm:text-3xl font-bold text-ink uppercase tracking-tight leading-snug"
+          >
+            {title}
+          </h1>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 mt-3 border-t border-paper-border font-mono text-[11px] text-ink-secondary">
+            <div>LOC: <span className="text-ink font-bold uppercase">{article.source.country}</span></div>
+            <div>BUREAU: <span className="text-ink font-bold uppercase">{article.source.name}</span></div>
+            <div>STATUS: <span className="text-positive font-bold uppercase">VERIFIED</span></div>
+            <div>LENGTH: <span className="text-ink font-bold tabular-nums">{wordCount} WORDS</span></div>
+          </div>
+        </div>
+      ) : readerLayout === 'photojournalism' ? (
+        <div id="photojournalism-layout-header" className="my-6 space-y-4">
+          {/* Full-Bleed Editorial Hero Visual */}
+          <div
+            id="photojournalism-hero-banner"
+            className="relative w-full h-64 sm:h-80 md:h-96 rounded-xs overflow-hidden border-2 border-ink bg-paper-alt shadow-sm"
+          >
+            <img
+              src={(article as { image_url?: string }).image_url || `https://picsum.photos/seed/${article.id}/1200/600`}
+              alt={title}
+              className="w-full h-full object-cover filter contrast-[1.05]"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${article.id + 10}/1200/600`;
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
+            <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between font-mono text-[11px] text-paper">
+              <span className="bg-ink/90 px-2 py-0.5 rounded-2xs uppercase tracking-wider font-bold">
+                Photojournalism Bureau • {article.source.name}
+              </span>
+              <span className="text-paper/80 italic font-serif">
+                Dispatch location: {article.source.country}
+              </span>
+            </div>
+          </div>
 
-      {/* 3. Broadsheet Double Rule Divider */}
-      <div className="w-full flex flex-col gap-[3px] my-6" role="separator">
-        <div className="h-[2px] bg-ink w-full" />
-        <div className="h-[1px] bg-ink/50 w-full" />
-      </div>
+          <h1
+            id="article-headline"
+            className="font-headline text-3xl sm:text-4xl lg:text-[2.85rem] font-black text-ink tracking-tight leading-[1.15] pt-2"
+          >
+            {title}
+          </h1>
+
+          <div className="w-full h-[1px] bg-paper-border" />
+        </div>
+      ) : (
+        <>
+          <h1
+            id="article-headline"
+            className="font-headline text-3xl sm:text-4xl lg:text-[2.65rem] font-bold text-ink tracking-tight leading-[1.18] my-6"
+          >
+            {title}
+          </h1>
+
+          {/* 3. Broadsheet Double Rule Divider */}
+          <div className="w-full flex flex-col gap-[3px] my-6" role="separator">
+            <div className="h-[2px] bg-ink w-full" />
+            <div className="h-[1px] bg-ink/50 w-full" />
+          </div>
+        </>
+      )}
 
       {/* Entity & Key Figures Dossier Bar */}
       {entityKeywords.length > 0 && (
@@ -504,10 +568,32 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
         </section>
       )}
 
-      {/* 4. Article Body Reading Surface */}
+      {/* Photojournalism Pull-Quote Callout (Pillar 4) */}
+      {readerLayout === 'photojournalism' && article.summary && (
+        <div
+          id="photojournalism-pullquote"
+          className="my-8 py-6 px-8 border-y-2 border-ink bg-paper-alt/50 relative text-center max-w-2xl mx-auto"
+        >
+          <span className="text-accent text-5xl font-serif leading-none absolute -top-4 left-6 select-none opacity-80">“</span>
+          <blockquote className="font-serif italic text-xl sm:text-2xl text-ink leading-relaxed">
+            {summarySentences[0] || article.summary}
+          </blockquote>
+          <div className="mt-3 font-mono text-[10px] uppercase tracking-widest text-ink-muted font-bold">
+            — Key Dispatch Quote • The World Desk
+          </div>
+        </div>
+      )}
+
+      {/* 4. Article Body Reading Surface adapted for readerLayout */}
       <article
         id="article-body-surface"
-        className="font-body text-[1.125rem] sm:text-[1.1875rem] leading-[1.85] text-ink font-normal space-y-6 max-w-3xl select-text my-8"
+        className={`select-text my-8 ${
+          readerLayout === 'wire'
+            ? 'font-mono text-xs sm:text-sm leading-relaxed text-ink space-y-4 max-w-4xl p-5 border border-paper-border bg-paper-alt/40 rounded-xs'
+            : readerLayout === 'photojournalism'
+            ? 'font-serif text-[1.1875rem] sm:text-[1.25rem] leading-[2.0] text-ink font-normal space-y-7 max-w-2xl mx-auto'
+            : 'font-body text-[1.125rem] sm:text-[1.1875rem] leading-[1.85] text-ink font-normal space-y-6 max-w-3xl'
+        }`}
       >
         {paragraphs.map((para: string, pIdx: number) => {
           const anchors = article.anchor_phrases || [];
@@ -580,12 +666,19 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
             <p
               key={pIdx}
               className={`${
-                pIdx === 0
+                readerLayout === 'broadsheet' && pIdx === 0
                   ? 'first-letter:text-5xl first-letter:font-headline first-letter:font-bold first-letter:float-left first-letter:mr-3.5 first-letter:leading-none first-letter:text-ink'
+                  : readerLayout === 'wire'
+                  ? 'flex items-start gap-2.5 font-mono'
                   : ''
               }`}
             >
-              {renderedContent}
+              {readerLayout === 'wire' && (
+                <span className="font-mono text-[10px] text-accent select-none shrink-0 pt-0.5 font-bold">
+                  &gt;&gt; [{String(pIdx + 1).padStart(3, '0')}]
+                </span>
+              )}
+              <span className="flex-1">{renderedContent}</span>
             </p>
           );
         })}

@@ -26,6 +26,10 @@ import {
   Plus,
   Search,
   ExternalLink,
+  Trash2,
+  Rss,
+  CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -110,6 +114,24 @@ export const SourcesSettingsDesk: React.FC = () => {
   const [newProviderUrl, setNewProviderUrl] = useState('');
   const [newProviderKey, setNewProviderKey] = useState('');
 
+  // Add custom wire source modal state (Pillar 4: Feature 9)
+  const [isAddSourceModalOpen, setIsAddSourceModalOpen] = useState(false);
+  const [newSourceUrl, setNewSourceUrl] = useState('');
+  const [newSourceName, setNewSourceName] = useState('');
+  const [newSourceCountry, setNewSourceCountry] = useState('Global');
+  const [newSourceRegion] = useState('Global');
+  const [isTestingFeed, setIsTestingFeed] = useState(false);
+  const [testFeedResult, setTestFeedResult] = useState<{
+    success: boolean;
+    title?: string;
+    description?: string;
+    link?: string;
+    faviconUrl?: string | null;
+    total_items?: number;
+    sample_items?: Array<{ title: string; link: string; pubDate: string; snippet: string }>;
+    error?: string;
+  } | null>(null);
+
   // Fetch sources list from API
   const loadSources = async () => {
     setSourcesLoading(true);
@@ -193,6 +215,74 @@ export const SourcesSettingsDesk: React.FC = () => {
     setNewProviderName('');
     setNewProviderUrl('');
     setNewProviderKey('');
+  };
+
+  const handleTestFeed = async () => {
+    if (!newSourceUrl.trim()) {
+      toast.error('Please enter an RSS or YouTube feed URL to test.');
+      return;
+    }
+    setIsTestingFeed(true);
+    setTestFeedResult(null);
+    try {
+      const res = await api.testSourceFeed(newSourceUrl.trim());
+      setTestFeedResult(res);
+      if (res.success) {
+        toast.success(`Feed verified! Found ${res.total_items} items.`);
+        if (!newSourceName.trim() && res.title) {
+          setNewSourceName(res.title);
+        }
+      } else {
+        toast.error(res.error || 'Feed validation failed.');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setTestFeedResult({ success: false, error: msg });
+      toast.error(`Verification error: ${msg}`);
+    } finally {
+      setIsTestingFeed(false);
+    }
+  };
+
+  const handleSaveCustomSource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSourceUrl.trim() || !newSourceName.trim()) {
+      toast.error('Source name and URL are required.');
+      return;
+    }
+    try {
+      const isYoutube = newSourceUrl.includes('youtube.com');
+      const res = await api.addCustomSource({
+        name: newSourceName.trim(),
+        url: newSourceUrl.trim(),
+        country: newSourceCountry.trim() || 'Global',
+        region: newSourceRegion.trim() || 'Global',
+        fetch_type: isYoutube ? 'youtube' : 'rss',
+      });
+      if (res.success && res.source) {
+        setSources((prev) => [res.source, ...prev]);
+        toast.success(`Wire bureau "${res.source.name}" registered and activated.`);
+        setIsAddSourceModalOpen(false);
+        setNewSourceUrl('');
+        setNewSourceName('');
+        setTestFeedResult(null);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to register wire: ${msg}`);
+    }
+  };
+
+  const handleDeleteSource = async (sourceId: number, name: string) => {
+    if (!confirm(`Are you sure you want to remove wire bureau "${name}"?`)) return;
+    try {
+      await api.deleteSource(sourceId);
+      setSources((prev) => prev.filter((s) => s.id !== sourceId));
+      toast.success(`Wire bureau "${name}" removed.`);
+    } catch (err) {
+      console.error('[SourcesSettingsDesk] Failed to delete source:', err);
+      toast.error('Failed to remove wire bureau.');
+    }
   };
 
   const filteredSources = filterSources(sources, selectedCountry, searchQuery);
@@ -392,8 +482,22 @@ export const SourcesSettingsDesk: React.FC = () => {
                 <span>Monitored Global Wire Bureaus ({filteredSources.length})</span>
               </div>
 
-              {/* Filters */}
-              <div className="flex items-center gap-2 font-mono text-xs">
+              {/* Add Custom Feed & Filters */}
+              <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
+                <button
+                  type="button"
+                  id="btn-open-add-custom-source-modal"
+                  onClick={() => {
+                    setIsAddSourceModalOpen(true);
+                    setTestFeedResult(null);
+                  }}
+                  className="flex items-center gap-1 px-2.5 py-1 border border-ink bg-paper hover:bg-ink hover:text-paper font-mono text-xs uppercase font-bold tracking-wider transition-colors cursor-pointer"
+                  title="Add custom RSS feed or YouTube channel"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Register Custom Wire</span>
+                </button>
+
                 <select
                   id="sources-country-filter"
                   value={selectedCountry ?? ''}
@@ -464,18 +568,30 @@ export const SourcesSettingsDesk: React.FC = () => {
                         </span>
                       </div>
 
-                      <button
-                        type="button"
-                        id={`btn-toggle-source-${source.id}`}
-                        onClick={() => handleToggleSource(source.id, source.enabled ?? true)}
-                        className={`px-2 py-0.5 border font-bold uppercase text-[10px] tracking-wider transition-colors ${
-                          source.enabled
-                            ? 'border-paper-border bg-paper hover:border-ink text-ink'
-                            : 'border-accent bg-accent/10 text-accent font-bold'
-                        }`}
-                      >
-                        {source.enabled ? 'Disable' : 'Enable'}
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          id={`btn-delete-source-${source.id}`}
+                          onClick={() => handleDeleteSource(source.id, source.name)}
+                          className="p-1 border border-paper-border hover:border-accent text-ink-muted hover:text-accent transition-colors cursor-pointer"
+                          title="Remove Wire Bureau"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          id={`btn-toggle-source-${source.id}`}
+                          onClick={() => handleToggleSource(source.id, source.enabled ?? true)}
+                          className={`px-2 py-0.5 border font-bold uppercase text-[10px] tracking-wider transition-colors cursor-pointer ${
+                            source.enabled
+                              ? 'border-paper-border bg-paper hover:border-ink text-ink'
+                              : 'border-accent bg-accent/10 text-accent font-bold'
+                          }`}
+                        >
+                          {source.enabled ? 'Disable' : 'Enable'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -560,6 +676,171 @@ export const SourcesSettingsDesk: React.FC = () => {
                     className="px-3 py-1.5 border border-ink bg-ink text-paper uppercase font-bold hover:bg-ink-secondary"
                   >
                     Register Provider
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Register Custom Wire Feed (RSS / YouTube) - Pillar 4 */}
+        {isAddSourceModalOpen && (
+          <div
+            id="add-custom-source-modal"
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-ink/70"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setIsAddSourceModalOpen(false);
+            }}
+          >
+            <div className="w-full max-w-lg bg-paper border-2 border-ink shadow-overlay p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-ink pb-2">
+                <div className="flex items-center gap-2">
+                  <Rss className="w-4 h-4 text-accent" />
+                  <h3 className="font-masthead text-lg uppercase font-bold text-ink">
+                    Register Custom Wire Bureau
+                  </h3>
+                </div>
+                <button
+                  id="btn-close-custom-source-modal"
+                  onClick={() => setIsAddSourceModalOpen(false)}
+                  className="p-1 hover:bg-paper-alt cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveCustomSource} className="space-y-4 font-mono text-xs">
+                <div>
+                  <label className="block text-ink font-bold mb-1">
+                    Feed URL (RSS, Atom, or YouTube Channel)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="custom-source-url-input"
+                      type="url"
+                      required
+                      placeholder="https://example.com/feed.xml or https://youtube.com/channel/..."
+                      value={newSourceUrl}
+                      onChange={(e) => setNewSourceUrl(e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 border border-ink bg-paper-alt text-ink focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      id="btn-test-feed"
+                      onClick={handleTestFeed}
+                      disabled={isTestingFeed || !newSourceUrl.trim()}
+                      className="px-3 py-1.5 border border-ink bg-paper hover:bg-ink hover:text-paper font-bold uppercase transition-colors disabled:opacity-50 flex items-center gap-1 shrink-0 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isTestingFeed ? 'animate-spin' : ''}`} />
+                      <span>{isTestingFeed ? 'Testing…' : 'Test Feed'}</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-ink-muted mt-1">
+                    Direct XML feeds and YouTube channel URLs are automatically detected and verified.
+                  </p>
+                </div>
+
+                {/* Feed Verification Result Preview */}
+                {testFeedResult && (
+                  <div
+                    id="custom-source-test-preview"
+                    className={`p-3 border rounded-xs transition-all ${
+                      testFeedResult.success
+                        ? 'border-positive/50 bg-positive/10 text-ink'
+                        : 'border-accent/50 bg-accent/10 text-accent'
+                    }`}
+                  >
+                    {testFeedResult.success ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 font-bold text-positive text-xs">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Feed Verified • {testFeedResult.total_items} items available</span>
+                        </div>
+                        <div className="flex items-center gap-2 pt-1 border-t border-paper-border">
+                          {testFeedResult.faviconUrl && (
+                            <img
+                              src={testFeedResult.faviconUrl}
+                              alt="favicon"
+                              className="w-4 h-4 object-contain"
+                              onError={(e) => ((e.target as HTMLElement).style.display = 'none')}
+                            />
+                          )}
+                          <span className="font-serif font-bold text-ink truncate text-sm">
+                            {testFeedResult.title}
+                          </span>
+                        </div>
+                        {testFeedResult.description && (
+                          <p className="text-[11px] text-ink-secondary italic truncate">
+                            {testFeedResult.description}
+                          </p>
+                        )}
+                        {testFeedResult.sample_items && testFeedResult.sample_items.length > 0 && (
+                          <div className="pt-1.5 space-y-1">
+                            <span className="font-mono text-[9px] uppercase tracking-wider text-ink-muted font-bold">
+                              Latest Sample Dispatches:
+                            </span>
+                            {testFeedResult.sample_items.slice(0, 2).map((item, idx) => (
+                              <div key={idx} className="text-[10px] truncate text-ink-secondary">
+                                • {item.title}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Validation Failed:</span>
+                          <p className="text-[11px] text-accent/90 mt-0.5">{testFeedResult.error}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-ink font-bold mb-1">Bureau / Outlet Name</label>
+                    <input
+                      id="custom-source-name-input"
+                      type="text"
+                      required
+                      placeholder="e.g. Financial Times Wire"
+                      value={newSourceName}
+                      onChange={(e) => setNewSourceName(e.target.value)}
+                      className="w-full px-2.5 py-1.5 border border-ink bg-paper-alt text-ink focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-ink font-bold mb-1">Sovereign Jurisdiction / Country</label>
+                    <input
+                      id="custom-source-country-input"
+                      type="text"
+                      placeholder="e.g. Global, UK, France"
+                      value={newSourceCountry}
+                      onChange={(e) => setNewSourceCountry(e.target.value)}
+                      className="w-full px-2.5 py-1.5 border border-ink bg-paper-alt text-ink focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 flex justify-end gap-2 border-t border-paper-border">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddSourceModalOpen(false)}
+                    className="px-3 py-1.5 border border-paper-border text-ink uppercase font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    id="btn-save-custom-source"
+                    className="px-4 py-1.5 border border-ink bg-ink text-paper uppercase font-bold hover:bg-ink-secondary transition-colors cursor-pointer"
+                  >
+                    Save &amp; Register Wire
                   </button>
                 </div>
               </form>

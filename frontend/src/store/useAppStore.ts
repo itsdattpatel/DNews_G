@@ -259,6 +259,10 @@ interface AppState {
   layoutPreset: 'balanced' | 'focus' | 'split';
   setLayoutPreset: (preset: 'balanced' | 'focus' | 'split') => void;
 
+  // Pillar 4: Multi-Layout Reader Mode (Broadsheet, Wire Terminal, Photojournalism)
+  readerLayout: 'broadsheet' | 'wire' | 'photojournalism';
+  setReaderLayout: (layout: 'broadsheet' | 'wire' | 'photojournalism') => void;
+
   // S4: TV Mini-Player (Picture-in-Picture)
   activeTvStream: TvChannel | null;
   setActiveTvStream: (ch: TvChannel | null) => void;
@@ -1256,6 +1260,25 @@ export const useAppStore = create<AppState>((set, get) => ({
       get().setPanelSizesV([70, 30]);
     }
     set({ layoutPreset: preset });
+  },
+
+  // Pillar 4: Multi-Layout Reader Mode
+  readerLayout: (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dnews_reader_layout');
+        if (saved === 'broadsheet' || saved === 'wire' || saved === 'photojournalism') return saved;
+      } catch {}
+    }
+    return 'broadsheet';
+  })(),
+  setReaderLayout: (layout) => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('dnews_reader_layout', layout);
+      }
+    } catch {}
+    set({ readerLayout: layout });
   },
 
   // S4: TV Mini-Player (Picture-in-Picture)
