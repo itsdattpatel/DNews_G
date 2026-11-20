@@ -1115,3 +1115,20 @@
   - **Isolated TEST-DB Playwright E2E + Layout Regression (`scripts/validate-layout-scrolling.cjs` + `scratch/run-cat5-e2e.ts`)**: **`17/17`** layout regression checks passed (`liveUpdateZeroLayoutShift: true`, `liveUpdatePreservesScroll: true`, `liveUpdateQueueSnapshotAndPill: true`, `liveUpdateNoRemounts: true`, `liveUpdatePillMergeWorks: true`) and **`10/10`** real-SSE end-to-end checks passed (`0 px` reader/strip/ticker shift, scroll preserved, wrap-around + pill merges, Directory scroll preserved, TV/Map DOM identity & camera preserved; `1` external `403 Forbidden` HLS/YouTube resource error in headless TV check, `0` app JS/React errors).
   - **Visual Inspection**: Verified `ui-prd-d-cat5-new-stories-pill.png`, `ui-prd-d-cat5-merged-queue.png`, `ui-prd-d-cat5-directory-stable.png`, `ui-prd-d-cat5-tv-no-remount.png`, `ui-prd-d-cat5-map-stable.png`, `ui-layout-live-new-stories-pill.png`, `ui-layout-default-paper.png`, and `ui-layout-night-edition.png`.
 - **Status**: Complete and verified; **stopping for user approval before Category 6 (Live-Update Fixes, Library)**.
+
+
+### Step 6: Release v1.0.5 Desktop & Mobile APK Remediation (Completed)
+- **Problem Statement**:
+  - Desktop `.exe` encountered port collision (`EADDRINUSE 3001`), child process exit without fast-fail cancellation in `electron/main.ts`, and excessive retry loop hanging on blank cream screen (`#FAF7F0`) before attempting to load an incorrect packaged file path.
+  - Mobile Android APK opened successfully but fetched 0 articles because relative `/api/articles` requests against `https://localhost/api/articles` failed with `ERR_CONNECTION_REFUSED` inside the native Android WebView without a local HTTP server.
+- **Remediation Implementation**:
+  - `electron/main.ts`: Implemented `resolveBackendPort` (proactively verifies `http://127.0.0.1:3001/api/health` for existing healthy instances, scans ports 3001-3010 for available ports), fast-fail child process supervision (`backendCrashed` flag instantly aborts health polling if child exits), corrected packaged asset path resolution (`process.resourcesPath/frontend/dist/index.html`), and reduced connection timeout from 20 minutes to 2.5s with instant local broadsheet file fallback.
+  - `frontend/src/lib/autonomousEngine.ts`: Implemented the Option B Autonomous On-Device Client Engine with 20+ rich broadsheet seed articles across World, Tech, Science, Business, Health, Sports, Environment, Entertainment, Crime, and Animals. Added client-side querying, category counts, local storage persistence, and client-side public RSS feed poller with CORS fallbacks.
+  - `frontend/src/lib/api.ts`, `frontend/src/hooks/useArticles.ts`, `frontend/src/store/useAppStore.ts`: Integrated seamless fallback to `autonomousEngine` whenever network requests fail or when running in native mobile Capacitor environments.
+  - `frontend/src/components/settings/UnifiedSettingsDialog.tsx`: Added "Remote Desk Server (Wi-Fi Sync)" card allowing users to configure an optional local desk IP (`http://192.168.1.xxx:3001`) with connection testing.
+- **Verification & Release Packaging**:
+  - Playwright visual validation (`scripts/verify-v105-remediation.cjs`): Verified mobile portrait (390x844), mobile landscape (844x390), desktop broadsheet (1440x900), and unified settings desk with 0 blank screens (`ui-v105-1-mobile-portrait-articles.png`, `ui-v105-2-mobile-landscape-desk.png`, `ui-v105-3-settings-remote-desk.png`, `ui-v105-4-desktop-broadsheet.png`).
+  - Production Binaries Packaged:
+    - `release/DNews-Setup-1.0.5.exe` (217.7 MB)
+    - `release/DNews-v1.0.5.apk` (11.2 MB)
+    - `release/latest.yml`

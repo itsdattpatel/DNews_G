@@ -3,6 +3,8 @@
  * Strongly-typed API client matching FRONTEND_BACKEND_CONTRACT.md
  */
 import { toast } from 'sonner';
+import { Capacitor } from '@capacitor/core';
+import { autonomousEngine } from './autonomousEngine';
 import type {
   Article,
   ArticleFull,
@@ -62,6 +64,25 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
+export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    // 1. User-configured remote desk URL (e.g. from mobile or desktop settings)
+    const userRemoteUrl = localStorage.getItem('dnews_remote_desk_url');
+    if (userRemoteUrl && userRemoteUrl.trim().startsWith('http')) {
+      return userRemoteUrl.trim().replace(/\/+$/, '');
+    }
+
+    // 2. Electron file:// protocol or custom port
+    if (window.location.protocol === 'file:') {
+      const cachedPort = sessionStorage.getItem('dnews_backend_port') || '3001';
+      return `http://127.0.0.1:${cachedPort}`;
+    }
+  }
+
+  // 3. Same origin (web development) or native mobile without remote desk
+  return '';
+}
+
 export const api = {
   // ─── Articles ─────────────────────────────────────────────────────────────
   async getArticles(params?: {
@@ -71,37 +92,112 @@ export const api = {
     limit?: number;
     offset?: number;
   }): Promise<Article[]> {
-    const searchParams = new URLSearchParams();
-    if (params?.category) searchParams.set('category', params.category);
-    if (params?.q) searchParams.set('q', params.q);
-    if (params?.status) searchParams.set('status', params.status);
-    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
-    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    const baseUrl = getApiBaseUrl();
+    if (baseUrl || (!Capacitor.isNativePlatform() && window.location.protocol !== 'file:')) {
+      try {
+        const searchParams = new URLSearchParams();
+        if (params?.category) searchParams.set('category', params.category);
+        if (params?.q) searchParams.set('q', params.q);
+        if (params?.status) searchParams.set('status', params.status);
+        if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+        if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
 
-    const qs = searchParams.toString();
-    const url = `/api/articles${qs ? `?${qs}` : ''}`;
-    const res = await fetch(url);
-    return handleResponse<Article[]>(res);
+        const qs = searchParams.toString();
+        const url = `${baseUrl}/api/articles${qs ? `?${qs}` : ''}`;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 3500);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+        if (res.ok) {
+          const data = await res.json();
+          return Array.isArray(data) ? data : data.items || [];
+        }
+      } catch {
+        // Fall back to autonomousEngine
+      }
+    }
+
+    const res = autonomousEngine.getArticles({
+      category: params?.category,
+      q: params?.q,
+      limit: params?.limit,
+      offset: params?.offset,
+    });
+    return res.items;
   },
 
   async getArticle(id: number): Promise<ArticleFull | Article> {
-    const res = await fetch(`/api/articles/${id}`);
-    return handleResponse<ArticleFull | Article>(res);
+    const baseUrl = getApiBaseUrl();
+    if (baseUrl || (!Capacitor.isNativePlatform() && window.location.protocol !== 'file:')) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch(`${baseUrl}/api/articles/${id}`, { signal: controller.signal });
+        clearTimeout(timer);
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch {
+        // Fall back
+      }
+    }
+
+    const item = autonomousEngine.getArticle(id);
+    if (item) return item;
+    throw new ApiError('Article not found', 404);
   },
 
   async toggleBookmark(id: number, bookmarked: boolean): Promise<{ success: boolean; bookmarked: boolean }> {
-    const res = await fetch(`/api/articles/${id}/bookmark`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookmarked }),
-    });
-    return handleResponse<{ success: boolean; bookmarked: boolean }>(res);
+    autonomousEngine.toggleBookmark(id, bookmarked);
+    const baseUrl = getApiBaseUrl();
+    if (baseUrl || (!Capacitor.isNativePlatform() && window.location.protocol !== 'file:')) {
+      try {
+        const res = await fetch(`${baseUrl}/api/articles/${id}/bookmark`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookmarked }),
+        });
+        if (res.ok) return await handleResponse<{ success: boolean; bookmarked: boolean }>(res);
+      } catch {
+        // Handled locally
+      }
+    }
+    return { success: true, bookmarked };
   },
 
   // ─── Clusters ─────────────────────────────────────────────────────────────
   async getClusters(): Promise<Cluster[]> {
-    const res = await fetch('/api/clusters');
-    return handleResponse<Cluster[]>(res);
+    const baseUrl = getApiBaseUrl();
+    if (baseUrl || (!Capacitor.isNativePlatform() && window.location.protocol !== 'file:')) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch(`${baseUrl}/api/clusters`, { signal: controller.signal });
+        clearTimeout(timer);
+        if (res.ok) {
+          return await handleResponse<Cluster[]>(res);
+        }
+      } catch {
+        // Fall back
+      }
+    }
+
+    // Synthesize clusters from autonomous stories
+    const articles = autonomousEngine.getArticles({ limit: 20 }).items;
+    const clusters: Cluster[] = articles
+      .filter((a) => a.cluster_id)
+      .map((a) => ({
+        id: a.cluster_id || a.id,
+        headline: a.title_english,
+        first_seen_at: a.published_at || new Date().toISOString(),
+        last_updated_at: a.published_at || new Date().toISOString(),
+        outlet_count: a.cluster_outlet_count || 2,
+        country_count: a.cluster_country_count || 1,
+        is_breaking: a.cluster_is_breaking || false,
+        confirmation: a.confirmation,
+        articles: [a],
+      }));
+    return clusters;
   },
 
   async getCluster(id: number): Promise<Cluster> {

@@ -17,6 +17,7 @@ import path from 'path';
 import fs from 'fs';
 import { spawn, type ChildProcess } from 'child_process';
 import http from 'http';
+import net from 'net';
 import { TrayManager } from './tray';
 import { AppUpdater } from './updater';
 
@@ -64,6 +65,9 @@ let trayManager: TrayManager | null = null;
 let appUpdater: AppUpdater | null = null;
 let backendProcess: ChildProcess | null = null;
 let isQuitting = false;
+let activeBackendPort = 3001;
+let backendCrashed = false;
+let isBackendHealthy = false;
 
 const WINDOW_STATE_FILE = path.join(APP_DATA_ROOT, 'window-state.json');
 const USER_ENV_FILE = path.join(APP_DATA_ROOT, 'user.env');
@@ -155,10 +159,90 @@ function saveWindowState(): void {
 }
 
 /**
+ * Probes http://127.0.0.1:<port>/api/health with a quick timeout.
+ */
+function checkPortHealth(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = http.get(`http://127.0.0.1:${port}/api/health`, (res) => {
+      resolve(res.statusCode === 200);
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(1200, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+/**
+ * Checks if a port is completely available for binding on 127.0.0.1.
+ */
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', () => resolve(false));
+    server.once('listening', () => {
+      server.close(() => resolve(true));
+    });
+    server.listen(port, '127.0.0.1');
+  });
+}
+
+/**
+ * Proactively checks port 3001 and scans for alternates if conflict is detected.
+ */
+async function resolveBackendPort(defaultPort = 3001): Promise<{ port: number; reuseRunning: boolean }> {
+  // 1. Is defaultPort already running a healthy DNews backend?
+  const isHealthy = await checkPortHealth(defaultPort);
+  if (isHealthy) {
+    logDesktop(`Healthy DNews backend already detected on port ${defaultPort}. Reusing existing instance.`);
+    return { port: defaultPort, reuseRunning: true };
+  }
+
+  // 2. Is defaultPort free to bind?
+  const available = await isPortAvailable(defaultPort);
+  if (available) {
+    return { port: defaultPort, reuseRunning: false };
+  }
+
+  // 3. Port 3001 is occupied by an unresponsive or conflicting process. Find next free port between 3002 and 3010.
+  logDesktop(`Port ${defaultPort} is occupied and not responding to health check. Scanning for alternate port...`);
+  for (let candidate = defaultPort + 1; candidate <= defaultPort + 10; candidate++) {
+    const candidateHealthy = await checkPortHealth(candidate);
+    if (candidateHealthy) {
+      logDesktop(`Healthy backend found on alternate port ${candidate}. Reusing.`);
+      return { port: candidate, reuseRunning: true };
+    }
+    const candidateFree = await isPortAvailable(candidate);
+    if (candidateFree) {
+      logDesktop(`Found free alternate port ${candidate} for backend process.`);
+      return { port: candidate, reuseRunning: false };
+    }
+  }
+
+  return { port: defaultPort, reuseRunning: false };
+}
+
+/**
+ * Resolves the true location of index.html in both packaged and local development modes.
+ */
+function getPackagedIndexPath(): string | null {
+  const candidates = [
+    path.join(process.resourcesPath, 'frontend', 'dist', 'index.html'),
+    path.join(app.getAppPath(), 'frontend', 'dist', 'index.html'),
+    path.resolve(__dirname, '../../frontend/dist/index.html'),
+  ];
+  const found = candidates.find((p) => fs.existsSync(p));
+  logDesktop(`getPackagedIndexPath resolved: ${found || 'NONE_FOUND'}`);
+  return found || null;
+}
+
+/**
  * Spawns the Express backend as a dedicated background child process.
  */
-function spawnBackend(): Promise<void> {
+function spawnBackend(port = 3001): Promise<void> {
   return new Promise((resolve, reject) => {
+    backendCrashed = false;
     const candidates = app.isPackaged
       ? [
           path.join(process.resourcesPath, 'backend', 'dist', 'backend', 'src', 'index.js'),
@@ -174,8 +258,8 @@ function spawnBackend(): Promise<void> {
         ];
     const backendScript = candidates.find((p) => fs.existsSync(p)) || candidates[0];
 
-    console.log(`[Electron] Starting backend process at: ${backendScript}`);
-    logDesktop(`Starting backend process at: ${backendScript}`);
+    console.log(`[Electron] Starting backend process on port ${port} at: ${backendScript}`);
+    logDesktop(`Starting backend process on port ${port} at: ${backendScript}`);
 
     // If running in development and script doesn't exist yet, warn but proceed
     if (!fs.existsSync(backendScript) && !app.isPackaged) {
@@ -186,10 +270,6 @@ function spawnBackend(): Promise<void> {
     }
 
     try {
-      // Runtime selection:
-      // 1. Dedicated bundled Node runtime (process.resourcesPath/bin/node.exe)
-      // 2. System Node.js binary
-      // 3. Bundled Electron runtime (ELECTRON_RUN_AS_NODE=1)
       let runtimeBinary = process.execPath;
       let isElectronRunner = true;
 
@@ -222,7 +302,7 @@ function spawnBackend(): Promise<void> {
           ].join(path.delimiter)
         : process.env['NODE_PATH'];
 
-      logDesktop(`Spawning backend using ${runtimeBinary} (isElectronRunner=${isElectronRunner}) with NODE_PATH=${nodePath}`);
+      logDesktop(`Spawning backend using ${runtimeBinary} (port=${port}, isElectronRunner=${isElectronRunner}) with NODE_PATH=${nodePath}`);
 
       backendProcess = spawn(runtimeBinary, [backendScript], {
         env: {
@@ -230,7 +310,7 @@ function spawnBackend(): Promise<void> {
           ...(isElectronRunner ? { ELECTRON_RUN_AS_NODE: '1' } : {}),
           ...(nodePath ? { NODE_PATH: nodePath } : {}),
           DNEWS_APP_DATA_DIR: APP_DATA_ROOT,
-          PORT: '3001',
+          PORT: String(port),
           HOST: '127.0.0.1',
           FRONTEND_DIST: app.isPackaged
             ? path.join(process.resourcesPath, 'frontend', 'dist')
@@ -254,50 +334,63 @@ function spawnBackend(): Promise<void> {
       backendProcess.on('error', (err) => {
         console.error('[Electron] Backend process error:', err);
         logDesktop(`[Backend:Error] ${err.message}`);
+        backendCrashed = true;
       });
 
       backendProcess.on('exit', (code, signal) => {
         console.log(`[Electron] Backend process exited with code=${code}, signal=${signal}`);
         logDesktop(`[Backend:Exit] code=${code}, signal=${signal}`);
+        backendCrashed = true;
         backendProcess = null;
       });
 
       resolve();
     } catch (err) {
+      backendCrashed = true;
       reject(err);
     }
   });
 }
 
 /**
- * Polls http://127.0.0.1:3001/api/health until server responds.
+ * Polls http://127.0.0.1:<port>/api/health until server responds or child process exits.
  */
-function waitForBackendHealth(timeoutMs = 60000): Promise<boolean> {
+function waitForBackendHealth(port = 3001, timeoutMs = 8000): Promise<boolean> {
   const start = Date.now();
   return new Promise((resolve) => {
     const check = () => {
-      const req = http.get('http://127.0.0.1:3001/api/health', (res) => {
+      if (backendCrashed) {
+        logDesktop('Backend process crashed during startup; aborting health check early.');
+        resolve(false);
+        return;
+      }
+
+      const req = http.get(`http://127.0.0.1:${port}/api/health`, (res) => {
         if (res.statusCode === 200) {
           resolve(true);
         } else if (Date.now() - start < timeoutMs) {
-          setTimeout(check, 300);
+          setTimeout(check, 250);
         } else {
           resolve(false);
         }
       });
 
       req.on('error', () => {
-        if (Date.now() - start < timeoutMs) {
-          setTimeout(check, 300);
+        if (backendCrashed) {
+          resolve(false);
+        } else if (Date.now() - start < timeoutMs) {
+          setTimeout(check, 250);
         } else {
           resolve(false);
         }
       });
 
-      req.setTimeout(1000, () => {
+      req.setTimeout(800, () => {
         req.destroy();
-        if (Date.now() - start < timeoutMs) {
-          setTimeout(check, 300);
+        if (backendCrashed) {
+          resolve(false);
+        } else if (Date.now() - start < timeoutMs) {
+          setTimeout(check, 250);
         } else {
           resolve(false);
         }
@@ -311,7 +404,7 @@ function waitForBackendHealth(timeoutMs = 60000): Promise<boolean> {
 /**
  * Creates the primary application BrowserWindow.
  */
-function createMainWindow(): void {
+function createMainWindow(port = 3001, backendHealthy = false): void {
   const state = loadWindowState();
   const iconPath = path.resolve(__dirname, '../../assets/icon.ico');
 
@@ -346,43 +439,72 @@ function createMainWindow(): void {
     return { action: 'deny' };
   });
 
+  const loadLocalFallback = () => {
+    const indexPath = getPackagedIndexPath();
+    if (indexPath && mainWindow && !mainWindow.isDestroyed()) {
+      logDesktop(`Loading packaged broadsheet index directly: ${indexPath}`);
+      void mainWindow.loadFile(indexPath).then(() => {
+        if (mainWindow && !mainWindow.isVisible()) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      });
+    } else {
+      logDesktop('CRITICAL: Packaged index.html not found among candidates!');
+    }
+  };
+
   // Load URL
   if (!app.isPackaged && process.env['ELECTRON_START_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_START_URL']);
   } else if (!app.isPackaged && process.env['NODE_ENV'] === 'development') {
-    // In local dev, try 5173, fallback to backend 3001
+    // In local dev, try 5173, fallback to backend port
     void mainWindow.loadURL('http://localhost:5173').catch(() => {
-      void mainWindow?.loadURL('http://127.0.0.1:3001');
+      void mainWindow?.loadURL(`http://127.0.0.1:${port}`);
     });
   } else {
-    // Packaged production mode: connect to Express server at 127.0.0.1:3001 which serves frontend and API.
-    // Never fall back immediately to file:// on initial connection failure; retry with backoff.
-    const targetUrl = 'http://127.0.0.1:3001';
+    // Packaged production mode:
+    // If backend reported healthy, connect to Express server at 127.0.0.1:<port> which serves frontend and API.
+    const targetUrl = `http://127.0.0.1:${port}`;
     let loaded = false;
-    const tryLoad = async (retries = 60) => {
-      if (loaded || !mainWindow || mainWindow.isDestroyed()) return;
-      try {
-        await mainWindow.loadURL(targetUrl);
-        loaded = true;
-        logDesktop('Successfully loaded http://127.0.0.1:3001 into BrowserWindow');
-      } catch (err) {
-        logDesktop(`BrowserWindow connection to ${targetUrl} pending (${retries} attempts left): ${String(err)}`);
-        if (retries > 0) {
-          setTimeout(() => void tryLoad(retries - 1), 500);
-        } else {
-          logDesktop('Retries exhausted for http://127.0.0.1:3001. Falling back to local file load as emergency measure.');
-          const indexPath = path.resolve(__dirname, '../../frontend/dist/index.html');
-          void mainWindow?.loadFile(indexPath);
+
+    if (backendHealthy) {
+      const tryLoad = async (retries = 6) => {
+        if (loaded || !mainWindow || mainWindow.isDestroyed()) return;
+        try {
+          await mainWindow.loadURL(targetUrl);
+          loaded = true;
+          logDesktop(`Successfully loaded ${targetUrl} into BrowserWindow`);
+        } catch (err) {
+          logDesktop(`BrowserWindow connection to ${targetUrl} pending (${retries} attempts left): ${String(err)}`);
+          if (retries > 0) {
+            setTimeout(() => void tryLoad(retries - 1), 400);
+          } else {
+            logDesktop(`Retries exhausted for ${targetUrl}. Falling back to local file load.`);
+            loadLocalFallback();
+          }
         }
-      }
-    };
-    void tryLoad();
+      };
+      void tryLoad();
+    } else {
+      logDesktop('Backend not healthy on startup. Loading packaged UI directly.');
+      loadLocalFallback();
+    }
   }
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
     mainWindow?.focus();
   });
+
+  // Safety fallback: if ready-to-show has not fired in 1500ms, force show
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      logDesktop('Forcing mainWindow.show() via safety fallback timeout');
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  }, 1500);
 
   // Window bounds tracking
   mainWindow.on('resize', saveWindowState);
@@ -416,8 +538,8 @@ function createTray(): void {
   trayManager = new TrayManager({
     getMainWindow: () => mainWindow,
     onCheckNews: () => {
-      console.log('[Electron:Tray] Triggering immediate news fetch cycle...');
-      const req = http.request('http://127.0.0.1:3001/api/control-room/fetch-cycle', { method: 'POST' });
+      console.log(`[Electron:Tray] Triggering immediate news fetch cycle on port ${activeBackendPort}...`);
+      const req = http.request(`http://127.0.0.1:${activeBackendPort}/api/control-room/fetch-cycle`, { method: 'POST' });
       req.on('error', (err) => console.warn('[Electron:Tray] Fetch cycle request error:', err.message));
       req.end();
     },
@@ -501,6 +623,8 @@ function createMenu(): void {
 // IPC Handlers
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-app-data-dir', () => APP_DATA_ROOT);
+ipcMain.handle('get-backend-port', () => activeBackendPort);
+ipcMain.handle('get-backend-healthy', () => isBackendHealthy);
 ipcMain.handle('open-external', (_event, url: string) => {
   if (url.startsWith('http://') || url.startsWith('https://')) {
     void shell.openExternal(url);
@@ -603,21 +727,26 @@ app.whenReady().then(async () => {
   createTray();
 
   try {
-    await spawnBackend();
-    const healthy = await waitForBackendHealth();
-    if (healthy) {
-      console.log('[Electron] Backend health check PASSED (127.0.0.1:3001/api/health is online).');
-      logDesktop('Backend health check PASSED (127.0.0.1:3001/api/health is online).');
+    const { port, reuseRunning } = await resolveBackendPort(3001);
+    activeBackendPort = port;
+    if (reuseRunning) {
+      isBackendHealthy = true;
+      logDesktop(`Reusing healthy backend on 127.0.0.1:${activeBackendPort}`);
     } else {
-      console.warn('[Electron] Backend health check timed out. Creating window regardless.');
-      logDesktop('Backend health check TIMED OUT (127.0.0.1:3001/api/health unreachable). Creating window regardless.');
+      await spawnBackend(activeBackendPort);
+      isBackendHealthy = await waitForBackendHealth(activeBackendPort, 8000);
+      if (isBackendHealthy) {
+        logDesktop(`Backend health check PASSED (127.0.0.1:${activeBackendPort}/api/health online)`);
+      } else {
+        logDesktop(`Backend health check failed on port ${activeBackendPort}. Proceeding with local UI fallback.`);
+      }
     }
   } catch (err) {
-    console.error('[Electron] Failed to start backend:', err);
-    logDesktop(`[Electron] Failed to start backend: ${err instanceof Error ? err.stack || err.message : String(err)}`);
+    console.error('[Electron] Failed to initialize backend:', err);
+    logDesktop(`[Electron] Failed to initialize backend: ${err instanceof Error ? err.stack || err.message : String(err)}`);
   }
 
-  createMainWindow();
+  createMainWindow(activeBackendPort, isBackendHealthy);
 
   // Initialize auto-updater (PRD E Category 9)
   appUpdater = new AppUpdater(() => mainWindow);

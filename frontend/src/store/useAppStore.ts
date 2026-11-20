@@ -19,6 +19,8 @@ import {
   deriveThemePalette,
   applyThemeToDOM,
 } from '../styles/themes';
+import { autonomousEngine } from '../lib/autonomousEngine';
+import { getApiBaseUrl } from '../lib/api';
 
 function buildOverlayViewPatch(
   state: AppState,
@@ -1405,6 +1407,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   categoryCounts: {},
   categoryCountsTotal: 0,
   fetchCategoryCounts: async () => {
+    let success = false;
+    const baseUrl = getApiBaseUrl();
     try {
       const { selectedCountry, isBreakingOnly, searchQuery } = get();
       const params = new URLSearchParams();
@@ -1413,16 +1417,30 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (isBreakingOnly) params.set('breaking', 'true');
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
 
-      const res = await fetch(`/api/articles/categories/counts?${params.toString()}`);
+      const url = `${baseUrl}/api/articles/categories/counts?${params.toString()}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+
       if (res.ok) {
         const data = (await res.json()) as { total?: number; categories?: Record<string, number> };
         set({
           categoryCountsTotal: data.total ?? 0,
           categoryCounts: data.categories ?? {},
         });
+        success = true;
       }
     } catch {
       // ignore transient error
+    }
+
+    if (!success) {
+      const local = autonomousEngine.getCategoryCounts();
+      set({
+        categoryCountsTotal: local.total,
+        categoryCounts: local.categories,
+      });
     }
   },
 
@@ -1484,6 +1502,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     } = get();
 
     try {
+      const baseUrl = getApiBaseUrl();
       const params = new URLSearchParams();
       params.set('limit', '60');
       params.set('status', 'done');
@@ -1492,33 +1511,56 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (isBreakingOnly) params.set('breaking', 'true');
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
 
-      const articlesPromise = fetch(`/api/articles?${params.toString()}`).then(async (res) => {
-        if (!res.ok) return;
-        const data = (await res.json()) as { total: number; items: Article[] };
-        const stateSnapshot = get();
-        if (stateSnapshot.articles.length > 0 && stateSnapshot.autoAdvanceQueueIds.length > 0) {
-          stateSnapshot.applyLiveArticlesBatch(data.items);
-        } else {
-          stateSnapshot.setArticles(data.items, data.total);
-        }
-      });
+      const articlesPromise = fetch(`${baseUrl}/api/articles?${params.toString()}`)
+        .then(async (res) => {
+          if (!res.ok) throw new Error('Not ok');
+          const data = (await res.json()) as { total: number; items: Article[] };
+          const stateSnapshot = get();
+          if (stateSnapshot.articles.length > 0 && stateSnapshot.autoAdvanceQueueIds.length > 0) {
+            stateSnapshot.applyLiveArticlesBatch(data.items);
+          } else {
+            stateSnapshot.setArticles(data.items, data.total);
+          }
+        })
+        .catch(() => {
+          const local = autonomousEngine.getArticles({
+            category: selectedCategory,
+            country: selectedCountry,
+            breaking: isBreakingOnly,
+            q: searchQuery.trim(),
+            limit: 60,
+          });
+          set({ articles: local.items, totalArticles: local.total });
+        });
 
       const selectedPromise = selectedArticleId
-        ? fetch(`/api/articles/${selectedArticleId}`).then(async (res) => {
-            if (!res.ok) return;
-            const art = (await res.json()) as Article;
-            set((state) => ({
-              selectedArticle: state.selectedArticleId === art.id ? art : state.selectedArticle,
-              articles: state.articles.map((a) => (a.id === art.id ? { ...a, ...art } : a)),
-            }));
-          })
+        ? fetch(`${baseUrl}/api/articles/${selectedArticleId}`)
+            .then(async (res) => {
+              if (!res.ok) return;
+              const art = (await res.json()) as Article;
+              set((state) => ({
+                selectedArticle: state.selectedArticleId === art.id ? art : state.selectedArticle,
+                articles: state.articles.map((a) => (a.id === art.id ? { ...a, ...art } : a)),
+              }));
+            })
+            .catch(() => {
+              const localArt = autonomousEngine.getArticle(selectedArticleId);
+              if (localArt) {
+                set((state) => ({
+                  selectedArticle: state.selectedArticleId === localArt.id ? localArt : state.selectedArticle,
+                  articles: state.articles.map((a) => (a.id === localArt.id ? { ...a, ...localArt } : a)),
+                }));
+              }
+            })
         : Promise.resolve();
 
-      const gapPromise = fetch('/api/startup-status').then(async (res) => {
-        if (!res.ok) return;
-        const gap = (await res.json()) as StartupStatus;
-        set({ startupStatus: gap });
-      });
+      const gapPromise = fetch(`${baseUrl}/api/startup-status`)
+        .then(async (res) => {
+          if (!res.ok) return;
+          const gap = (await res.json()) as StartupStatus;
+          set({ startupStatus: gap });
+        })
+        .catch(() => {});
 
       await Promise.allSettled([
         articlesPromise,

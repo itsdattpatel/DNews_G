@@ -36,6 +36,8 @@ export interface ElectronBridge {
   downloadUpdate: () => Promise<void>;
   installUpdate: () => void;
   quitApp: () => void;
+  getBackendPort?: () => Promise<number>;
+  getBackendHealthy?: () => Promise<boolean>;
   onNotificationAction: (
     callback: (action: ElectronBridgeNotificationAction) => void,
   ) => () => void;

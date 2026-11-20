@@ -8,7 +8,7 @@ import { DesignSystemShowcase } from './components/dev/DesignSystemShowcase';
 import { useArticles } from './hooks/useArticles';
 import { useSSE } from './hooks/useSSE';
 import { useAppStore } from './store/useAppStore';
-
+import { autonomousEngine } from './lib/autonomousEngine';
 import { LibraryRoot } from './library/LibraryRoot';
 
 if (typeof window !== 'undefined') {
@@ -59,6 +59,21 @@ export const App: React.FC = () => {
     checkStartupStatus();
     fetchUnreadAlertsCount();
     fetchCategoryCounts();
+
+    // Cache assigned Electron backend port if operating in packaged desktop container
+    if (typeof window !== 'undefined' && window.electronBridge?.getBackendPort) {
+      window.electronBridge.getBackendPort().then((port: number) => {
+        if (port) {
+          sessionStorage.setItem('dnews_backend_port', String(port));
+        }
+      }).catch(() => {});
+    }
+
+    // Start background autonomous feed polling for mobile / offline resilience
+    const stopPolling = autonomousEngine.startAutoPolling(120000);
+    return () => {
+      stopPolling();
+    };
   }, [fetchSettings, fetchQuota, checkStartupStatus, fetchUnreadAlertsCount, fetchCategoryCounts]);
 
   // Native Electron System Tray & Notification IPC listeners

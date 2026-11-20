@@ -258,6 +258,10 @@ export const UnifiedSettingsDialog: React.FC<{
   const [twoPassTelemetry, setTwoPassTelemetry] = useState<TwoPassTelemetry | null>(null);
   const [unenrichedCount, setUnenrichedCount] = useState<number>(0);
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [remoteDeskUrl, setRemoteDeskUrl] = useState(() => {
+    return (typeof window !== 'undefined' ? localStorage.getItem('dnews_remote_desk_url') : '') || '';
+  });
+  const [remoteDeskStatus, setRemoteDeskStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -483,6 +487,36 @@ export const UnifiedSettingsDialog: React.FC<{
       toast.error('Invalid settings JSON format.');
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleTestRemoteDesk = async () => {
+    if (!remoteDeskUrl.trim()) {
+      localStorage.removeItem('dnews_remote_desk_url');
+      setRemoteDeskStatus('idle');
+      toast.info('Cleared Remote Desk URL. Operating in Autonomous On-Device Mode.');
+      void useAppStore.getState().performFullResync('remote_desk_cleared');
+      return;
+    }
+    setRemoteDeskStatus('testing');
+    try {
+      const cleanUrl = remoteDeskUrl.trim().replace(/\/+$/, '');
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(`${cleanUrl}/api/health`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        localStorage.setItem('dnews_remote_desk_url', cleanUrl);
+        setRemoteDeskStatus('success');
+        toast.success('Connected to Remote Desk Server!');
+        void useAppStore.getState().performFullResync('remote_desk_connected');
+      } else {
+        setRemoteDeskStatus('failed');
+        toast.error(`Remote Desk replied with status ${res.status}`);
+      }
+    } catch {
+      setRemoteDeskStatus('failed');
+      toast.error('Could not connect to Remote Desk Server. Verify IP, port, and network.');
     }
   };
 
@@ -720,6 +754,53 @@ export const UnifiedSettingsDialog: React.FC<{
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* Remote Desk Server & Autonomous Mode Desk */}
+                  <div className="p-3 bg-[var(--color-paper-card,#f4efe6)] border border-[var(--color-ink-border,#d1d5db)] rounded-xs space-y-2">
+                    <div className="flex items-center justify-between border-b border-[var(--color-ink-border,#d1d5db)] pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-serif font-bold text-xs uppercase tracking-wide">
+                          Remote Desk Server (Wi-Fi Sync)
+                        </span>
+                        <span className="font-mono text-[9px] px-1.5 py-0.2 bg-paper-border text-ink rounded-2xs font-bold">
+                          {remoteDeskUrl.trim() ? 'REMOTE SYNC' : 'AUTONOMOUS ON-DEVICE'}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-ink-secondary leading-relaxed">
+                      Connect this device directly to your desktop newsroom over local Wi-Fi (e.g. <code className="font-mono bg-paper px-1 border border-paper-border">http://192.168.1.15:3001</code>). If left blank, the app functions autonomously with embedded broadsheet archives and live client RSS polling.
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="url"
+                        value={remoteDeskUrl}
+                        onChange={(e) => {
+                          setRemoteDeskUrl(e.target.value);
+                          setRemoteDeskStatus('idle');
+                        }}
+                        placeholder="http://192.168.1.xxx:3001"
+                        className="flex-1 px-2.5 py-1 text-xs font-mono bg-paper border border-[var(--color-ink-border,#d1d5db)] rounded-xs focus:outline-none focus:border-ink text-ink placeholder:text-ink-muted"
+                      />
+                      <button
+                        onClick={handleTestRemoteDesk}
+                        disabled={remoteDeskStatus === 'testing'}
+                        className="px-3 py-1 text-xs font-mono font-bold bg-ink text-paper hover:bg-ink/80 rounded-xs transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {remoteDeskStatus === 'testing' ? 'Testing...' : 'Test & Save'}
+                      </button>
+                    </div>
+                    {remoteDeskStatus === 'success' && (
+                      <div className="flex items-center gap-1.5 text-positive font-mono text-[10px] pt-1">
+                        <Check size={12} />
+                        <span>Connected to Remote Desk Server.</span>
+                      </div>
+                    )}
+                    {remoteDeskStatus === 'failed' && (
+                      <div className="flex items-center gap-1.5 text-negative font-mono text-[10px] pt-1">
+                        <span>Connection failed. Verify server is running and device is on same network.</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

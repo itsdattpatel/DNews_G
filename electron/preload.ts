@@ -32,6 +32,8 @@ export interface ElectronBridge {
   downloadUpdate: () => Promise<void>;
   installUpdate: () => void;
   quitApp: () => void;
+  getBackendPort?: () => Promise<number>;
+  getBackendHealthy?: () => Promise<boolean>;
   onNotificationAction: (callback: (action: { type?: string; id?: number }) => void) => () => void;
   onNavigateFilter: (callback: (filter: { breaking?: boolean }) => void) => () => void;
   onOpenSettings: (callback: () => void) => () => void;
@@ -57,6 +59,8 @@ const bridge: ElectronBridge = {
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.send('install-update'),
   quitApp: () => ipcRenderer.send('quit-app'),
+  getBackendPort: () => ipcRenderer.invoke('get-backend-port'),
+  getBackendHealthy: () => ipcRenderer.invoke('get-backend-healthy'),
   onNotificationAction: (callback) => {
     const handler = (_: unknown, action: { type?: string; id?: number }) => callback(action);
     ipcRenderer.on('notification-action', handler);
