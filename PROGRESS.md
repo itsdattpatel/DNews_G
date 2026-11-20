@@ -1132,3 +1132,15 @@
     - `release/DNews-Setup-1.0.5.exe` (217.7 MB)
     - `release/DNews-v1.0.5.apk` (11.2 MB)
     - `release/latest.yml`
+
+
+### Step 7: Release v1.0.6 Production Packaging (Completed)
+- **Version Bump**:
+  - Bumped version to `1.0.6` across root `package.json`, `backend/package.json`, `frontend/package.json`, `frontend/android/app/build.gradle` (`versionCode 106`, `versionName "1.0.6"`), and `frontend/src/hooks/useAppUpdate.ts` (`CURRENT_APP_VERSION = '1.0.6'`).
+- **Production Artifacts Packaged**:
+  - `release/DNews-Setup-1.0.6.exe` (217.7 MB): Includes hardened port-conflict resilience, fast-fail backend supervision, and immediate packaged HTML fallback.
+  - `release/DNews-v1.0.6.apk` (10.2 MB): Includes autonomous on-device broadsheet engine, embedded seed dispatches, client-side RSS poller, and remote desk connection support.
+  - `release/DNews-Setup-1.0.6.exe.blockmap` & `release/latest.yml`
+- **Git State**:
+  - Staged and committed version bump and release documentation.
+  - Pushed to GitHub `origin/main` with updated tag `v1.0.6`.
