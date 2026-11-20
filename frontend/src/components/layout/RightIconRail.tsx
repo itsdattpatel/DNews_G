@@ -202,7 +202,7 @@ export const RightIconRail: React.FC<RightIconRailProps> = ({
       id="right-icon-rail"
       role="navigation"
       aria-label="Workspace Icon Rail"
-      className={`shrink-0 h-full bg-paper-alt border-l-2 border-ink flex flex-col justify-between py-2.5 px-0.5 z-30 transition-[width] duration-150 select-none ${
+      className={`shrink-0 h-full bg-paper-alt border-l-2 border-ink hidden md:flex flex-col justify-between py-2.5 px-0.5 z-30 transition-[width] duration-150 select-none ${
         isRailPinned ? 'w-[180px]' : 'w-[44px]'
       }`}
     >
