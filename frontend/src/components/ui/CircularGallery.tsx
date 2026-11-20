@@ -461,7 +461,8 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
       lastInput: 0,
       active: 0,
       spacing: 1,
-      currentBend: settingsRef.current.bend
+      currentBend: settingsRef.current.bend,
+      inertia: 0
     };
 
     let cards: any[] = [];
@@ -798,6 +799,17 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
         idle;
 
       if (auto) state.target += s.autoScroll * state.spacing * 0.25 * dt;
+
+      // Mobile touch swipe momentum & inertia glide (Pillar 5)
+      if (Math.abs(state.inertia) > 5) {
+        state.target += state.inertia * dt;
+        state.inertia *= Math.pow(0.92, dt * 60);
+        if (Math.abs(state.inertia) <= 5) {
+          state.inertia = 0;
+          snapNow();
+        }
+      }
+
       const follow = reduce ? 1 : 1 - Math.pow(1 - s.scrollEase, dt * 60);
       const before = state.scroll;
       state.scroll += (state.target - state.scroll) * follow;
@@ -869,6 +881,7 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
         (s.autoScroll && !reduce) ||
         state.scroll !== state.target ||
         state.velocity !== 0 ||
+        state.inertia !== 0 ||
         state.open !== state.openTarget ||
         state.intro < 1 ||
         (state.ring !== 0 && state.ring !== 1) ||
@@ -949,6 +962,7 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0 || (event.target as HTMLElement)?.closest('[data-gallery-close]')) return;
+      state.inertia = 0;
       const p = point(event);
       state.drag = {
         id: event.pointerId,
@@ -999,11 +1013,19 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
       if (drag.moved) {
         const samples = drag.samples;
         if (samples.length > 1) {
-          const a = samples[0];
-          const b = samples[samples.length - 1];
-          const span = Math.max(b.t - a.t, 16);
-          const speed = ((b.x - a.x) / span) * 1000;
-          state.target -= speed * 0.18 * (settingsRef.current.scrollSpeed / 2);
+          const now = performance.now();
+          const recent = samples.filter((s: { x: number; t: number }) => now - s.t < 140);
+          const first = recent.length > 1 ? recent[0] : samples[0];
+          const last = recent.length > 1 ? recent[recent.length - 1] : samples[samples.length - 1];
+          const span = Math.max(last.t - first.t, 16);
+          const pxPerSec = ((last.x - first.x) / span) * 1000;
+
+          // If quick swipe or flick (mobile touch or drag), launch physical inertia glide
+          if (Math.abs(pxPerSec) > 250) {
+            state.inertia = -pxPerSec * (settingsRef.current.scrollSpeed / 1.5);
+            wake();
+            return;
+          }
         }
         snapNow();
         return;
