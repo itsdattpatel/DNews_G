@@ -76,8 +76,26 @@ export function useArticles(): void {
     const delay = searchQuery ? 350 : 0;
     debounceTimerRef.current = setTimeout(fetchArticles, delay);
 
+    // Periodic Background Re-Sync (PRD_FRESH_NEWS_PIPELINE):
+    // Refetches fresh dispatches every 45s ensuring live feed updates even if SSE drops
+    const autoRefreshInterval = setInterval(() => {
+      void fetchArticles();
+    }, 45000);
+
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      clearInterval(autoRefreshInterval);
     };
   }, [selectedCategory, selectedCountry, searchQuery, isBreakingOnly, setArticles]);
+
+  // Subscribe directly to on-device engine events
+  useEffect(() => {
+    const unsubscribe = autonomousEngine.subscribe((newArticles) => {
+      if (newArticles.length > 0) {
+        useAppStore.getState().applyLiveArticlesBatch(newArticles);
+        useAppStore.getState().fetchCategoryCounts();
+      }
+    });
+    return unsubscribe;
+  }, []);
 }

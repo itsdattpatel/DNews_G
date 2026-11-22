@@ -7,11 +7,14 @@ import { LibraryShellLayout } from '../components/LibraryShellLayout';
 import { ScriptureReader } from './ScriptureReader';
 import { QuotesExplorer } from './QuotesExplorer';
 import { useLibraryStore } from '../store/useLibraryStore';
+import { useAppStore } from '../../store/useAppStore';
+import { triggerHaptic } from '../../lib/haptics';
 import {
   BookOpen,
   MessageSquareQuote,
   Scroll,
   Sparkles,
+  Brain,
 } from 'lucide-react';
 
 export const WisdomSubpage: React.FC = () => {
@@ -47,6 +50,33 @@ export const WisdomSubpage: React.FC = () => {
         >
           <MessageSquareQuote className="w-3.5 h-3.5 text-[var(--lib-accent)]" />
           <span>Quotes</span>
+        </button>
+      </div>
+
+      {/* Spaced Repetition Review Deck Trigger (PRD Master Expansion #42) */}
+      <div className="flex items-center justify-between p-2.5 rounded-sm border border-[var(--lib-gold)]/40 bg-[var(--lib-gold-soft)]/20">
+        <div className="flex items-center gap-2">
+          <Brain className="w-4 h-4 text-[var(--lib-gold)] shrink-0" />
+          <div>
+            <span className="text-xs font-serif font-bold text-[var(--lib-ink)] block leading-tight">
+              Memory Review Deck
+            </span>
+            <span className="text-[10px] text-[var(--lib-ink-muted)] font-serif block leading-tight">
+              SM-2 Leitner Flashcards
+            </span>
+          </div>
+        </div>
+        <button
+          id="btn-wisdom-subpage-review"
+          type="button"
+          onClick={() => {
+            triggerHaptic('selection');
+            useAppStore.getState().setWisdomSpacedRepetitionOpen(true);
+          }}
+          className="px-2.5 py-1 text-xs font-serif font-bold rounded-xs bg-[var(--lib-surface-elevated)] border border-[var(--lib-gold)] text-[var(--lib-ink)] hover:bg-[var(--lib-gold)] hover:text-white transition-all cursor-pointer shadow-xs shrink-0"
+          title="Open Philosophical Spaced Repetition Review Deck"
+        >
+          Review
         </button>
       </div>
 

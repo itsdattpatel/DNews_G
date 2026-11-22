@@ -10,6 +10,7 @@
  */
 import net from 'net';
 import dns from 'dns';
+import http from 'http';
 import { emitSseEvent } from '../routes/sse';
 
 export interface WatchdogConfig {
@@ -119,13 +120,32 @@ export class ConnectivityWatchdog {
         finish(true);
       });
 
+      const tryHttpFallback = () => {
+        try {
+          const req = http.get('http://www.google.com/generate_204', { timeout: 2000 }, (res) => {
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 400) {
+              finish(true);
+            } else {
+              finish(false);
+            }
+          });
+          req.on('error', () => finish(false));
+          req.on('timeout', () => {
+            req.destroy();
+            finish(false);
+          });
+        } catch {
+          finish(false);
+        }
+      };
+
       socket.on('timeout', () => {
         // Fallback to DNS resolve attempt before declaring offline
         dns.resolve('cloudflare.com', (err) => {
           if (!err) {
             finish(true);
           } else {
-            finish(false);
+            tryHttpFallback();
           }
         });
       });
@@ -135,7 +155,7 @@ export class ConnectivityWatchdog {
           if (!err) {
             finish(true);
           } else {
-            finish(false);
+            tryHttpFallback();
           }
         });
       });

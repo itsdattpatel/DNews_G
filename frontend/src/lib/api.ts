@@ -83,6 +83,12 @@ export function getApiBaseUrl(): string {
   return '';
 }
 
+function shouldAttemptRemote(baseUrl: string): boolean {
+  if (baseUrl) return true;
+  if (typeof window === 'undefined') return true; // Node/test environment
+  return !Capacitor.isNativePlatform() && window.location.protocol !== 'file:';
+}
+
 export const api = {
   // ─── Articles ─────────────────────────────────────────────────────────────
   async getArticles(params?: {
@@ -93,7 +99,7 @@ export const api = {
     offset?: number;
   }): Promise<Article[]> {
     const baseUrl = getApiBaseUrl();
-    if (baseUrl || (!Capacitor.isNativePlatform() && window.location.protocol !== 'file:')) {
+    if (shouldAttemptRemote(baseUrl)) {
       try {
         const searchParams = new URLSearchParams();
         if (params?.category) searchParams.set('category', params.category);
@@ -104,10 +110,7 @@ export const api = {
 
         const qs = searchParams.toString();
         const url = `${baseUrl}/api/articles${qs ? `?${qs}` : ''}`;
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 3500);
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timer);
+        const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
           return Array.isArray(data) ? data : data.items || [];
@@ -128,29 +131,26 @@ export const api = {
 
   async getArticle(id: number): Promise<ArticleFull | Article> {
     const baseUrl = getApiBaseUrl();
-    if (baseUrl || (!Capacitor.isNativePlatform() && window.location.protocol !== 'file:')) {
+    if (shouldAttemptRemote(baseUrl)) {
       try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch(`${baseUrl}/api/articles/${id}`, { signal: controller.signal });
-        clearTimeout(timer);
-        if (res.ok) {
-          return await res.json();
-        }
-      } catch {
+        const url = `${baseUrl}/api/articles/${id}`;
+        const res = await fetch(url);
+        return await handleResponse<ArticleFull>(res);
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
         // Fall back
       }
     }
 
     const item = autonomousEngine.getArticle(id);
     if (item) return item;
-    throw new ApiError('Article not found', 404);
+    throw new ApiError('Article not found', 404, 'ERR_NOT_FOUND');
   },
 
   async toggleBookmark(id: number, bookmarked: boolean): Promise<{ success: boolean; bookmarked: boolean }> {
     autonomousEngine.toggleBookmark(id, bookmarked);
     const baseUrl = getApiBaseUrl();
-    if (baseUrl || (!Capacitor.isNativePlatform() && window.location.protocol !== 'file:')) {
+    if (shouldAttemptRemote(baseUrl)) {
       try {
         const res = await fetch(`${baseUrl}/api/articles/${id}/bookmark`, {
           method: 'PATCH',
@@ -168,7 +168,7 @@ export const api = {
   // ─── Clusters ─────────────────────────────────────────────────────────────
   async getClusters(): Promise<Cluster[]> {
     const baseUrl = getApiBaseUrl();
-    if (baseUrl || (!Capacitor.isNativePlatform() && window.location.protocol !== 'file:')) {
+    if (shouldAttemptRemote(baseUrl)) {
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 3000);

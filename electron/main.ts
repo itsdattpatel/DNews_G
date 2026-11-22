@@ -402,6 +402,111 @@ function waitForBackendHealth(port = 3001, timeoutMs = 8000): Promise<boolean> {
 }
 
 /**
+ * Inline Broadsheet Startup Splash Screen (PRD_FRESH_NEWS_PIPELINE)
+ * Prevents blank cream or white flash during Node.js/SQLite cold-start.
+ */
+function getStartupSplashHtml(): string {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DNews — The Daily Bugle</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #FAF7F0;
+      color: #1A1208;
+      font-family: "Georgia", "Times New Roman", serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      user-select: none;
+      -webkit-user-select: none;
+      text-align: center;
+      padding: 32px;
+      overflow: hidden;
+    }
+    .masthead-frame {
+      border: 3px double #1A1208;
+      padding: 36px 48px;
+      max-width: 620px;
+      width: 100%;
+      background: #F4EFEA;
+      box-shadow: 0 4px 20px rgba(26,18,8,0.08);
+      position: relative;
+    }
+    .date-bar {
+      border-bottom: 1px solid #1A1208;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      padding-bottom: 8px;
+      margin-bottom: 18px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-weight: 600;
+      color: #5C4E3A;
+    }
+    h1 {
+      font-size: 40px;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      font-weight: 700;
+      line-height: 1.1;
+      color: #1A1208;
+    }
+    .motto {
+      font-style: italic;
+      font-size: 14px;
+      color: #5C4E3A;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #1A1208;
+      padding-bottom: 16px;
+    }
+    .spinner-ring {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #D9D0BE;
+      border-top-color: #C0392B;
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+      margin: 0 auto 16px auto;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .status-text {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: #1A1208;
+      text-transform: uppercase;
+    }
+    .status-sub {
+      font-size: 12px;
+      color: #9A8878;
+      margin-top: 6px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div class="masthead-frame">
+    <div class="date-bar">AI World News Desk &bull; Broadsheet Edition</div>
+    <h1>The Daily Bugle</h1>
+    <div class="motto">&ldquo;Uncompromising Real-Time Global Intelligence&rdquo;</div>
+    <div class="spinner-ring"></div>
+    <div class="status-text">Preparing Broadside Press &amp; Editorial Desks...</div>
+    <div class="status-sub">Connecting local news intelligence engine</div>
+  </div>
+</body>
+</html>`;
+  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+}
+
+/**
  * Creates the primary application BrowserWindow.
  */
 function createMainWindow(port = 3001, backendHealthy = false): void {
@@ -424,6 +529,7 @@ function createMainWindow(port = 3001, backendHealthy = false): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      webSecurity: false,       // Allows seamless local fallback & cross-origin proxy resilience
     },
   });
 
@@ -437,6 +543,17 @@ function createMainWindow(port = 3001, backendHealthy = false): void {
       void shell.openExternal(url);
     }
     return { action: 'deny' };
+  });
+
+  // Comprehensive renderer diagnostics (PRD E Desktop Resilience)
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    logDesktop(`Renderer failed to load: ${validatedURL} (code: ${errorCode}, desc: ${errorDescription})`);
+  });
+
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    if (level >= 2) {
+      logDesktop(`[Renderer Console L${level}] ${message} (${sourceId}:${line})`);
+    }
   });
 
   const loadLocalFallback = () => {
@@ -454,6 +571,51 @@ function createMainWindow(port = 3001, backendHealthy = false): void {
     }
   };
 
+  const targetUrl = `http://127.0.0.1:${port}`;
+  let liveLoaded = false;
+  let supervisorTimer: NodeJS.Timeout | null = null;
+
+  const navigateToLive = async () => {
+    if (liveLoaded || !mainWindow || mainWindow.isDestroyed()) return;
+    try {
+      await mainWindow.loadURL(targetUrl);
+      liveLoaded = true;
+      logDesktop(`Successfully connected and navigated to live backend at ${targetUrl}`);
+      if (supervisorTimer) {
+        clearInterval(supervisorTimer);
+        supervisorTimer = null;
+      }
+    } catch (err) {
+      logDesktop(`Navigation to ${targetUrl} pending: ${String(err)}`);
+    }
+  };
+
+  // Continuous Connection Supervisor: polls backend health and hot-hands-off the moment it turns ready
+  const startSupervisor = () => {
+    if (supervisorTimer) clearInterval(supervisorTimer);
+    let attempts = 0;
+    const maxAttempts = 120; // 60 seconds total at 500ms intervals
+
+    supervisorTimer = setInterval(async () => {
+      attempts++;
+      if (liveLoaded || !mainWindow || mainWindow.isDestroyed()) {
+        if (supervisorTimer) clearInterval(supervisorTimer);
+        return;
+      }
+
+      const healthy = await checkPortHealth(port);
+      if (healthy) {
+        logDesktop(`Connection supervisor detected healthy backend on attempt #${attempts}. Navigating...`);
+        isBackendHealthy = true;
+        await navigateToLive();
+      } else if (attempts >= maxAttempts) {
+        logDesktop(`Connection supervisor exhausted ${maxAttempts} attempts. Falling back to local file.`);
+        if (supervisorTimer) clearInterval(supervisorTimer);
+        loadLocalFallback();
+      }
+    }, 500);
+  };
+
   // Load URL
   if (!app.isPackaged && process.env['ELECTRON_START_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_START_URL']);
@@ -464,31 +626,13 @@ function createMainWindow(port = 3001, backendHealthy = false): void {
     });
   } else {
     // Packaged production mode:
-    // If backend reported healthy, connect to Express server at 127.0.0.1:<port> which serves frontend and API.
-    const targetUrl = `http://127.0.0.1:${port}`;
-    let loaded = false;
-
     if (backendHealthy) {
-      const tryLoad = async (retries = 6) => {
-        if (loaded || !mainWindow || mainWindow.isDestroyed()) return;
-        try {
-          await mainWindow.loadURL(targetUrl);
-          loaded = true;
-          logDesktop(`Successfully loaded ${targetUrl} into BrowserWindow`);
-        } catch (err) {
-          logDesktop(`BrowserWindow connection to ${targetUrl} pending (${retries} attempts left): ${String(err)}`);
-          if (retries > 0) {
-            setTimeout(() => void tryLoad(retries - 1), 400);
-          } else {
-            logDesktop(`Retries exhausted for ${targetUrl}. Falling back to local file load.`);
-            loadLocalFallback();
-          }
-        }
-      };
-      void tryLoad();
+      void navigateToLive();
     } else {
-      logDesktop('Backend not healthy on startup. Loading packaged UI directly.');
-      loadLocalFallback();
+      // Backend is still warming up Node/SQLite; show authentic broadsheet startup splash
+      logDesktop('Backend is initializing. Displaying broadsheet startup splash screen...');
+      void mainWindow.loadURL(getStartupSplashHtml());
+      startSupervisor();
     }
   }
 
@@ -734,12 +878,16 @@ app.whenReady().then(async () => {
       logDesktop(`Reusing healthy backend on 127.0.0.1:${activeBackendPort}`);
     } else {
       await spawnBackend(activeBackendPort);
-      isBackendHealthy = await waitForBackendHealth(activeBackendPort, 8000);
-      if (isBackendHealthy) {
-        logDesktop(`Backend health check PASSED (127.0.0.1:${activeBackendPort}/api/health online)`);
-      } else {
-        logDesktop(`Backend health check failed on port ${activeBackendPort}. Proceeding with local UI fallback.`);
-      }
+      // Spawn is started. We open window immediately with broadsheet splash,
+      // and allow up to 45 seconds for cold-start database check
+      void waitForBackendHealth(activeBackendPort, 45000).then((healthy) => {
+        if (healthy) {
+          isBackendHealthy = true;
+          logDesktop(`Backend health check PASSED (127.0.0.1:${activeBackendPort}/api/health online)`);
+        } else {
+          logDesktop(`Backend health check timed out on port ${activeBackendPort}.`);
+        }
+      });
     }
   } catch (err) {
     console.error('[Electron] Failed to initialize backend:', err);

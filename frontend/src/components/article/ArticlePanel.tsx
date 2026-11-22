@@ -8,12 +8,20 @@
  */
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { ExternalLink, Globe2, Languages, BookOpen, Sparkles, Layers, Clock, Star, Radio, RefreshCw } from 'lucide-react';
+import { ExternalLink, Globe2, Languages, BookOpen, Sparkles, Layers, Clock, Star, Radio, RefreshCw, Zap, ArrowDown, Type, Edit3, Printer, Image, Compass, ShieldCheck, Network, Download } from 'lucide-react';
+import { generateArticleMarkdown, downloadMarkdownFile } from '../../lib/exportToMarkdown';
+import { sanitizeUrl } from '../../lib/trackingShield';
 import { DualTimestamp } from '../common/DualTimestamp';
 import { WelcomeBackCard } from './WelcomeBackCard';
 import { ConfirmationBadge } from '../common/ConfirmationBadge';
 import { EntityDossierDrawer } from './EntityDossierDrawer';
 import { ReaderLayoutSwitcher } from './ReaderLayoutSwitcher';
+import { GlossaryTooltip } from './GlossaryTooltip';
+import { ReadingTrackerCard } from '../reader/ReadingTrackerCard';
+import { triggerHaptic } from '../../lib/haptics';
+import { renderBionicText } from '../../lib/bionicReading';
+import { getGlossaryEntry } from '../../lib/glossary';
+import { autonomousEngine } from '../../lib/autonomousEngine';
 import type { Article } from '../../types';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
@@ -61,6 +69,98 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
   const setTimelineClusterId = useAppStore((s) => s.setTimelineClusterId);
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const readerLayout = useAppStore((s) => s.readerLayout);
+  const nextArticle = useAppStore((s) => s.nextArticle);
+  const prevArticle = useAppStore((s) => s.prevArticle);
+  const isBionicReadingEnabled = useAppStore((s) => s.isBionicReadingEnabled);
+  const toggleBionicReading = useAppStore((s) => s.toggleBionicReading);
+  const readerFontFamily = useAppStore((s) => s.readerFontFamily);
+  const readerColumnWidth = useAppStore((s) => s.readerColumnWidth);
+  const readerLineHeight = useAppStore((s) => s.readerLineHeight);
+  const setIsTypographyStudioOpen = useAppStore((s) => s.setIsTypographyStudioOpen);
+  const setIsMarginNotesOpen = useAppStore((s) => s.setIsMarginNotesOpen);
+  const articleNotes = useAppStore((s) => s.articleNotes);
+  const setIsEditorialCartoonOpen = useAppStore((s) => s.setIsEditorialCartoonOpen);
+  const recordArticleRead = useAppStore((s) => s.recordArticleRead);
+  const summaryTier = useAppStore((s) => s.summaryTier);
+  const setSummaryTier = useAppStore((s) => s.setSummaryTier);
+  const setBiasRadarOpen = useAppStore((s) => s.setBiasRadarOpen);
+  const setClaimCorroborationOpen = useAppStore((s) => s.setClaimCorroborationOpen);
+  const setKnowledgeMindMapOpen = useAppStore((s) => s.setKnowledgeMindMapOpen);
+
+  // Pull-to-refresh & Swipe-to-glide gestures (PRD Master Expansion #1, #2, #3)
+  const [pullY, setPullY] = useState(0);
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const touchStartXRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  const hasHapticSnappedRef = useRef(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartXRef.current = e.touches[0].clientX;
+      touchStartYRef.current = e.touches[0].clientY;
+      hasHapticSnappedRef.current = false;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1 || isPullRefreshing) return;
+    const currentY = e.touches[0].clientY;
+    const currentX = e.touches[0].clientX;
+    const diffY = currentY - touchStartYRef.current;
+    const diffX = currentX - touchStartXRef.current;
+
+    // Pull-to-refresh only when scrolled to top and pulling downward
+    if (scrollContainerRef.current && scrollContainerRef.current.scrollTop <= 0 && diffY > 0 && Math.abs(diffY) > Math.abs(diffX)) {
+      const dampened = Math.min(110, Math.pow(diffY, 0.85) * 2.2);
+      setPullY(dampened);
+
+      if (dampened >= 65 && !hasHapticSnappedRef.current) {
+        hasHapticSnappedRef.current = true;
+        triggerHaptic('snap');
+      } else if (dampened < 65 && hasHapticSnappedRef.current) {
+        hasHapticSnappedRef.current = false;
+      }
+    }
+  };
+
+  const handleTouchEnd = async (e: React.TouchEvent) => {
+    if (e.changedTouches.length !== 1) return;
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    const deltaX = endX - touchStartXRef.current;
+    const deltaY = endY - touchStartYRef.current;
+
+    // 1. If pull-to-refresh threshold met
+    if (pullY >= 65) {
+      setIsPullRefreshing(true);
+      triggerHaptic('refresh');
+      try {
+        await handleManualFetchNow();
+        await autonomousEngine.pollLiveFeeds();
+      } finally {
+        setIsPullRefreshing(false);
+        setPullY(0);
+        hasHapticSnappedRef.current = false;
+      }
+      return;
+    } else {
+      setPullY(0);
+      hasHapticSnappedRef.current = false;
+    }
+
+    // 2. Horizontal Swipe-to-Glide between stories (PRD Master Expansion #2)
+    if (Math.abs(deltaX) > 65 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+      if (deltaX < 0) {
+        // Swiped Left -> Next Story
+        triggerHaptic('light');
+        nextArticle();
+      } else {
+        // Swiped Right -> Previous Story
+        triggerHaptic('light');
+        prevArticle();
+      }
+    }
+  };
 
   const [showOriginal, setShowOriginal] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
@@ -128,11 +228,14 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
     return Array.from(new Set(titleWords)).slice(0, 5);
   }, [article]);
 
-  // Reset showOriginal when article changes
+  // Reset showOriginal and record reading habit when article changes
   useEffect(() => {
     setShowOriginal(false);
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
+    }
+    if (article?.id) {
+      recordArticleRead(article.id, primaryCategory, readTimeMin);
     }
   }, [article?.id]);
 
@@ -243,8 +346,44 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
       data-lenis-prevent="true"
       onMouseEnter={() => setIsArticlePanelHovered(true)}
       onMouseLeave={() => setIsArticlePanelHovered(false)}
-      className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain px-6 sm:px-12 lg:px-20 pt-6 sm:pt-10 pb-56 sm:pb-64 bg-paper text-ink transition-colors duration-150 scroll-anchor-auto"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="w-full h-full min-h-0 min-w-0 relative overflow-y-auto overscroll-contain px-3.5 sm:px-8 lg:px-20 pt-3 sm:pt-8 pb-56 sm:pb-64 bg-paper text-ink transition-colors duration-150 scroll-anchor-auto"
     >
+      {/* Pull-to-Refresh Broadsheet Ink Stamp Banner (PRD Master Expansion #1) */}
+      {(pullY > 0 || isPullRefreshing) && (
+        <div
+          id="pull-to-refresh-indicator"
+          style={{ height: `${isPullRefreshing ? 52 : pullY}px` }}
+          className="w-full flex items-center justify-center overflow-hidden transition-[height] duration-75 select-none mb-3"
+        >
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xs border-2 shadow-sm font-masthead text-xs font-bold uppercase tracking-widest ${pullY >= 65 || isPullRefreshing
+              ? 'border-accent bg-accent/10 text-accent'
+              : 'border-ink/50 bg-paper-alt text-ink-secondary'
+              }`}
+          >
+            {isPullRefreshing ? (
+              <>
+                <RefreshCw size={14} className="animate-spin text-accent shrink-0" />
+                <span>★ Printing Latest Telegraph Wire... ★</span>
+              </>
+            ) : pullY >= 65 ? (
+              <>
+                <ArrowDown size={14} className="text-accent rotate-180 transition-transform duration-200 shrink-0" />
+                <span>★ Release to Syndicate Wire ★</span>
+              </>
+            ) : (
+              <>
+                <ArrowDown size={14} className="text-ink-muted animate-bounce shrink-0" />
+                <span>★ Pull to Print Fresh News ★</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Real-time Downtime Welcome-Back Card */}
       <WelcomeBackCard />
 
@@ -307,12 +446,156 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
         </div>
 
         {/* Right Action Links: Layout Switcher, Translation Toggle & Original Publisher */}
-        <div className="flex flex-wrap items-center gap-2">
-          <ReaderLayoutSwitcher />
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 scroll-smooth touch-pan-x shrink-0 max-w-full">
+          <div className="shrink-0">
+            <ReaderLayoutSwitcher />
+          </div>
+
+          {/* Bionic Speed-Reading Toggle (PRD Master Expansion #10) */}
+          <button
+            id="btn-toggle-bionic-reading"
+            onClick={() => {
+              triggerHaptic('selection');
+              toggleBionicReading();
+            }}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap ${isBionicReadingEnabled
+              ? 'border-accent bg-accent/15 text-accent font-bold'
+              : 'border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-ink'
+              }`}
+            title={isBionicReadingEnabled ? 'Disable Bionic Speed-Reading' : 'Enable Bionic Speed-Reading (Fixation Stems)'}
+          >
+            <Zap size={13} className={isBionicReadingEnabled ? 'fill-accent' : ''} />
+            <span>{isBionicReadingEnabled ? 'Bionic ON' : 'Bionic'}</span>
+          </button>
+
+          {/* Typography Studio (PRD Master Expansion #14) */}
+          <button
+            id="btn-open-typography-studio"
+            onClick={() => {
+              triggerHaptic('selection');
+              setIsTypographyStudioOpen(true);
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Open Broadsheet Typography Studio"
+          >
+            <Type size={13} />
+            <span className="hidden sm:inline">Type</span>
+          </button>
+
+          {/* Margin Notes (PRD Master Expansion #13) */}
+          <button
+            id="btn-open-margin-notes"
+            onClick={() => {
+              triggerHaptic('selection');
+              setIsMarginNotesOpen(true);
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer relative shrink-0 whitespace-nowrap"
+            title="Open Editorial Margin Notes"
+          >
+            <Edit3 size={13} />
+            <span className="hidden sm:inline">Notes</span>
+            {(articleNotes[article.id]?.length || 0) > 0 && (
+              <span className="w-4 h-4 rounded-full bg-accent text-paper font-mono text-[9px] font-bold flex items-center justify-center -ml-0.5">
+                {articleNotes[article.id].length}
+              </span>
+            )}
+          </button>
+
+          {/* Print Front Page PDF (PRD Master Expansion #9) */}
+          <button
+            id="btn-print-front-page-pdf"
+            onClick={() => {
+              triggerHaptic('selection');
+              setCurrentView('pdf');
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Print 1920s Broadsheet Front Page PDF"
+          >
+            <Printer size={13} />
+            <span className="hidden sm:inline">PDF</span>
+          </button>
+
+          {/* Daily Satirical Cartoon (PRD Master Expansion #16) */}
+          <button
+            id="btn-open-editorial-cartoon"
+            onClick={() => {
+              triggerHaptic('selection');
+              setIsEditorialCartoonOpen(true);
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Daily Syndicated Satirical Cartoon"
+          >
+            <Image size={13} />
+            <span className="hidden sm:inline">Cartoon</span>
+          </button>
+
+          {/* Multi-Perspective Bias Radar (PRD Master Expansion #17) */}
+          <button
+            id="btn-open-bias-radar"
+            onClick={() => {
+              triggerHaptic('selection');
+              setBiasRadarOpen(true);
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Examine Multi-Perspective Bias & Framing Radar"
+          >
+            <Compass size={13} />
+            <span className="hidden sm:inline">Bias</span>
+          </button>
+
+          {/* Claim Corroboration Matrix (PRD Master Expansion #21) */}
+          <button
+            id="btn-open-claim-corroboration"
+            onClick={() => {
+              triggerHaptic('selection');
+              setClaimCorroborationOpen(true);
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Verify Multi-Source Claim Corroboration Matrix"
+          >
+            <ShieldCheck size={13} />
+            <span className="hidden sm:inline">Verify</span>
+          </button>
+
+          {/* Saved Knowledge Mind-Map (PRD Master Expansion #39) */}
+          <button
+            id="btn-open-knowledge-mindmap"
+            onClick={() => {
+              triggerHaptic('selection');
+              setKnowledgeMindMapOpen(true);
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Open Saved Knowledge Mind-Map & Concept Graph"
+          >
+            <Network size={13} />
+            <span className="hidden sm:inline">Mind-Map</span>
+          </button>
+
+          {/* Obsidian / Notion Markdown Export (PRD Master Expansion #40) */}
+          <button
+            id="btn-export-markdown"
+            onClick={() => {
+              triggerHaptic('bookmark');
+              const md = generateArticleMarkdown(article, {
+                includeNotes: articleNotes[article.id],
+                summaryTier,
+              });
+              const safeSlug = (article.title_english || 'dispatch')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .slice(0, 45);
+              downloadMarkdownFile(`${safeSlug}.md`, md);
+            }}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Export Dispatch to Obsidian / Notion Markdown"
+          >
+            <Download size={13} />
+            <span className="hidden sm:inline">Export</span>
+          </button>
 
           <button
             onClick={() => toggleBookmark(article.id)}
-            className="p-1.5 rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-amber-600 transition-colors"
+            className="p-1.5 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-amber-600 transition-colors shrink-0"
             title={article.bookmarked ? 'Remove bookmark' : 'Bookmark story'}
           >
             <Star
@@ -326,7 +609,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
             isPlainMode ? (
               <span
                 id="tooltip-plainmode-trans-toggle"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xs border border-paper-border/60 bg-paper-alt/40 text-xs font-semibold text-ink-muted opacity-60 cursor-not-allowed"
+                className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border/60 bg-paper-alt/40 text-xs font-semibold text-ink-muted opacity-60 cursor-not-allowed shrink-0 whitespace-nowrap"
                 title="Language switching disabled while in Plain Mode"
               >
                 <Languages size={13} />
@@ -336,7 +619,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
               <button
                 id="btn-language-toggle"
                 onClick={() => setShowOriginal(!showOriginal)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                 title={showOriginal ? 'Switch to English translation' : 'Switch to original language text'}
               >
                 <Languages size={13} />
@@ -347,11 +630,12 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
 
           {article.url && (
             <a
-              href={article.url}
+              id="btn-article-publisher-link"
+              href={sanitizeUrl(article.url)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors"
-              title="View original article on publisher site"
+              className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors shrink-0 whitespace-nowrap"
+              title="View original article on publisher site (Zero-Tracking Shield Active)"
             >
               <span>Publisher</span>
               <ExternalLink size={12} />
@@ -508,14 +792,43 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
           aria-label="Executive Wire Dispatch"
           className="my-6 p-5 sm:p-6 rounded-lg border-2 border-ink/30 bg-paper-alt/80 shadow-sm"
         >
-          <div className="flex items-center justify-between pb-3 mb-3 border-b border-paper-border">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 mb-3 border-b border-paper-border">
             <div className="flex items-center gap-2">
               <span className="inline-block w-2.5 h-2.5 rounded-full bg-accent" />
               <h3 className="font-headline text-base sm:text-lg font-bold text-ink uppercase tracking-wide">
                 Executive Dispatch Brief
               </h3>
             </div>
-            <div className="flex items-center gap-2">
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Two-Tier Summary Toggle (PRD Master Expansion #18) */}
+              <div className="inline-flex items-center rounded-xs border border-paper-border bg-paper p-0.5 font-mono text-[11px]">
+                <button
+                  id="btn-summary-tier-executive"
+                  onClick={() => {
+                    triggerHaptic('selection');
+                    setSummaryTier('executive');
+                  }}
+                  className={`px-2 py-0.5 rounded-xs uppercase tracking-wider font-bold transition-all cursor-pointer ${
+                    summaryTier === 'executive' ? 'bg-ink text-paper shadow-xs' : 'text-ink-secondary hover:text-ink'
+                  }`}
+                >
+                  Executive (2-Bullet)
+                </button>
+                <button
+                  id="btn-summary-tier-deep"
+                  onClick={() => {
+                    triggerHaptic('selection');
+                    setSummaryTier('deep');
+                  }}
+                  className={`px-2 py-0.5 rounded-xs uppercase tracking-wider font-bold transition-all cursor-pointer ${
+                    summaryTier === 'deep' ? 'bg-ink text-paper shadow-xs' : 'text-ink-secondary hover:text-ink'
+                  }`}
+                >
+                  Deep Synthesis
+                </button>
+              </div>
+
               {article.cluster_id && (
                 <>
                   <button
@@ -545,26 +858,51 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
             </div>
           </div>
 
-          <div className="space-y-2.5 font-body text-base sm:text-[1.0625rem] text-ink leading-relaxed">
-            {summarySentences.map((s, idx) => {
-              const isActive = activeSentenceIndex === idx;
-              return (
-                <p
-                  key={idx}
-                  onMouseEnter={() => setActiveSentenceIndex(idx)}
-                  onMouseLeave={() => setActiveSentenceIndex(null)}
-                  className={`p-1.5 rounded transition-colors cursor-pointer ${
-                    isActive ? 'bg-amber-100/70 dark:bg-amber-950/40 font-semibold' : 'hover:bg-paper/60'
-                  }`}
-                >
-                  <span className="font-mono text-xs text-ink-muted mr-2 font-bold select-none">
-                    §{idx + 1}
-                  </span>
-                  {s}
+          {/* Tier Content: Executive 2-Bullet vs Deep Synthesis */}
+          {summaryTier === 'executive' ? (
+            <div id="executive-summary-bullets" className="space-y-3 font-body text-base sm:text-[1.0625rem] text-ink leading-relaxed">
+              <div className="p-2.5 rounded-xs bg-paper border-l-2 border-accent">
+                <span className="font-mono text-[10px] uppercase font-bold tracking-wider text-accent block mb-0.5">
+                  • Key Dispatch Development
+                </span>
+                <p>
+                  {isBionicReadingEnabled
+                    ? renderBionicText(summarySentences[0] || article.summary)
+                    : summarySentences[0] || article.summary}
                 </p>
-              );
-            })}
-          </div>
+              </div>
+              <div className="p-2.5 rounded-xs bg-paper border-l-2 border-ink">
+                <span className="font-mono text-[10px] uppercase font-bold tracking-wider text-ink-muted block mb-0.5">
+                  • Strategic &amp; Regional Implication
+                </span>
+                <p>
+                  {isBionicReadingEnabled
+                    ? renderBionicText(summarySentences[1] || 'Secondary developments and diplomatic reactions are currently evolving across regional bureaus.')
+                    : summarySentences[1] || 'Secondary developments and diplomatic reactions are currently evolving across regional bureaus.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div id="deep-summary-synthesis" className="space-y-2.5 font-body text-base sm:text-[1.0625rem] text-ink leading-relaxed">
+              {summarySentences.map((s, idx) => {
+                const isActive = activeSentenceIndex === idx;
+                return (
+                  <p
+                    key={idx}
+                    onMouseEnter={() => setActiveSentenceIndex(idx)}
+                    onMouseLeave={() => setActiveSentenceIndex(null)}
+                    className={`p-1.5 rounded transition-colors cursor-pointer ${isActive ? 'bg-amber-100/70 dark:bg-amber-950/40 font-semibold' : 'hover:bg-paper/60'
+                      }`}
+                  >
+                    <span className="font-mono text-xs text-ink-muted mr-2 font-bold select-none">
+                      §{idx + 1}
+                    </span>
+                    {isBionicReadingEnabled ? renderBionicText(s) : s}
+                  </p>
+                );
+              })}
+            </div>
+          )}
         </section>
       )}
 
@@ -587,13 +925,12 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
       {/* 4. Article Body Reading Surface adapted for readerLayout */}
       <article
         id="article-body-surface"
-        className={`select-text my-8 ${
-          readerLayout === 'wire'
-            ? 'font-mono text-xs sm:text-sm leading-relaxed text-ink space-y-4 max-w-4xl p-5 border border-paper-border bg-paper-alt/40 rounded-xs'
-            : readerLayout === 'photojournalism'
+        className={`select-text my-8 ${readerLayout === 'wire'
+          ? 'font-mono text-xs sm:text-sm leading-relaxed text-ink space-y-4 max-w-4xl p-5 border border-paper-border bg-paper-alt/40 rounded-xs'
+          : readerLayout === 'photojournalism'
             ? 'font-serif text-[1.1875rem] sm:text-[1.25rem] leading-[2.0] text-ink font-normal space-y-7 max-w-2xl mx-auto'
-            : 'font-body text-[1.125rem] sm:text-[1.1875rem] leading-[1.85] text-ink font-normal space-y-6 max-w-3xl'
-        }`}
+            : `${readerFontFamily === 'playfair' ? 'font-headline' : readerFontFamily === 'garamond' ? 'font-serif' : 'font-body'} ${readerColumnWidth === 'wide' ? 'max-w-5xl' : readerColumnWidth === 'full' ? 'max-w-full' : 'max-w-3xl'} ${readerLineHeight === 'compact' ? 'leading-[1.6]' : readerLineHeight === 'spacious' ? 'leading-[2.1]' : 'leading-[1.85]'} text-[1.125rem] sm:text-[1.1875rem] text-ink font-normal space-y-6`
+          }`}
       >
         {paragraphs.map((para: string, pIdx: number) => {
           const anchors = article.anchor_phrases || [];
@@ -643,9 +980,8 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
                     onMouseEnter={() => setActiveSentenceIndex(m.sentence_index)}
                     onMouseLeave={() => setActiveSentenceIndex(null)}
                     onClick={() => setActiveSentenceIndex(m.sentence_index)}
-                    className={`evidence-anchor evidence-marker cursor-pointer ${
-                      isActive ? 'evidence-marker--active' : ''
-                    }`}
+                    className={`evidence-anchor evidence-marker cursor-pointer ${isActive ? 'evidence-marker--active' : ''
+                      }`}
                     title={`Verbatim evidence supporting Summary § ${m.sentence_index + 1}`}
                   >
                     {m.phrase}
@@ -665,24 +1001,72 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
           return (
             <p
               key={pIdx}
-              className={`${
-                readerLayout === 'broadsheet' && pIdx === 0
-                  ? 'first-letter:text-5xl first-letter:font-headline first-letter:font-bold first-letter:float-left first-letter:mr-3.5 first-letter:leading-none first-letter:text-ink'
-                  : readerLayout === 'wire'
+              className={`${readerLayout === 'broadsheet' && pIdx === 0
+                ? 'first-letter:text-5xl first-letter:font-headline first-letter:font-bold first-letter:float-left first-letter:mr-3.5 first-letter:leading-none first-letter:text-ink'
+                : readerLayout === 'wire'
                   ? 'flex items-start gap-2.5 font-mono'
                   : ''
-              }`}
+                }`}
             >
               {readerLayout === 'wire' && (
                 <span className="font-mono text-[10px] text-accent select-none shrink-0 pt-0.5 font-bold">
                   &gt;&gt; [{String(pIdx + 1).padStart(3, '0')}]
                 </span>
               )}
-              <span className="flex-1">{renderedContent}</span>
+              <span className="flex-1">
+                {isBionicReadingEnabled
+                  ? typeof renderedContent === 'string'
+                    ? renderBionicText(renderedContent)
+                    : Array.isArray(renderedContent)
+                      ? renderedContent.map((node, nIdx) =>
+                        typeof node === 'string' ? (
+                          <React.Fragment key={nIdx}>{renderBionicText(node)}</React.Fragment>
+                        ) : (
+                          node
+                        )
+                      )
+                      : renderedContent
+                  : typeof renderedContent === 'string'
+                    ? renderedContent.split(/(\s+)/).map((part, pI) => {
+                        if (/^\s+$/.test(part)) return part;
+                        const entry = getGlossaryEntry(part);
+                        return entry ? (
+                          <GlossaryTooltip key={pI} entry={entry}>
+                            {part}
+                          </GlossaryTooltip>
+                        ) : (
+                          part
+                        );
+                      })
+                    : Array.isArray(renderedContent)
+                      ? renderedContent.map((node, nIdx) =>
+                          typeof node === 'string' ? (
+                            <React.Fragment key={nIdx}>
+                              {node.split(/(\s+)/).map((part, pI) => {
+                                if (/^\s+$/.test(part)) return part;
+                                const entry = getGlossaryEntry(part);
+                                return entry ? (
+                                  <GlossaryTooltip key={pI} entry={entry}>
+                                    {part}
+                                  </GlossaryTooltip>
+                                ) : (
+                                  part
+                                );
+                              })}
+                            </React.Fragment>
+                          ) : (
+                            node
+                          )
+                        )
+                      : renderedContent}
+              </span>
             </p>
           );
         })}
       </article>
+
+      {/* Daily Telegraph Reading Log & Streak (PRD Master Expansion #15) */}
+      <ReadingTrackerCard />
 
       {/* 5. End of Story Colophon */}
       <div className="mt-12 pt-6 border-t border-paper-border flex items-center justify-between font-ui text-xs text-ink-muted">

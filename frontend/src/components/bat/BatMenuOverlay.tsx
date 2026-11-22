@@ -28,10 +28,17 @@ import {
   Sun,
   Moon,
   X,
+  Camera,
+  Rss,
+  Share2,
+  Newspaper,
+  Network,
+  GraduationCap,
+  Calendar,
 } from 'lucide-react';
 
 interface MenuItem {
-  view: AppView | 'library';
+  view: AppView | 'library' | 'history-frontpage' | 'wisdom-deck' | 'mindmap';
   label: string;
   icon: LucideIcon;
   shortcut?: string;
@@ -52,6 +59,14 @@ const MENU_ITEMS: MenuItem[] = [
   { view: 'briefing', label: 'Morning Briefing', icon: Radio, description: 'Two-minute AI audio radio briefing' },
   { view: 'alerts', label: 'Alerts Center', icon: Bell, description: 'Breaking news dispatches & provider switch records' },
   { view: 'control-room', label: 'Control Room', icon: Activity, shortcut: 'c', description: 'Freshness telemetry, scheduler metrics, AI quotas, & error ledger' },
+  { view: 'photojournalism', label: 'Photojournalism Desk', icon: Camera, description: 'International documentary press photography gallery' },
+  { view: 'sunday-edition', label: 'Sunday Edition Magazine', icon: Newspaper, description: 'Weekend long-form broadsheet features with multi-column layout & drop-caps' },
+  { view: 'history-frontpage', label: 'On This Day in History', icon: Calendar, description: 'Historical broadsheet facsimiles from 50, 100, and 150 years ago' },
+  { view: 'wisdom-deck', label: 'Wisdom Spaced Repetition', icon: GraduationCap, description: 'Leitner flashcard review deck for philosophy maxims & statecraft' },
+  { view: 'mindmap', label: 'Knowledge Mind-Map', icon: Network, description: 'Interactive relational concept graph connecting your saved dispatches' },
+  { view: 'custom-rss', label: 'Custom RSS Studio', icon: Rss, description: 'Syndicate custom RSS & Atom feeds to your newsprint wire' },
+  { view: 'source-health', label: 'Wire Health & Latency', icon: Radio, description: 'Live latency scoreboard across all bureaus' },
+  { view: 'entities', label: 'Entity Network Map', icon: Share2, description: 'Relational topology connecting nations, leaders, and global treaties' },
   { view: 'sources-settings', label: 'API & Sources', icon: RadioTower, description: 'Provider adapters, quotas, masked keys, & rate limits' },
   { view: 'settings', label: 'Desk Preferences', icon: Sliders, description: 'Theme preferences, sound, & database retention' },
 ];
@@ -77,10 +92,28 @@ export const BatMenuOverlay: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isBatMenuOpen, setBatMenuOpen]);
 
-  const handleSelect = (view: AppView | 'library') => {
+  const handleSelect = (view: AppView | 'library' | 'history-frontpage' | 'wisdom-deck' | 'mindmap') => {
     if (view === 'library') {
       setBatMenuOpen(false);
       useAppStore.getState().openLibrary();
+      return;
+    }
+
+    if (view === 'history-frontpage') {
+      setBatMenuOpen(false);
+      useAppStore.getState().setHistoryFrontPageOpen(true);
+      return;
+    }
+
+    if (view === 'wisdom-deck') {
+      setBatMenuOpen(false);
+      useAppStore.getState().setWisdomSpacedRepetitionOpen(true);
+      return;
+    }
+
+    if (view === 'mindmap') {
+      setBatMenuOpen(false);
+      useAppStore.getState().setKnowledgeMindMapOpen(true);
       return;
     }
 
@@ -119,9 +152,15 @@ export const BatMenuOverlay: React.FC = () => {
     if (view === 'sources-settings') {
       useAppStore.getState().setSourcesOpen(true);
     }
+    if (view === 'photojournalism' || view === 'custom-rss' || view === 'source-health') {
+      setBatMenuOpen(false);
+      setCurrentView(view);
+      return;
+    }
     if (view === 'settings') {
       useAppStore.getState().setSettingsOpen(true);
     }
+    setBatMenuOpen(false);
     setCurrentView(view);
   };
 
@@ -176,10 +215,19 @@ export const BatMenuOverlay: React.FC = () => {
               {MENU_ITEMS.map((item) => {
                 const isActive = currentView === item.view;
                 const Icon = item.icon;
+                const itemBtnId = item.view === 'photojournalism' ? 'btn-menu-photojournalism'
+                  : item.view === 'custom-rss' ? 'btn-menu-custom-rss'
+                  : item.view === 'source-health' ? 'btn-menu-source-health'
+                  : item.view === 'entities' ? 'btn-menu-entities'
+                  : item.view === 'sunday-edition' ? 'btn-menu-sunday-edition'
+                  : item.view === 'history-frontpage' ? 'btn-menu-history-frontpage'
+                  : item.view === 'wisdom-deck' ? 'btn-menu-wisdom-deck'
+                  : item.view === 'mindmap' ? 'btn-menu-mindmap' : undefined;
 
                 return (
                   <button
                     key={item.view}
+                    id={itemBtnId}
                     onClick={() => handleSelect(item.view)}
                     className={`flex flex-col text-left p-3.5 rounded-xs border transition-all ${
                       isActive

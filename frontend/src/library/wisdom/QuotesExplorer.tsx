@@ -7,6 +7,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { QuoteFolioCard, type WisdomQuote } from './QuoteFolioCard';
 import { LibraryLoadingState, LibraryEmptyState, LibraryErrorState } from '../ui/LibraryStates';
 import { useLibraryStore } from '../store/useLibraryStore';
+import { useAppStore } from '../../store/useAppStore';
+import { triggerHaptic } from '../../lib/haptics';
 import { sseBus, postCrossTabSync } from '../../lib/sseBus';
 import {
   quoteMatchesFilter,
@@ -20,6 +22,7 @@ import {
   Shuffle,
   Filter,
   User,
+  Brain,
 } from 'lucide-react';
 
 const TRADITIONS = [
@@ -314,6 +317,20 @@ export const QuotesExplorer: React.FC = () => {
 
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-2">
+            <button
+              id="btn-open-wisdom-review"
+              type="button"
+              onClick={() => {
+                triggerHaptic('selection');
+                useAppStore.getState().setWisdomSpacedRepetitionOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-serif text-[var(--lib-ink)] bg-[var(--lib-surface-elevated)] border border-[var(--lib-gold)] hover:bg-[var(--lib-gold)] hover:text-white transition-all cursor-pointer font-medium shadow-2xs"
+              title="Open Spaced Repetition Flashcard Review Studio"
+            >
+              <Brain className="w-3.5 h-3.5 text-[var(--lib-gold)]" />
+              <span>Review Deck</span>
+            </button>
+
             <button
               type="button"
               onClick={handleQuoteOfTheDay}

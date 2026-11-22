@@ -581,16 +581,83 @@ class AutonomousClientEngine {
     }
   }
 
+  private listeners: Array<(newArticles: Article[]) => void> = [];
+
+  /**
+   * Subscribe to incoming newly ingested live articles.
+   */
+  public subscribe(listener: (newArticles: Article[]) => void): () => void {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter((l) => l !== listener);
+    };
+  }
+
+  private notifyAdded(newArticles: Article[]): void {
+    for (const listener of this.listeners) {
+      try {
+        listener(newArticles);
+      } catch (err) {
+        console.warn('[AutonomousEngine] Listener error:', err);
+      }
+    }
+  }
+
   /**
    * Adds newly discovered articles to the autonomous local database.
+   * Features PRD #34 Syndication Deduplication to merge verbatim reprints of identical wire stories.
    */
   public addArticles(incoming: Article[]): Article[] {
     this.init();
     const newItems: Article[] = [];
     const seenUrls = new Set(this.inMemoryArticles.map((a) => a.url));
 
+    // Syndication Token Sets (PRD #34)
+    const existingTokens = this.inMemoryArticles.slice(0, 300).map((art) => ({
+      article: art,
+      tokens: new Set(
+        art.title_english
+          .toLowerCase()
+          .replace(/^\[.*?\]\s*|^[a-zA-Z0-9\s]+:\s*/, '')
+          .replace(/[^a-z0-9\s]/g, '')
+          .split(/\s+/)
+          .filter((w) => w.length > 2)
+      ),
+    }));
+
     for (const art of incoming) {
-      if (!seenUrls.has(art.url)) {
+      if (seenUrls.has(art.url)) continue;
+
+      const incTokens = new Set(
+        art.title_english
+          .toLowerCase()
+          .replace(/^\[.*?\]\s*|^[a-zA-Z0-9\s]+:\s*/, '')
+          .replace(/[^a-z0-9\s]/g, '')
+          .split(/\s+/)
+          .filter((w) => w.length > 2)
+      );
+
+      // Check if near-identical syndicated article already exists (>= 75% token similarity)
+      let isSyndicatedDuplicate = false;
+      for (const item of existingTokens) {
+        let intersection = 0;
+        for (const t of incTokens) {
+          if (item.tokens.has(t)) intersection++;
+        }
+        const union = new Set([...incTokens, ...item.tokens]).size;
+        const sim = union === 0 ? 0 : intersection / union;
+
+        if (sim >= 0.75) {
+          // Reprint of existing wire dispatch — corroborate existing story with additional outlet
+          isSyndicatedDuplicate = true;
+          if (!item.article.keywords?.includes(art.source.name)) {
+            item.article.keywords = [...(item.article.keywords || []), art.source.name];
+          }
+          break;
+        }
+      }
+
+      if (!isSyndicatedDuplicate) {
         seenUrls.add(art.url);
         newItems.push(art);
       }
@@ -599,58 +666,221 @@ class AutonomousClientEngine {
     if (newItems.length > 0) {
       this.inMemoryArticles = [...newItems, ...this.inMemoryArticles];
       this.persist();
+      this.notifyAdded(newItems);
     }
 
     return newItems;
   }
 
   /**
-   * Polls live public RSS feeds on client using CORS proxies.
+   * Polls live public RSS feeds on client using waterfall CORS gateways & native XML DOMParser.
    */
   public async pollLiveFeeds(): Promise<Article[]> {
     const feeds = [
       { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', source: 'BBC World', country: 'United Kingdom', cat: 'World' },
       { url: 'https://feeds.bbci.co.uk/news/technology/rss.xml', source: 'BBC Tech', country: 'United Kingdom', cat: 'Tech' },
+      { url: 'https://feeds.npr.org/1001/rss.xml', source: 'NPR News', country: 'United States', cat: 'World' },
+      { url: 'https://rss.dw.com/rdf/rss-en-all', source: 'Deutsche Welle', country: 'Germany', cat: 'World' },
+      { url: 'https://www.france24.com/en/rss', source: 'France 24', country: 'France', cat: 'World' },
+      { url: 'https://www.aljazeera.com/xml/rss/all.xml', source: 'Al Jazeera', country: 'Qatar', cat: 'World' },
+      { url: 'https://www.thehindu.com/news/national/feeder/default.rss', source: 'The Hindu', country: 'India', cat: 'Asia' },
+      { url: 'https://theconversation.com/global/articles.atom', source: 'The Conversation', country: 'Global', cat: 'World' },
     ];
 
+    // Merge User Custom Feeds from Custom RSS Studio (PRD #32, #35)
+    const customFeeds: Array<{ url: string; source: string; country: string; cat: string }> = [];
+    try {
+      if (typeof window !== 'undefined') {
+        const savedCustom = localStorage.getItem('dnews_custom_user_feeds');
+        if (savedCustom) {
+          const list = JSON.parse(savedCustom);
+          for (const cf of list) {
+            if (cf?.url) {
+              customFeeds.push({
+                url: cf.url,
+                source: cf.name || 'Custom Syndicate',
+                country: cf.country || 'Global',
+                cat: cf.category || 'World',
+              });
+            }
+          }
+        }
+      }
+    } catch {}
+
+    const allFeeds = [...feeds, ...customFeeds];
     const newlyAdded: Article[] = [];
+    const maxFuture = Date.now() + 15 * 60 * 1000;
 
-    for (const feed of feeds) {
+    for (const feed of allFeeds) {
       try {
-        const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`;
-        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(6000) });
-        if (!res.ok) continue;
+        let xmlText: string | null = null;
 
-        const data = await res.json();
-        if (data && data.status === 'ok' && Array.isArray(data.items)) {
-          const articlesToIngest: Article[] = data.items.map((item: any, idx: number) => {
-            const rawTitle = item.title || 'Untitled Dispatch';
-            const rawDesc = item.description ? item.description.replace(/<[^>]*>/g, '').trim() : rawTitle;
-            const isBreaking = idx === 0 && Math.random() > 0.5;
+        // 1. Try Direct fetch (works on Capacitor Android native or CORS-permissive servers)
+        try {
+          const directRes = await fetch(feed.url, { signal: AbortSignal.timeout(4500) });
+          if (directRes.ok) {
+            const txt = await directRes.text();
+            if (txt.includes('<rss') || txt.includes('<feed') || txt.includes('<xml')) {
+              xmlText = txt;
+            }
+          }
+        } catch {
+          // Fall back to proxies
+        }
 
-            return {
-              id: Date.now() + Math.floor(Math.random() * 10000) + idx,
-              url: item.link || `https://broadsheet.desk/item/${Date.now()}-${idx}`,
-              title_english: rawTitle,
-              summary: rawDesc.slice(0, 240) + (rawDesc.length > 240 ? '...' : ''),
-              body_english: rawDesc,
-              language_detected: 'en',
-              breaking_score: isBreaking ? 0.9 : 0.4,
-              cluster_id: null,
-              cluster_outlet_count: 1,
-              cluster_country_count: 1,
-              cluster_is_breaking: isBreaking,
-              bookmarked: false,
-              published_at: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
-              fetched_at: new Date().toISOString(),
-              source: { id: 10 + idx, name: feed.source, country: feed.country },
-              categories: [feed.cat as Category],
-              keywords: [feed.cat.toLowerCase(), 'live', 'dispatch'],
-            };
-          });
+        // 2. Try AllOrigins Raw proxy
+        if (!xmlText) {
+          try {
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}`;
+            const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
+            if (res.ok) {
+              const txt = await res.text();
+              if (txt.includes('<rss') || txt.includes('<feed') || txt.includes('<xml')) {
+                xmlText = txt;
+              }
+            }
+          } catch {
+            // Next proxy
+          }
+        }
 
-          const added = this.addArticles(articlesToIngest);
-          newlyAdded.push(...added);
+        // 3. Try Corsproxy.io
+        if (!xmlText) {
+          try {
+            const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(feed.url)}`;
+            const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
+            if (res.ok) {
+              const txt = await res.text();
+              if (txt.includes('<rss') || txt.includes('<feed') || txt.includes('<xml')) {
+                xmlText = txt;
+              }
+            }
+          } catch {
+            // Next proxy
+          }
+        }
+
+        // Parse XML directly with DOMParser if we got XML string
+        if (xmlText && typeof DOMParser !== 'undefined') {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(xmlText, 'text/xml');
+          const itemElements = Array.from(doc.querySelectorAll('item, entry'));
+
+          if (itemElements.length > 0) {
+            const parsedArticles: Article[] = itemElements.slice(0, 15).map((el, idx) => {
+              const title = el.querySelector('title')?.textContent?.trim() || 'Untitled Dispatch';
+              const link =
+                el.querySelector('link')?.textContent?.trim() ||
+                el.querySelector('link')?.getAttribute('href') ||
+                `https://broadsheet.desk/item/${Date.now()}-${idx}`;
+              const descRaw =
+                el.querySelector('description, summary, content')?.textContent?.trim() || title;
+              const desc = descRaw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+              let publishedAt = new Date().toISOString();
+              const pubStr = el.querySelector('pubDate, published, updated')?.textContent?.trim();
+              if (pubStr) {
+                const ms = new Date(pubStr).getTime();
+                if (!isNaN(ms)) {
+                  publishedAt = new Date(ms > maxFuture ? Date.now() : ms).toISOString();
+                }
+              }
+
+              const isBreaking = idx === 0 && Math.random() > 0.6;
+
+              return {
+                id: Date.now() + Math.floor(Math.random() * 100000) + idx,
+                url: link,
+                title_english: title,
+                summary: desc.slice(0, 240) + (desc.length > 240 ? '...' : ''),
+                body_english: desc,
+                language_detected: 'en',
+                breaking_score: isBreaking ? 0.9 : 0.4,
+                cluster_id: null,
+                cluster_outlet_count: 1,
+                cluster_country_count: 1,
+                cluster_is_breaking: isBreaking,
+                confirmation: {
+                  tier: 'single_source',
+                  label: `${feed.source} Direct Wire`,
+                  outletCount: 1,
+                  countryCount: 1,
+                  isConfirmed: false,
+                  isBreaking,
+                  breakingLabel: isBreaking ? 'Unconfirmed Breaking' : undefined,
+                },
+                bookmarked: false,
+                published_at: publishedAt,
+                fetched_at: new Date().toISOString(),
+                source: { id: 200 + idx, name: feed.source, country: feed.country },
+                categories: [feed.cat as Category],
+                keywords: [feed.cat.toLowerCase(), 'live', 'dispatch', feed.source.toLowerCase()],
+              };
+            });
+
+            const added = this.addArticles(parsedArticles);
+            newlyAdded.push(...added);
+            continue; // Successfully handled via XML DOMParser
+          }
+        }
+
+        // 4. Fallback to rss2json if XML parsing was unavailable or failed
+        try {
+          const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`;
+          const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(5000) });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.status === 'ok' && Array.isArray(data.items)) {
+              const articlesToIngest: Article[] = data.items.slice(0, 15).map((item: any, idx: number) => {
+                const rawTitle = item.title || 'Untitled Dispatch';
+                const rawDesc = item.description ? item.description.replace(/<[^>]*>/g, '').trim() : rawTitle;
+                const isBreaking = idx === 0 && Math.random() > 0.6;
+
+                let publishedAt = new Date().toISOString();
+                if (item.pubDate) {
+                  const ms = new Date(item.pubDate).getTime();
+                  if (!isNaN(ms)) {
+                    publishedAt = new Date(ms > maxFuture ? Date.now() : ms).toISOString();
+                  }
+                }
+
+                return {
+                  id: Date.now() + Math.floor(Math.random() * 100000) + idx,
+                  url: item.link || `https://broadsheet.desk/item/${Date.now()}-${idx}`,
+                  title_english: rawTitle,
+                  summary: rawDesc.slice(0, 240) + (rawDesc.length > 240 ? '...' : ''),
+                  body_english: rawDesc,
+                  language_detected: 'en',
+                  breaking_score: isBreaking ? 0.9 : 0.4,
+                  cluster_id: null,
+                  cluster_outlet_count: 1,
+                  cluster_country_count: 1,
+                  cluster_is_breaking: isBreaking,
+                  confirmation: {
+                    tier: 'single_source',
+                    label: `${feed.source} Direct Wire`,
+                    outletCount: 1,
+                    countryCount: 1,
+                    isConfirmed: false,
+                    isBreaking,
+                    breakingLabel: isBreaking ? 'Unconfirmed Breaking' : undefined,
+                  },
+                  bookmarked: false,
+                  published_at: publishedAt,
+                  fetched_at: new Date().toISOString(),
+                  source: { id: 200 + idx, name: feed.source, country: feed.country },
+                  categories: [feed.cat as Category],
+                  keywords: [feed.cat.toLowerCase(), 'live', 'dispatch', feed.source.toLowerCase()],
+                };
+              });
+
+              const added = this.addArticles(articlesToIngest);
+              newlyAdded.push(...added);
+            }
+          }
+        } catch {
+          // All fallback attempts complete for this feed
         }
       } catch {
         // Feed fetch timeout or network error
@@ -663,14 +893,30 @@ class AutonomousClientEngine {
   /**
    * Starts recurring client-side feed poller.
    */
-  public startAutoPolling(intervalMs = 120000): () => void {
-    // Initial fetch after brief delay
+  public startAutoPolling(intervalMs = 60000): () => void {
+    const triggerPoll = async () => {
+      try {
+        const added = await this.pollLiveFeeds();
+        if (added.length > 0 && typeof window !== 'undefined') {
+          // Dynamic notification to Zustand store if present on window
+          const store = (window as any).useAppStore;
+          if (store && typeof store.getState === 'function') {
+            store.getState().applyLiveArticlesBatch(added);
+            store.getState().fetchCategoryCounts();
+          }
+        }
+      } catch (err) {
+        console.warn('[AutonomousEngine] Live feed polling error:', err);
+      }
+    };
+
+    // Initial fetch after brief 1.5s delay
     const initialTimer = setTimeout(() => {
-      void this.pollLiveFeeds();
-    }, 3000);
+      void triggerPoll();
+    }, 1500);
 
     const intervalTimer = setInterval(() => {
-      void this.pollLiveFeeds();
+      void triggerPoll();
     }, intervalMs);
 
     return () => {

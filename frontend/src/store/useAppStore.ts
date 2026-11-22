@@ -138,6 +138,59 @@ interface AppState {
   setSettingsOpen: (open: boolean) => void;
   fetchSettings: () => Promise<void>;
   updateSettings: (updates: Partial<AppSettings>) => Promise<void>;
+  isBionicReadingEnabled: boolean;
+  toggleBionicReading: () => void;
+
+  // AI Intelligence & Analysis (PRD Master Expansion Phase C2)
+  summaryTier: 'executive' | 'deep';
+  setSummaryTier: (tier: 'executive' | 'deep') => void;
+  isBiasRadarOpen: boolean;
+  setBiasRadarOpen: (open: boolean) => void;
+  isClaimCorroborationOpen: boolean;
+  setClaimCorroborationOpen: (open: boolean) => void;
+
+  // Knowledge Archive & Security Hardening (PRD Master Expansion Phase D)
+  isKnowledgeMindMapOpen: boolean;
+  setKnowledgeMindMapOpen: (open: boolean) => void;
+  isHistoryFrontPageOpen: boolean;
+  setHistoryFrontPageOpen: (open: boolean) => void;
+  isWisdomSpacedRepetitionOpen: boolean;
+  setWisdomSpacedRepetitionOpen: (open: boolean) => void;
+  isIncognitoMode: boolean;
+  setIncognitoMode: (active: boolean) => void;
+  isPanicWipeOpen: boolean;
+  setPanicWipeOpen: (open: boolean) => void;
+
+  // Typography Studio (PRD Master Expansion #14)
+  readerFontFamily: 'source-serif' | 'playfair' | 'garamond' | 'lora' | 'cormorant';
+  setReaderFontFamily: (font: 'source-serif' | 'playfair' | 'garamond' | 'lora' | 'cormorant') => void;
+  readerColumnWidth: 'standard' | 'wide' | 'full';
+  setReaderColumnWidth: (w: 'standard' | 'wide' | 'full') => void;
+  readerLineHeight: 'compact' | 'broadsheet' | 'spacious';
+  setReaderLineHeight: (lh: 'compact' | 'broadsheet' | 'spacious') => void;
+  isTypographyStudioOpen: boolean;
+  setIsTypographyStudioOpen: (open: boolean) => void;
+
+  // Margin Notes & Highlighting (PRD Master Expansion #13)
+  articleNotes: Record<number, Array<{ id: string; text: string; color: string; createdAt: string; paragraphIndex?: number }>>;
+  addArticleNote: (articleId: number, note: { text: string; color: string; paragraphIndex?: number }) => void;
+  deleteArticleNote: (articleId: number, noteId: string) => void;
+  isMarginNotesOpen: boolean;
+  setIsMarginNotesOpen: (open: boolean) => void;
+
+  // Reading Tracker & Daily Streak (PRD Master Expansion #15)
+  readingStats: {
+    totalArticlesRead: number;
+    totalMinutesRead: number;
+    streakDays: number;
+    lastReadDate: string;
+    categoryCounts: Record<string, number>;
+  };
+  recordArticleRead: (articleId: number, category: string, readTimeMin: number) => void;
+
+  // Editorial Cartoon Modal (PRD Master Expansion #16)
+  isEditorialCartoonOpen: boolean;
+  setIsEditorialCartoonOpen: (open: boolean) => void;
 
   // Startup & Catch-Up
   startupStatus: StartupStatus | null;
@@ -700,6 +753,187 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Settings
   isSettingsOpen: false,
+  isBionicReadingEnabled: false,
+  toggleBionicReading: () => set((state) => ({ isBionicReadingEnabled: !state.isBionicReadingEnabled })),
+
+  // AI Intelligence & Analysis (PRD Master Expansion Phase C2)
+  summaryTier: (typeof window !== 'undefined' && (localStorage.getItem('dnews_summary_tier') as 'executive' | 'deep')) || 'executive',
+  setSummaryTier: (tier) => {
+    try { localStorage.setItem('dnews_summary_tier', tier); } catch {}
+    set({ summaryTier: tier });
+  },
+  isBiasRadarOpen: false,
+  setBiasRadarOpen: (open) => set({ isBiasRadarOpen: open }),
+  isClaimCorroborationOpen: false,
+  setClaimCorroborationOpen: (open) => set({ isClaimCorroborationOpen: open }),
+
+  // Knowledge Archive & Security Hardening (PRD Master Expansion Phase D)
+  isKnowledgeMindMapOpen: false,
+  setKnowledgeMindMapOpen: (open) => set({ isKnowledgeMindMapOpen: open }),
+  isHistoryFrontPageOpen: false,
+  setHistoryFrontPageOpen: (open) => set({ isHistoryFrontPageOpen: open }),
+  isWisdomSpacedRepetitionOpen: false,
+  setWisdomSpacedRepetitionOpen: (open) => set({ isWisdomSpacedRepetitionOpen: open }),
+  isIncognitoMode: false,
+  setIncognitoMode: (active) => set({ isIncognitoMode: active }),
+  isPanicWipeOpen: false,
+  setPanicWipeOpen: (open) => set({ isPanicWipeOpen: open }),
+
+  // Typography Studio (PRD Master Expansion #14)
+  readerFontFamily: (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dnews_reader_font');
+        if (saved && ['source-serif', 'playfair', 'garamond', 'lora', 'cormorant'].includes(saved)) {
+          return saved as any;
+        }
+      } catch {}
+    }
+    return 'source-serif';
+  })(),
+  setReaderFontFamily: (font) => {
+    try {
+      if (typeof window !== 'undefined') localStorage.setItem('dnews_reader_font', font);
+    } catch {}
+    set({ readerFontFamily: font });
+  },
+  readerColumnWidth: (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dnews_reader_col_width');
+        if (saved && ['standard', 'wide', 'full'].includes(saved)) return saved as any;
+      } catch {}
+    }
+    return 'standard';
+  })(),
+  setReaderColumnWidth: (w) => {
+    try {
+      if (typeof window !== 'undefined') localStorage.setItem('dnews_reader_col_width', w);
+    } catch {}
+    set({ readerColumnWidth: w });
+  },
+  readerLineHeight: (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dnews_reader_line_height');
+        if (saved && ['compact', 'broadsheet', 'spacious'].includes(saved)) return saved as any;
+      } catch {}
+    }
+    return 'broadsheet';
+  })(),
+  setReaderLineHeight: (lh) => {
+    try {
+      if (typeof window !== 'undefined') localStorage.setItem('dnews_reader_line_height', lh);
+    } catch {}
+    set({ readerLineHeight: lh });
+  },
+  isTypographyStudioOpen: false,
+  setIsTypographyStudioOpen: (open) => set({ isTypographyStudioOpen: open }),
+
+  // Margin Notes & Highlighting (PRD Master Expansion #13)
+  articleNotes: (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dnews_article_notes');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return {};
+  })(),
+  addArticleNote: (articleId, note) => {
+    set((state) => {
+      const existing = state.articleNotes[articleId] || [];
+      const newNote = {
+        ...note,
+        id: `note-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        createdAt: new Date().toISOString(),
+      };
+      const updated = {
+        ...state.articleNotes,
+        [articleId]: [...existing, newNote],
+      };
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('dnews_article_notes', JSON.stringify(updated));
+        }
+      } catch {}
+      return { articleNotes: updated };
+    });
+  },
+  deleteArticleNote: (articleId, noteId) => {
+    set((state) => {
+      const existing = state.articleNotes[articleId] || [];
+      const updated = {
+        ...state.articleNotes,
+        [articleId]: existing.filter((n) => n.id !== noteId),
+      };
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('dnews_article_notes', JSON.stringify(updated));
+        }
+      } catch {}
+      return { articleNotes: updated };
+    });
+  },
+  isMarginNotesOpen: false,
+  setIsMarginNotesOpen: (open) => set({ isMarginNotesOpen: open }),
+
+  // Reading Tracker & Daily Streak (PRD Master Expansion #15)
+  readingStats: (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('dnews_reading_stats');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return {
+      totalArticlesRead: 0,
+      totalMinutesRead: 0,
+      streakDays: 1,
+      lastReadDate: new Date().toISOString().slice(0, 10),
+      categoryCounts: {},
+    };
+  })(),
+  recordArticleRead: (_articleId, category, readTimeMin) => {
+    set((state) => {
+      const today = new Date().toISOString().slice(0, 10);
+      const prev = state.readingStats;
+      let newStreak = prev.streakDays;
+
+      if (prev.lastReadDate !== today) {
+        const prevDate = new Date(prev.lastReadDate);
+        const currDate = new Date(today);
+        const diffDays = Math.round((currDate.getTime() - prevDate.getTime()) / (1000 * 3600 * 24));
+        if (diffDays === 1) {
+          newStreak += 1;
+        } else if (diffDays > 1) {
+          newStreak = 1;
+        }
+      }
+
+      const updated = {
+        totalArticlesRead: prev.totalArticlesRead + 1,
+        totalMinutesRead: prev.totalMinutesRead + (readTimeMin || 1),
+        streakDays: newStreak,
+        lastReadDate: today,
+        categoryCounts: {
+          ...prev.categoryCounts,
+          [category]: (prev.categoryCounts[category] || 0) + 1,
+        },
+      };
+
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('dnews_reading_stats', JSON.stringify(updated));
+        }
+      } catch {}
+      return { readingStats: updated };
+    });
+  },
+
+  // Editorial Cartoon Modal (PRD Master Expansion #16)
+  isEditorialCartoonOpen: false,
+  setIsEditorialCartoonOpen: (open) => set({ isEditorialCartoonOpen: open }),
   settings: {
     // General & Realtime
     timezone_mode: 'local',

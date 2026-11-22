@@ -106,8 +106,8 @@ async function fetchSingleSource(source: (typeof SOURCES)[0]): Promise<ArticleRa
   }
 }
 
-async function runFetchCycle(): Promise<void> {
-  if (!getConnectivityWatchdog().isCurrentlyOnline()) {
+async function runFetchCycle(force: boolean = false): Promise<void> {
+  if (!force && !getConnectivityWatchdog().isCurrentlyOnline()) {
     console.log('[Scheduler] Fetch cycle suspended — offline mode active (watchdog checking every 15s)');
     return;
   }
@@ -181,13 +181,13 @@ async function runFetchCycle(): Promise<void> {
 }
 
 /** Manually trigger an immediate fetch cycle on demand from the Control Room */
-export async function triggerManualFetchCycle(): Promise<{
+export async function triggerManualFetchCycle(force: boolean = false): Promise<{
   status: 'completed' | 'already_running' | 'offline';
   fetched: number;
   newCount: number;
   durationMs: number;
 }> {
-  if (!getConnectivityWatchdog().isCurrentlyOnline()) {
+  if (!force && !getConnectivityWatchdog().isCurrentlyOnline()) {
     console.log('[Scheduler] Manual fetch cycle skipped — device is currently offline');
     return {
       status: 'offline',
@@ -207,7 +207,7 @@ export async function triggerManualFetchCycle(): Promise<{
   }
 
   const startMs = Date.now();
-  await runFetchCycle();
+  await runFetchCycle(force);
   return {
     status: 'completed',
     fetched: _lastCycleArticlesFetched,

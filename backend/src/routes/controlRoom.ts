@@ -62,9 +62,10 @@ controlRoomRouter.post('/errors/clear', (req: Request, res: Response) => {
 });
 
 // POST /api/control-room/trigger-fetch
-controlRoomRouter.post('/trigger-fetch', async (_req: Request, res: Response) => {
+controlRoomRouter.post('/trigger-fetch', async (req: Request, res: Response) => {
   try {
-    const result = await triggerManualFetchCycle();
+    const force = Boolean(req.body?.force);
+    const result = await triggerManualFetchCycle(force);
     res.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

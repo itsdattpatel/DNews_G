@@ -78,6 +78,19 @@ export async function insertPendingArticles(
       evaluated++;
 
       const norm = normalizeArticleText(a.titleOriginal, a.bodyOriginal);
+
+      // Future-date clamp (PRD_FRESH_NEWS_PIPELINE): Prevent embargoed/future-dated dispatches from hiding breaking news
+      let safePublishedAt = a.publishedAt;
+      if (safePublishedAt) {
+        const parsedMs = new Date(safePublishedAt).getTime();
+        const maxFutureMs = Date.now() + 15 * 60 * 1000;
+        if (isNaN(parsedMs) || parsedMs > maxFutureMs) {
+          safePublishedAt = nowIso;
+        }
+      } else {
+        safePublishedAt = nowIso;
+      }
+
       const result = insertArticle.run({
         sourceId: sourceRow.id,
         url: a.url,
@@ -89,7 +102,7 @@ export async function insertPendingArticles(
         bodyQuality: norm.quality,
         readabilityScore: norm.readabilityScore,
         sourceLanguage: norm.sourceLanguage,
-        publishedAt: a.publishedAt,
+        publishedAt: safePublishedAt,
         ingestedAt: nowIso,
         isCatchup: isCatchup ? 1 : 0,
       });

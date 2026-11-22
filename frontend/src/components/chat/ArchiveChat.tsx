@@ -31,6 +31,7 @@ export const ArchiveChat: React.FC = () => {
   const isPlainMode = plainModeEnabled ?? false;
   const [query, setQuery] = useState('');
   const [useAi, setUseAi] = useState(true);
+  const [searchMode, setSearchMode] = useState<'fts' | 'semantic'>('fts');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null);
@@ -66,6 +67,7 @@ export const ArchiveChat: React.FC = () => {
         body: JSON.stringify({
           query: targetQuery,
           use_ai: isPlainMode ? false : useAi,
+          mode: searchMode,
           limit: 15,
         }),
       });
@@ -214,11 +216,37 @@ export const ArchiveChat: React.FC = () => {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Query historical reporting (e.g., 'tiger population', 'clean energy', 'quantum')..."
+                placeholder={searchMode === 'semantic' ? "Semantic Concept Search (e.g., 'central bank inflation', 'treaty', 'ai')..." : "Query historical reporting via FTS5..."}
                 className="w-full pl-9 pr-3 py-2 bg-paper-alt border border-paper-border focus:border-ink rounded-xs font-ui text-xs sm:text-sm text-ink placeholder:text-ink-muted focus:outline-none"
                 disabled={isLoading}
                 autoFocus
               />
+            </div>
+
+            {/* Mode Switcher: Keyword FTS5 vs Semantic Vector (#24) */}
+            <div className="hidden sm:inline-flex items-center rounded-xs border border-paper-border bg-paper-alt p-0.5 font-mono text-[11px] shrink-0">
+              <button
+                type="button"
+                id="btn-search-mode-fts"
+                onClick={() => setSearchMode('fts')}
+                className={`px-2 py-1 rounded-xs uppercase tracking-wider font-bold transition-all cursor-pointer ${
+                  searchMode === 'fts' ? 'bg-ink text-paper shadow-xs' : 'text-ink-secondary hover:text-ink'
+                }`}
+                title="Exact keyword matching via SQLite FTS5"
+              >
+                FTS5
+              </button>
+              <button
+                type="button"
+                id="btn-search-mode-semantic"
+                onClick={() => setSearchMode('semantic')}
+                className={`px-2 py-1 rounded-xs uppercase tracking-wider font-bold transition-all cursor-pointer ${
+                  searchMode === 'semantic' ? 'bg-ink text-paper shadow-xs' : 'text-ink-secondary hover:text-ink'
+                }`}
+                title="Conceptual semantic similarity search"
+              >
+                Semantic
+              </button>
             </div>
 
             <button
@@ -415,8 +443,14 @@ export const ArchiveChat: React.FC = () => {
                                 <span className="font-bold text-accent">
                                   [{citationIndex}] {item.source_name} ({item.source_country})
                                 </span>
-                                <span className="font-bold bg-paper-border/60 px-1.5 py-0.5 rounded-xs">
-                                  Score: {formatRelevanceScore(item.score ?? 4.0)}
+                                <span className={`font-bold px-1.5 py-0.5 rounded-xs ${
+                                  (item as any).semantic_match_percent
+                                    ? 'bg-accent/15 text-accent border border-accent/30'
+                                    : 'bg-paper-border/60 text-ink-secondary'
+                                }`}>
+                                  {(item as any).semantic_match_percent
+                                    ? `${(item as any).semantic_match_percent}% Match`
+                                    : `Score: ${formatRelevanceScore(item.score ?? 4.0)}`}
                                 </span>
                               </div>
 

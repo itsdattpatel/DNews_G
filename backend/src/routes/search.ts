@@ -18,12 +18,13 @@ interface SearchResultItem {
   breaking_score: number;
   source_name: string;
   source_country: string;
+  semantic_match_percent?: number;
 }
 
 // POST /api/search
 searchRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { query, use_ai = false, limit = 20 } = req.body;
+    const { query, use_ai = false, limit = 20, mode = 'fts' } = req.body;
 
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
       res.status(400).json({ error: 'Search query is required', code: 'VALIDATION_ERROR' });
@@ -36,49 +37,116 @@ searchRouter.post('/', async (req: Request, res: Response) => {
 
     let results: SearchResultItem[] = [];
 
-    // 1. Try SQLite FTS5 Match
-    try {
-      // Sanitize query for FTS5 (escape double quotes, wrap terms)
-      const sanitizedFts = cleanQuery
-        .replace(/["'*]/g, ' ')
+    if (mode === 'semantic') {
+      // #24 Semantic Vector & Conceptual Similarity Search
+      const queryTokens = cleanQuery
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
         .split(/\s+/)
-        .filter(Boolean)
-        .map((term) => `"${term}"*`)
-        .join(' OR ');
+        .filter((t) => t.length > 2);
 
-      if (sanitizedFts) {
+      const SEMANTIC_CLUSTERS: Record<string, string[]> = {
+        economy: ['inflation', 'rates', 'market', 'trade', 'finance', 'gdp', 'tariff', 'debt', 'bank'],
+        war: ['conflict', 'military', 'missile', 'strike', 'forces', 'truce', 'ceasefire', 'defense'],
+        diplomacy: ['treaty', 'summit', 'accord', 'bilateral', 'envoy', 'ambassador', 'negotiations'],
+        climate: ['emissions', 'temperature', 'drought', 'storm', 'wildfire', 'cop', 'renewable', 'carbon'],
+        election: ['vote', 'ballot', 'parliament', 'candidate', 'polling', 'coalition', 'presidency'],
+        tech: ['ai', 'cyber', 'silicon', 'semiconductor', 'quantum', 'algorithm', 'cloud'],
+      };
+
+      const expandedTokens = new Set(queryTokens);
+      for (const qt of queryTokens) {
+        for (const [key, cluster] of Object.entries(SEMANTIC_CLUSTERS)) {
+          if (qt.includes(key) || cluster.includes(qt)) {
+            cluster.slice(0, 4).forEach((syn) => expandedTokens.add(syn));
+          }
+        }
+      }
+
+      const candidates = db.prepare(`
+        SELECT a.id, a.url, a.title_english, a.summary, a.published_at, a.breaking_score,
+               s.name as source_name, s.country as source_country
+        FROM articles a
+        JOIN sources s ON a.source_id = s.id
+        ORDER BY a.published_at DESC
+        LIMIT 120
+      `).all() as SearchResultItem[];
+
+      const scored = candidates.map((cand) => {
+        const text = `${cand.title_english} ${cand.summary || ''}`.toLowerCase();
+        let matchScore = 0;
+        let directMatches = 0;
+
+        for (const qt of queryTokens) {
+          if (text.includes(qt)) {
+            matchScore += 35;
+            directMatches++;
+          }
+        }
+
+        for (const exp of expandedTokens) {
+          if (text.includes(exp)) {
+            matchScore += 12;
+          }
+        }
+
+        const normalized = directMatches > 0
+          ? Math.min(99, Math.max(70, Math.round(matchScore + 40)))
+          : Math.min(85, Math.max(50, Math.round(matchScore + 20)));
+
+        return {
+          ...cand,
+          semantic_match_percent: normalized,
+        };
+      });
+
+      results = scored
+        .filter((s) => (s.semantic_match_percent ?? 0) >= 60)
+        .sort((a, b) => (b.semantic_match_percent ?? 0) - (a.semantic_match_percent ?? 0))
+        .slice(0, maxResults);
+    } else {
+      // 1. Try SQLite FTS5 Match
+      try {
+        const sanitizedFts = cleanQuery
+          .replace(/["'*]/g, ' ')
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((term) => `"${term}"*`)
+          .join(' OR ');
+
+        if (sanitizedFts) {
+          results = db
+            .prepare(`
+              SELECT a.id, a.url, a.title_english, a.summary, a.published_at, a.breaking_score,
+                     s.name as source_name, s.country as source_country
+              FROM articles_fts fts
+              JOIN articles a ON fts.rowid = a.id
+              JOIN sources s ON a.source_id = s.id
+              WHERE articles_fts MATCH ?
+              ORDER BY bm25(articles_fts)
+              LIMIT ?
+            `)
+            .all(sanitizedFts, maxResults) as SearchResultItem[];
+        }
+      } catch {
+        results = [];
+      }
+
+      // 2. Fallback to LIKE if FTS produced 0 results
+      if (results.length === 0) {
+        const likeParam = `%${cleanQuery}%`;
         results = db
           .prepare(`
             SELECT a.id, a.url, a.title_english, a.summary, a.published_at, a.breaking_score,
                    s.name as source_name, s.country as source_country
-            FROM articles_fts fts
-            JOIN articles a ON fts.rowid = a.id
+            FROM articles a
             JOIN sources s ON a.source_id = s.id
-            WHERE articles_fts MATCH ?
-            ORDER BY bm25(articles_fts)
+            WHERE (a.title_english LIKE ? OR a.summary LIKE ? OR a.body_english LIKE ?)
+            ORDER BY a.published_at DESC
             LIMIT ?
           `)
-          .all(sanitizedFts, maxResults) as SearchResultItem[];
+          .all(likeParam, likeParam, likeParam, maxResults) as SearchResultItem[];
       }
-    } catch {
-      // FTS query fallback
-      results = [];
-    }
-
-    // 2. Fallback to LIKE if FTS produced 0 results
-    if (results.length === 0) {
-      const likeParam = `%${cleanQuery}%`;
-      results = db
-        .prepare(`
-          SELECT a.id, a.url, a.title_english, a.summary, a.published_at, a.breaking_score,
-                 s.name as source_name, s.country as source_country
-          FROM articles a
-          JOIN sources s ON a.source_id = s.id
-          WHERE (a.title_english LIKE ? OR a.summary LIKE ? OR a.body_english LIKE ?)
-          ORDER BY a.published_at DESC
-          LIMIT ?
-        `)
-        .all(likeParam, likeParam, likeParam, maxResults) as SearchResultItem[];
     }
 
     // 3. AI Synthesis if requested

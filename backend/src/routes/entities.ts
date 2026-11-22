@@ -149,3 +149,92 @@ entitiesRouter.get('/dossier', (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to generate entity dossier', code: 'SERVER_ERROR' });
   }
 });
+
+// GET /api/entities/graph
+entitiesRouter.get('/graph', (_req: Request, res: Response) => {
+  try {
+    const db = getDb();
+
+    // 1. Fetch top 35 prominent entities by mention frequency
+    const topKeywords = db.prepare(`
+      SELECT keyword, COUNT(*) as mentions, AVG(a.breaking_score) as avg_score
+      FROM keywords k
+      JOIN articles a ON k.article_id = a.id
+      WHERE length(keyword) > 2
+      GROUP BY lower(keyword)
+      ORDER BY mentions DESC
+      LIMIT 35
+    `).all() as Array<{ keyword: string; mentions: number; avg_score: number | null }>;
+
+    const KNOWN_NATIONS = new Set([
+      'united states', 'usa', 'us', 'china', 'russia', 'india', 'uk', 'britain', 'france',
+      'germany', 'japan', 'ukraine', 'israel', 'iran', 'gaza', 'taiwan', 'south korea',
+      'north korea', 'turkey', 'syria', 'canada', 'australia', 'brazil', 'saudi arabia',
+      'pakistan', 'bangladesh', 'qatar', 'egypt', 'lebanon', 'yemen', 'sudan'
+    ]);
+
+    const KNOWN_ORGS = new Set([
+      'un', 'united nations', 'nato', 'eu', 'european union', 'who', 'imf', 'world bank',
+      'iaea', 'icc', 'opec', 'asean', 'brics', 'g7', 'g20', 'fda', 'fbi', 'cia', 'pentagon'
+    ]);
+
+    const nodes = topKeywords.map((k, index) => {
+      const lower = k.keyword.toLowerCase();
+      let type: 'nation' | 'organization' | 'leader' | 'topic' = 'topic';
+      if (KNOWN_NATIONS.has(lower)) {
+        type = 'nation';
+      } else if (KNOWN_ORGS.has(lower)) {
+        type = 'organization';
+      } else if (/^[A-Z][a-z]+ [A-Z][a-z]+$/.test(k.keyword)) {
+        type = 'leader';
+      }
+
+      return {
+        id: k.keyword,
+        name: k.keyword,
+        type,
+        mentions: k.mentions,
+        urgency: Math.round(k.avg_score || 0),
+        rank: index + 1,
+      };
+    });
+
+    const nodeSet = new Set(nodes.map((n) => n.id.toLowerCase()));
+
+    // 2. Fetch co-occurrence relationships (edges) between these entities
+    const linksMap = new Map<string, { source: string; target: string; weight: number }>();
+
+    const pairs = db.prepare(`
+      SELECT k1.keyword as e1, k2.keyword as e2, COUNT(*) as weight
+      FROM keywords k1
+      JOIN keywords k2 ON k1.article_id = k2.article_id AND lower(k1.keyword) < lower(k2.keyword)
+      GROUP BY lower(k1.keyword), lower(k2.keyword)
+      HAVING weight >= 1
+      ORDER BY weight DESC
+      LIMIT 100
+    `).all() as Array<{ e1: string; e2: string; weight: number }>;
+
+    for (const p of pairs) {
+      if (nodeSet.has(p.e1.toLowerCase()) && nodeSet.has(p.e2.toLowerCase())) {
+        const key = `${p.e1.toLowerCase()}_${p.e2.toLowerCase()}`;
+        linksMap.set(key, {
+          source: p.e1,
+          target: p.e2,
+          weight: p.weight,
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      nodes,
+      links: Array.from(linksMap.values()),
+      total_entities: nodes.length,
+      total_connections: linksMap.size,
+      generated_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[Entities] Failed to generate entity network graph:', err);
+    res.status(500).json({ error: 'Failed to generate entity graph', code: 'SERVER_ERROR' });
+  }
+});

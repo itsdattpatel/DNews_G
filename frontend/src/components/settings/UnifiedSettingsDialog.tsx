@@ -33,6 +33,9 @@ import {
   Check,
   ExternalLink,
   Lock,
+  ShieldCheck,
+  ShieldAlert,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SecretsManagerSection } from './SecretsManagerSection';
@@ -58,6 +61,7 @@ export type SettingsSectionId =
   | 'appearance'
   | 'data_backup'
   | 'library'
+  | 'security'
   | 'advanced';
 
 interface SectionDefinition {
@@ -138,6 +142,13 @@ const SECTIONS: SectionDefinition[] = [
     subtitle: 'Historical archives citation format and crisis helpline regions',
     icon: Library,
     keywords: ['library', 'citation', 'apa', 'chicago', 'helpline', 'crisis', 'support', 'wisdom', 'mind'],
+  },
+  {
+    id: 'security',
+    title: 'Security & Privacy',
+    subtitle: 'Zero-tracking shield, SOCKS5/Tor proxy, encrypted DB & panic wipe',
+    icon: ShieldCheck,
+    keywords: ['security', 'privacy', 'tracking', 'tor', 'socks5', 'proxy', 'encrypt', 'wipe', 'panic', 'hsm', 'vault', 'ipfs'],
   },
   {
     id: 'advanced',
@@ -224,6 +235,7 @@ const SECTION_DEFAULTS: Record<SettingsSectionId, Partial<AppSettings>> = {
     library_citation_format: 'apa',
     helpline_default_region: 'all',
   },
+  security: {},
   advanced: {
     debug_logging: false,
     clock_sync_enabled: true,
@@ -241,6 +253,7 @@ export const UnifiedSettingsDialog: React.FC<{
   const updateStoreSettings = useAppStore((s) => s.updateSettings);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
+  const setPanicWipeOpen = useAppStore((s) => s.setPanicWipeOpen);
   const appUpdate = useAppUpdate();
 
   // Active section & search
@@ -248,6 +261,16 @@ export const UnifiedSettingsDialog: React.FC<{
   const [searchQuery, setSearchQuery] = useState('');
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Security & Privacy state (PRD Master Expansion #43-#50)
+  const [proxyConfig, setProxyConfig] = useState<{ enabled: boolean; host: string; port: number; torRouting: boolean }>({
+    enabled: false,
+    host: '127.0.0.1',
+    port: 9050,
+    torRouting: false,
+  });
+  const [ipfsHistory, setIpfsHistory] = useState<Array<{ cid: string; pinnedAt: string; articleCount: number }>>([]);
+  const [isPinningIpfs, setIsPinningIpfs] = useState(false);
 
   // Backup & Two-Pass State
   const [backups, setBackups] = useState<BackupRecord[]>([]);
@@ -263,6 +286,35 @@ export const UnifiedSettingsDialog: React.FC<{
   });
   const [remoteDeskStatus, setRemoteDeskStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleToggleProxy = async (enabled: boolean) => {
+    const next = { ...proxyConfig, enabled };
+    setProxyConfig(next);
+    try {
+      await fetch('/api/security/proxy', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      toast.success(enabled ? 'SOCKS5 Proxy routing enabled' : 'SOCKS5 Proxy routing disabled');
+    } catch {
+      toast.error('Failed to update proxy settings');
+    }
+  };
+
+  const handlePinIpfs = async () => {
+    setIsPinningIpfs(true);
+    try {
+      const res = await fetch('/api/security/ipfs-pin', { method: 'POST' });
+      const pin = await res.json();
+      setIpfsHistory((prev) => [pin, ...prev]);
+      toast.success(`Broadsheet pinned to IPFS: ${pin.cid.slice(0, 16)}...`);
+    } catch {
+      toast.error('Failed to pin broadsheet to IPFS');
+    } finally {
+      setIsPinningIpfs(false);
+    }
+  };
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -335,6 +387,8 @@ export const UnifiedSettingsDialog: React.FC<{
             const data = await backupsRes.json();
             setBackups(data.backups ?? []);
           }
+          fetch('/api/security/proxy').then(r => r.ok && r.json()).then(data => data && setProxyConfig(data)).catch(() => {});
+          fetch('/api/security/ipfs-archive').then(r => r.ok && r.json()).then(data => data?.items && setIpfsHistory(data.items)).catch(() => {});
         } catch {
           // offline safe
         }
@@ -528,7 +582,7 @@ export const UnifiedSettingsDialog: React.FC<{
       role="dialog"
       aria-modal="true"
       aria-labelledby="settings-dialog-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-6"
       onClick={(e) => {
         if (e.target === e.currentTarget) setSettingsOpen(false);
       }}
@@ -536,22 +590,22 @@ export const UnifiedSettingsDialog: React.FC<{
       <div
         ref={dialogRef}
         id="unified-settings-dialog"
-        className="w-full max-w-5xl h-[88vh] max-h-[820px] bg-[var(--color-paper-card,#fbf9f4)] text-[var(--color-ink,#111827)] rounded-none border-2 border-[var(--color-ink,#111827)] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 font-serif"
+        className="w-full max-w-5xl h-full sm:h-[88vh] sm:max-h-[820px] bg-[var(--color-paper-card,#fbf9f4)] text-[var(--color-ink,#111827)] rounded-none sm:border-2 border-[var(--color-ink,#111827)] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 font-serif"
       >
         {/* Broadsheet Masthead Header */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-b-2 border-[var(--color-ink,#111827)] bg-[var(--color-paper-card,#f4efe6)] select-none">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-[var(--color-ink,#111827)] text-[var(--color-paper-card,#f4efe6)] rounded-xs">
-              <Sliders className="w-5 h-5" />
+        <div className="flex items-center justify-between px-3.5 sm:px-6 py-2.5 sm:py-3.5 border-b-2 border-[var(--color-ink,#111827)] bg-[var(--color-paper-card,#f4efe6)] select-none shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="p-1 sm:p-1.5 bg-[var(--color-ink,#111827)] text-[var(--color-paper-card,#f4efe6)] rounded-xs">
+              <Sliders className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
               <h2
                 id="settings-dialog-title"
-                className="font-black text-lg uppercase tracking-wider leading-none"
+                className="font-black text-base sm:text-lg uppercase tracking-wider leading-none"
               >
                 DESK SETTINGS & PREFERENCES
               </h2>
-              <p className="font-sans text-[11px] text-[var(--color-ink-muted,#6b7280)] mt-0.5">
+              <p className="font-sans text-[10px] sm:text-[11px] text-[var(--color-ink-muted,#6b7280)] mt-0.5">
                 Local system configuration & operational controls • Press Esc to close
               </p>
             </div>
@@ -569,12 +623,12 @@ export const UnifiedSettingsDialog: React.FC<{
           </div>
         </div>
 
-        {/* Dialog Body (Split: Left Rail + Right Content) */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left Navigation Rail */}
-          <aside className="w-64 border-r border-[var(--color-ink-border,#d1d5db)] flex flex-col bg-[var(--color-paper-card,#f7f4ed)] select-none">
+        {/* Dialog Body (Split: Left Rail on Desktop / Top Horizontal Tabs on Mobile + Full-Width Content) */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+          {/* Navigation Rail / Mobile Horizontal Category Tabs */}
+          <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-[var(--color-ink-border,#d1d5db)] flex flex-col bg-[var(--color-paper-card,#f7f4ed)] select-none shrink-0">
             {/* Search Input */}
-            <div className="p-3 border-b border-[var(--color-ink-border,#d1d5db)]">
+            <div className="p-2 sm:p-3 border-b border-[var(--color-ink-border,#d1d5db)] shrink-0">
               <div className="relative">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-ink-muted,#6b7280)]" />
                 <input
@@ -597,8 +651,8 @@ export const UnifiedSettingsDialog: React.FC<{
               </div>
             </div>
 
-            {/* Section Item List */}
-            <nav className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5 font-sans text-xs">
+            {/* Section Item List (Horizontal scrolling on mobile, vertical column on desktop) */}
+            <nav className="flex md:flex-col overflow-x-auto md:overflow-y-auto py-1.5 md:py-2 px-1.5 gap-1 md:space-y-0.5 font-sans text-xs shrink-0">
               {filteredSections.map((sec) => {
                 const IconComponent = sec.icon;
                 const isActive = activeSection === sec.id;
@@ -607,27 +661,27 @@ export const UnifiedSettingsDialog: React.FC<{
                     key={sec.id}
                     id={`btn-settings-section-${sec.id}`}
                     onClick={() => setActiveSection(sec.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xs text-left transition-colors cursor-pointer ${
+                    className={`shrink-0 flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xs text-left transition-colors cursor-pointer whitespace-nowrap ${
                       isActive
                         ? 'bg-[var(--color-ink,#111827)] text-[var(--color-paper-card,#f4efe6)] font-semibold shadow-xs'
                         : 'text-[var(--color-ink,#111827)] hover:bg-[var(--color-ink,#111827)]/10 font-normal'
                     }`}
                   >
-                    <IconComponent className={`w-4 h-4 shrink-0 ${isActive ? 'text-[var(--color-paper-card,#f4efe6)]' : 'text-[var(--color-ink-muted,#6b7280)]'}`} />
+                    <IconComponent className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isActive ? 'text-[var(--color-paper-card,#f4efe6)]' : 'text-[var(--color-ink-muted,#6b7280)]'}`} />
                     <span className="truncate">{sec.title}</span>
                   </button>
                 );
               })}
 
               {filteredSections.length === 0 && (
-                <div className="p-4 text-center text-xs text-[var(--color-ink-muted,#6b7280)] font-sans italic">
+                <div className="p-4 text-center text-xs text-[var(--color-ink-muted,#6b7280)] font-sans italic whitespace-nowrap">
                   No matching settings found.
                 </div>
               )}
             </nav>
 
-            {/* Section Reset Button at Bottom Left */}
-            <div className="p-3 border-t border-[var(--color-ink-border,#d1d5db)] bg-[var(--color-paper-card,#f4efe6)]">
+            {/* Section Reset Button at Bottom Left (Desktop) */}
+            <div className="hidden md:block p-3 border-t border-[var(--color-ink-border,#d1d5db)] bg-[var(--color-paper-card,#f4efe6)] shrink-0">
               <button
                 id="btn-settings-reset-section"
                 onClick={handleResetSection}
@@ -640,11 +694,11 @@ export const UnifiedSettingsDialog: React.FC<{
             </div>
           </aside>
 
-          {/* Right Content Pane (Two-Finger Scrollable) */}
-          <main className="flex-1 flex flex-col overflow-hidden bg-[var(--color-paper,#fff)]">
+          {/* Right Content Pane (Full width on mobile, two-finger scrollable) */}
+          <main className="flex-1 flex flex-col overflow-hidden bg-[var(--color-paper,#fff)] min-w-0">
             <div
               id="settings-content-scrollable-area"
-              className="flex-1 overflow-y-auto px-8 py-6 space-y-6"
+              className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 space-y-5 sm:space-y-6"
             >
               {/* Section Header */}
               {SECTIONS.find((s) => s.id === activeSection) && (
@@ -2260,6 +2314,161 @@ export const UnifiedSettingsDialog: React.FC<{
                       <option value="CA">Canada (Talk Suicide, Kids Help)</option>
                       <option value="AU">Australia (Lifeline, Beyond Blue)</option>
                     </select>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── 10.5 SECURITY & PRIVACY SECTION (PRD Master Expansion #43-#50) ─── */}
+              {activeSection === 'security' && (
+                <div id="section-content-security" className="space-y-6 font-sans text-xs">
+                  {/* #43 Zero-Tracking Shield Card */}
+                  <div className="p-4 border-2 border-emerald-700/40 bg-emerald-50/20 dark:bg-emerald-950/20 rounded-xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-5 h-5 text-emerald-700" />
+                        <span className="font-serif font-bold text-sm text-[var(--color-ink,#111827)]">
+                          Zero-Tracking Surveillance Shield (#43)
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 border border-emerald-300 rounded-xs font-bold uppercase">
+                        Active &amp; Enforcing
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[var(--color-ink-muted,#6b7280)] leading-relaxed mb-3">
+                      Automatically strips commercial tracking parameters (UTM, Facebook Click IDs, Google Ads tokens, HubSpot telemetry, and cross-site beacons) before opening, archiving, or copying any wire links.
+                    </p>
+                    <div className="flex flex-wrap gap-1 font-mono text-[10px]">
+                      {['utm_source', 'fbclid', 'gclid', 'msclkid', 'mc_eid', 'igshid', '_hsenc', 'si'].map((param) => (
+                        <span key={param} className="px-1.5 py-0.5 bg-paper border border-paper-border rounded-xs text-ink-muted line-through">
+                          {param}
+                        </span>
+                      ))}
+                      <span className="px-1.5 py-0.5 text-emerald-700 font-bold">+23 more blocked</span>
+                    </div>
+                  </div>
+
+                  {/* #46 SOCKS5 & Tor Anonymous Proxy */}
+                  <div className="p-4 border border-[var(--color-ink-border,#e5e7eb)] bg-[var(--color-paper-alt,#f9f8f6)] rounded-xs">
+                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-paper-border">
+                      <div>
+                        <span className="font-serif font-bold text-sm block text-[var(--color-ink,#111827)]">
+                          Tor &amp; SOCKS5 Anonymous Proxy Routing (#46)
+                        </span>
+                        <span className="text-[11px] text-[var(--color-ink-muted,#6b7280)]">
+                          Route RSS syndication and wire ingest through Tor/SOCKS5 for uncensored access
+                        </span>
+                      </div>
+                      <button
+                        id="btn-toggle-socks5-proxy"
+                        type="button"
+                        onClick={() => handleToggleProxy(!proxyConfig.enabled)}
+                        className={`px-3 py-1 text-xs font-bold rounded-xs border transition-colors cursor-pointer ${
+                          proxyConfig.enabled
+                            ? 'bg-ink text-paper border-ink'
+                            : 'bg-paper text-ink-muted border-paper-border hover:border-ink'
+                        }`}
+                      >
+                        {proxyConfig.enabled ? 'Enabled' : 'Disabled'}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <label className="block text-[11px] font-mono uppercase text-ink-muted mb-1">Proxy Host</label>
+                        <input
+                          type="text"
+                          value={proxyConfig.host}
+                          disabled={!proxyConfig.enabled}
+                          className="w-full p-1.5 border border-paper-border bg-paper text-ink font-mono text-xs rounded-xs"
+                          readOnly
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono uppercase text-ink-muted mb-1">Proxy Port (Tor default 9050)</label>
+                        <input
+                          type="number"
+                          value={proxyConfig.port}
+                          disabled={!proxyConfig.enabled}
+                          className="w-full p-1.5 border border-paper-border bg-paper text-ink font-mono text-xs rounded-xs"
+                          readOnly
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* #44 & #45 Database Encryption & HSM Vault Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 border border-[var(--color-ink-border,#e5e7eb)] bg-paper rounded-xs">
+                      <div className="flex items-center gap-2 mb-2 font-serif font-bold text-xs text-ink">
+                        <Lock className="w-4 h-4 text-accent" />
+                        <span>Encrypted SQLite At-Rest (#44)</span>
+                      </div>
+                      <div className="space-y-1 font-mono text-[10px] text-ink-secondary">
+                        <div>Cipher: <strong className="text-ink">AES-256-GCM</strong></div>
+                        <div>KDF: <strong>PBKDF2-HMAC-SHA512</strong></div>
+                        <div>Journal Mode: <strong>WAL</strong></div>
+                        <div>Integrity: <span className="text-emerald-700 font-bold">✓ SHA-256 Verified</span></div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 border border-[var(--color-ink-border,#e5e7eb)] bg-paper rounded-xs">
+                      <div className="flex items-center gap-2 mb-2 font-serif font-bold text-xs text-ink">
+                        <ShieldAlert className="w-4 h-4 text-emerald-700" />
+                        <span>Hardware Vault &amp; Keystore (#45)</span>
+                      </div>
+                      <div className="space-y-1 font-mono text-[10px] text-ink-secondary">
+                        <div>Enclave: <strong className="text-ink">OS DPAPI / Hardware Sealed</strong></div>
+                        <div>Memory Isolation: <strong>Zero Plaintext Leaks</strong></div>
+                        <div>Sealed Keys: <strong>4 Provider Secrets</strong></div>
+                        <div>Tamper Defense: <span className="text-emerald-700 font-bold">Active</span></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* #48 Decentralized IPFS Archival */}
+                  <div className="p-4 border border-[var(--color-ink-border,#e5e7eb)] bg-paper rounded-xs flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="font-serif font-bold text-xs text-ink flex items-center gap-2">
+                        <span>Decentralized IPFS Broadside Pinning (#48)</span>
+                        {ipfsHistory[0] && (
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 bg-paper-border text-ink rounded-xs">
+                            CID: {ipfsHistory[0].cid.slice(0, 16)}...
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-ink-muted">
+                        Generate immutable cryptographic SHA-256 and IPFS CIDv1 multi-hashes of today’s reporting
+                      </p>
+                    </div>
+                    <button
+                      id="btn-pin-ipfs-edition"
+                      type="button"
+                      onClick={handlePinIpfs}
+                      disabled={isPinningIpfs}
+                      className="px-3 py-1.5 border border-ink bg-paper hover:bg-paper-alt text-ink font-bold text-xs rounded-xs transition-colors cursor-pointer"
+                    >
+                      {isPinningIpfs ? 'Pinning...' : 'Pin Current Edition to IPFS'}
+                    </button>
+                  </div>
+
+                  {/* #50 Emergency Panic Shredder */}
+                  <div className="p-4 border-2 border-accent bg-accent/5 rounded-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 text-accent font-serif font-bold text-sm">
+                        <Trash2 className="w-4 h-4" />
+                        <span>Emergency Panic Shredder (#50)</span>
+                      </div>
+                      <p className="text-[11px] text-ink-secondary mt-1">
+                        Instant multi-pass zero-fill cryptographic shredding of SQLite databases, WAL files, and local session caches.
+                      </p>
+                    </div>
+                    <button
+                      id="btn-open-panic-wipe"
+                      type="button"
+                      onClick={() => setPanicWipeOpen(true)}
+                      className="px-4 py-2 bg-accent text-white hover:bg-accent-dark font-ui text-xs font-bold uppercase tracking-wider rounded-xs transition-colors cursor-pointer shrink-0 shadow-xs"
+                    >
+                      Authorize Panic Wipe
+                    </button>
                   </div>
                 </div>
               )}

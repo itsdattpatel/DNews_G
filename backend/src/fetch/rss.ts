@@ -86,12 +86,25 @@ export async function fetchRss(
         '';
 
       const pubDate = item.pubDate ?? item.isoDate ?? null;
+      let safePublishedAt: string | null = null;
+      if (pubDate) {
+        try {
+          const parsed = new Date(pubDate).getTime();
+          const maxFuture = Date.now() + 15 * 60 * 1000;
+          if (!isNaN(parsed)) {
+            // Clamp future-dated articles (e.g. newspaper embargoes or print editions) to current time
+            safePublishedAt = new Date(parsed > maxFuture ? Date.now() : parsed).toISOString();
+          }
+        } catch {
+          safePublishedAt = new Date().toISOString();
+        }
+      }
 
       articles.push({
         url: itemUrl.trim(),
         titleOriginal: title.trim(),
         bodyOriginal: stripHtml(String(body)).trim(),
-        publishedAt: pubDate ? new Date(pubDate).toISOString() : null,
+        publishedAt: safePublishedAt,
         sourceSlug,
         sourceName,
         country,

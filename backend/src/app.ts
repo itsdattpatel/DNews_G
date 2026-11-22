@@ -23,6 +23,7 @@ import { feedCounterRouter } from './routes/feedCounter';
 import { controlRoomRouter } from './routes/controlRoom';
 import { entitiesRouter } from './routes/entities';
 import { libraryRouter } from './library';
+import { securityRouter } from './routes/security';
 import { getStartupGap } from './fetch/scheduler';
 import { backfillMissedWindow } from './fetch/backfill';
 import { getCurrentSession, getDowntimeGap } from './services/sessionManager';
@@ -34,6 +35,19 @@ export function createApp(): Express {
   // Middleware
   app.use(cors({ origin: true, credentials: true }));
   app.use(express.json());
+
+  // PRD Master Expansion #47: Sanitized Defense-in-Depth Security Headers
+  app.use((_req, res, next) => {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http: https:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+    );
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=()');
+    next();
+  });
 
   // Routes
   app.use('/api/articles', articlesRouter);
@@ -52,6 +66,7 @@ export function createApp(): Express {
   app.use('/api/control-room', controlRoomRouter);
   app.use('/api/entities', entitiesRouter);
   app.use('/api/library', libraryRouter);
+  app.use('/api/security', securityRouter);
 
   // Clock synchronization endpoint (PRD A Category 1B)
   app.get('/api/time', (_req, res) => {

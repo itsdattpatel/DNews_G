@@ -59,6 +59,19 @@ export function getDb(): Database.Database {
   _db.pragma('synchronous = NORMAL');
 
   runMigrations(_db);
+
+  // Future-Date Normalizer (PRD_FRESH_NEWS_PIPELINE): Sanitize future dates in DB so fresh news is never buried
+  try {
+    const maxFutureIso = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    _db.prepare(`
+      UPDATE articles
+      SET published_at = COALESCE(fetched_at, created_at, datetime('now'))
+      WHERE published_at > ?
+    `).run(maxFutureIso);
+  } catch {
+    // Non-fatal if table doesn't exist yet before migrations
+  }
+
   return _db;
 }
 

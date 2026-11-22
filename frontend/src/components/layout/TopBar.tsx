@@ -15,7 +15,7 @@
 import React from 'react';
 import { BatIcon } from '../bat/BatIcon';
 import { useAppStore } from '../../store/useAppStore';
-import { Search, Flame, X, Layers, Play, Pause } from 'lucide-react';
+import { Search, Flame, X, Layers, Play, Pause, Settings, ShieldAlert } from 'lucide-react';
 
 const COUNTRIES = [
   { label: 'All Regions', value: null },
@@ -38,22 +38,30 @@ export const TopBar: React.FC = () => {
   const setCurrentView = useAppStore((s) => s.setCurrentView);
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
+  const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
+  const isIncognitoMode = useAppStore((s) => s.isIncognitoMode);
+  const setIncognitoMode = useAppStore((s) => s.setIncognitoMode);
 
   return (
     <header
       id="top-bar"
-      className="h-14 min-h-14 w-full bg-paper/95 backdrop-blur-md border-b-2 border-ink flex items-center justify-between px-3 sm:px-4 z-40 gap-2 sm:gap-3 text-ink select-none overflow-hidden"
+      className="h-12 sm:h-14 min-h-12 sm:min-h-14 w-full bg-paper/95 backdrop-blur-md border-b-2 border-ink flex items-center justify-between px-2 sm:px-4 z-40 gap-1.5 sm:gap-3 text-ink select-none overflow-hidden"
     >
       {/* 1. Masthead: Bat SVG Icon + Logotype */}
-      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-        <BatIcon size={34} />
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        <div className="block sm:hidden">
+          <BatIcon size={28} />
+        </div>
+        <div className="hidden sm:block">
+          <BatIcon size={34} />
+        </div>
         <button
           type="button"
           onClick={() => setCurrentView('reader')}
           className="flex flex-col text-left focus:outline-none group cursor-pointer"
           title="Return to Reading Desk"
         >
-          <span className="font-masthead text-xl sm:text-2xl md:text-3xl tracking-tight leading-none text-ink group-hover:text-ink/80 transition-colors whitespace-nowrap">
+          <span className="font-masthead text-lg sm:text-2xl md:text-3xl tracking-tight leading-none text-ink group-hover:text-ink/80 transition-colors whitespace-nowrap">
             The World Desk
           </span>
           <span className="hidden sm:inline font-ui text-[0.5625rem] md:text-[0.6rem] font-bold uppercase tracking-widest text-ink-secondary whitespace-nowrap">
@@ -64,12 +72,12 @@ export const TopBar: React.FC = () => {
 
       {/* 2-6. Right-aligned Top Bar Essential Controls */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 font-ui text-xs">
-        {/* 2. Region / Country Selector */}
+        {/* 2. Region / Country Selector (Hidden on narrow mobile, available in Masthead menu) */}
         <select
           id="country-filter-select"
           value={selectedCountry ?? ''}
           onChange={(e) => setSelectedCountry(e.target.value || null)}
-          className="bg-paper-alt border border-paper-border rounded-xs text-ink text-xs px-1.5 sm:px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent cursor-pointer max-w-[100px] sm:max-w-none"
+          className="hidden sm:block bg-paper-alt border border-paper-border rounded-xs text-ink text-xs px-1.5 sm:px-2 py-1 focus:outline-none focus:ring-1 focus:ring-accent cursor-pointer max-w-[100px] sm:max-w-none"
           title="Filter dispatches by region or country"
         >
           {COUNTRIES.map((c) => (
@@ -79,13 +87,13 @@ export const TopBar: React.FC = () => {
           ))}
         </select>
 
-        {/* 3. View Switcher: Dual Reader ↔ Category Directory */}
+        {/* 3. View Switcher: Dual Reader ↔ Category Directory (Hidden on narrow mobile, available in Masthead menu) */}
         <button
           id="btn-toggle-category-view"
           type="button"
           onClick={() => setCurrentView(currentView === 'category' ? 'reader' : 'category')}
           title={currentView === 'category' ? 'Return to Dual Reader Desk' : 'Open Section Directory Grid'}
-          className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-xs border text-xs font-bold transition-all shadow-xs cursor-pointer ${
+          className={`hidden sm:flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-xs border text-xs font-bold transition-all shadow-xs cursor-pointer ${
             currentView === 'category'
               ? 'border-ink bg-ink text-paper'
               : 'border-paper-border bg-paper hover:border-ink text-ink'
@@ -97,23 +105,23 @@ export const TopBar: React.FC = () => {
           </span>
         </button>
 
-        {/* 4. Breaking Only Filter Toggle */}
+        {/* 4. Breaking Only Filter Toggle (Always visible) */}
         <button
           id="breaking-filter-toggle"
           type="button"
           onClick={toggleBreakingOnly}
           title="Toggle Breaking News Filter (Threshold >= 75)"
-          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xs border text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xs border text-xs font-bold transition-all cursor-pointer shrink-0 ${
             isBreakingOnly
               ? 'border-accent bg-accent text-white shadow-xs'
               : 'border-paper-border text-ink-muted hover:border-ink hover:text-ink'
           }`}
         >
           <Flame size={13} className={isBreakingOnly ? 'text-white' : 'text-accent shrink-0'} />
-          <span className="hidden sm:inline">Breaking</span>
+          <span className="hidden md:inline">Breaking</span>
         </button>
 
-        {/* 5. Auto-Advance Quick Toggle Button */}
+        {/* 5. Auto-Advance Quick Toggle Button (Hidden on narrow mobile) */}
         <button
           id="btn-auto-advance-toggle"
           type="button"
@@ -126,7 +134,7 @@ export const TopBar: React.FC = () => {
               ? `Disable Auto-Advance (${settings.auto_advance_interval_sec ?? 7}s interval)`
               : `Enable Auto-Advance (${settings.auto_advance_interval_sec ?? 7}s ambient reading)`
           }
-          className={`flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1 rounded-xs border text-xs font-bold tabular-nums min-w-[3.4ch] md:min-w-[82px] transition-all cursor-pointer ${
+          className={`hidden sm:flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1 rounded-xs border text-xs font-bold tabular-nums min-w-[3.4ch] md:min-w-[82px] transition-all cursor-pointer ${
             settings.auto_advance_enabled
               ? 'border-ink bg-ink text-paper shadow-xs'
               : 'border-paper-border text-ink-muted hover:border-ink hover:text-ink'
@@ -159,6 +167,40 @@ export const TopBar: React.FC = () => {
             </button>
           )}
         </div>
+
+        {/* 6.5 Incognito Reading Mode Quick Toggle (PRD Master Expansion #49) */}
+        <button
+          id="btn-topbar-incognito"
+          type="button"
+          onClick={() => setIncognitoMode(!isIncognitoMode)}
+          title={
+            isIncognitoMode
+              ? 'Incognito Active: Article reading history & search logging paused'
+              : 'Switch to Incognito Reading Desk (Zero-Tracking)'
+          }
+          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xs border text-xs font-bold transition-all cursor-pointer shrink-0 ${
+            isIncognitoMode
+              ? 'border-ink bg-ink text-paper shadow-xs'
+              : 'border-paper-border text-ink-muted hover:border-ink hover:text-ink'
+          }`}
+        >
+          <ShieldAlert size={13} className={isIncognitoMode ? 'text-accent shrink-0' : 'text-ink-secondary shrink-0'} />
+          <span className="hidden md:inline font-mono uppercase text-[11px] tracking-wider">
+            {isIncognitoMode ? 'Incognito' : 'Shield'}
+          </span>
+        </button>
+
+        {/* 7. Dedicated Upside Settings Button (Always accessible on Mobile Portrait, Landscape & Desktop) */}
+        <button
+          id="btn-topbar-settings"
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          title="Open Broadsheet Desk Settings (Upside Settings)"
+          className="flex items-center justify-center p-1.5 sm:px-2.5 sm:py-1 rounded-xs border border-paper-border bg-paper hover:border-ink hover:text-ink text-ink-secondary transition-all cursor-pointer shadow-xs shrink-0"
+        >
+          <Settings size={14} className="shrink-0" />
+          <span className="hidden xl:inline text-xs font-bold ml-1">Settings</span>
+        </button>
       </div>
     </header>
   );

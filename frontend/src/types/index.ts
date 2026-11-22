@@ -45,7 +45,36 @@ export type AppView =
   | 'alerts'
   | 'control-room'
   | 'sources-settings'
-  | 'settings';
+  | 'settings'
+  | 'photojournalism'
+  | 'custom-rss'
+  | 'source-health'
+  | 'entities'
+  | 'sunday-edition';
+
+export interface EntityGraphNode {
+  id: string;
+  name: string;
+  type: 'nation' | 'organization' | 'leader' | 'topic';
+  mentions: number;
+  urgency: number;
+  rank: number;
+}
+
+export interface EntityGraphLink {
+  source: string;
+  target: string;
+  weight: number;
+}
+
+export interface EntityGraphResponse {
+  success: boolean;
+  nodes: EntityGraphNode[];
+  links: EntityGraphLink[];
+  total_entities: number;
+  total_connections: number;
+  generated_at: string;
+}
 
 // ─── AnchorPhrase (NEW — Step 5) ──────────────────────────────────────────────
 export interface AnchorPhrase {

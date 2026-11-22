@@ -9,6 +9,21 @@ import { TopBar } from './TopBar';
 import { StatusStrip } from './StatusStrip';
 import { UpdateBanner } from './UpdateBanner';
 import { RightIconRail } from './RightIconRail';
+import { MobileBottomNav } from './MobileBottomNav';
+import { AdaptiveNotchPill } from './AdaptiveNotchPill';
+import { TypographyStudioDrawer } from '../article/TypographyStudioDrawer';
+import { MarginNotesDrawer } from '../article/MarginNotesDrawer';
+import { EditorialCartoonModal } from '../reader/EditorialCartoonModal';
+import { PhotojournalismDesk } from '../photojournalism/PhotojournalismDesk';
+import { CustomRssStudio } from '../sources/CustomRssStudio';
+import { SourceHealthDesk } from '../sources/SourceHealthDesk';
+import { EntityRelationshipDesk } from '../entities/EntityRelationshipDesk';
+import { SundayEditionDesk } from '../sunday/SundayEditionDesk';
+import { KnowledgeMindMapModal } from '../mindmap/KnowledgeMindMapModal';
+import { HistoryFrontPageModal } from '../history/HistoryFrontPageModal';
+import { WisdomSpacedRepetitionModal } from '../wisdom/WisdomSpacedRepetitionModal';
+import { BiasRadarModal } from '../article/BiasRadarModal';
+import { ClaimCorroborationModal } from '../article/ClaimCorroborationModal';
 import { BatMenuOverlay } from '../bat/BatMenuOverlay';
 import { NewsTicker } from './NewsTicker';
 import { ArticlePanel } from '../article/ArticlePanel';
@@ -18,6 +33,7 @@ import { SourcesSettingsDesk } from '../sources/SourcesSettingsDesk';
 import { AlertBanner } from '../alert/AlertBanner';
 import { AlertsCenter } from '../alert/AlertsCenter';
 import { MissedNewsModal } from '../modal/MissedNewsModal';
+import { PanicWipeDialog } from '../modal/PanicWipeDialog';
 import { CompareCoverage } from '../compare/CompareCoverage';
 import { StoryTimeline } from '../timeline/StoryTimeline';
 import { ArchiveChat } from '../chat/ArchiveChat';
@@ -167,7 +183,7 @@ export const Shell: React.FC = () => {
   return (
     <div
       id="app-shell"
-      className="flex flex-col w-screen h-screen overflow-hidden bg-paper text-ink relative font-ui transition-colors duration-200 select-none"
+      className="flex flex-col w-full h-full h-[100dvh] max-w-full overflow-hidden bg-paper text-ink relative font-ui transition-colors duration-200 select-none"
     >
       {/* 1. Master TopBar (z-40) */}
       <ErrorBoundary panelName="Top Bar">
@@ -199,6 +215,26 @@ export const Shell: React.FC = () => {
             <ErrorBoundary panelName="Category Rail Desk">
               <CategoryRailView />
             </ErrorBoundary>
+          ) : currentView === 'sunday-edition' ? (
+            <ErrorBoundary panelName="Sunday Edition Desk">
+              <SundayEditionDesk />
+            </ErrorBoundary>
+          ) : currentView === 'photojournalism' ? (
+            <ErrorBoundary panelName="Photojournalism Desk">
+              <PhotojournalismDesk />
+            </ErrorBoundary>
+          ) : currentView === 'custom-rss' ? (
+            <ErrorBoundary panelName="Custom RSS Studio">
+              <CustomRssStudio />
+            </ErrorBoundary>
+          ) : currentView === 'source-health' ? (
+            <ErrorBoundary panelName="Source Health Desk">
+              <SourceHealthDesk />
+            </ErrorBoundary>
+          ) : currentView === 'entities' ? (
+            <ErrorBoundary panelName="Geopolitical Entity Network Desk">
+              <EntityRelationshipDesk />
+            </ErrorBoundary>
           ) : (
             /* Main Reader View: Unified Full-Box Broadsheet Desk with Circling Floating Docker */
             <div id="unified-reader-desk" className="relative w-full h-full min-h-0 min-w-0 overflow-hidden">
@@ -227,6 +263,11 @@ export const Shell: React.FC = () => {
       {/* 5. Continuous News Ticker (z-30) */}
       <ErrorBoundary panelName="Bottom Ticker">
         <NewsTicker />
+      </ErrorBoundary>
+
+      {/* 5.5 Mobile Bottom Navigation Thumb Bar (PRD Master Expansion #4) */}
+      <ErrorBoundary panelName="Mobile Bottom Navigation">
+        <MobileBottomNav />
       </ErrorBoundary>
 
       {/* 6. Notifications & Modals */}
@@ -305,6 +346,24 @@ export const Shell: React.FC = () => {
 
       {/* Touchpad Pinch & Scale HUD */}
       <ZoomHUD />
+
+      {/* PRD Master Expansion Phase B Deliverable 2: Adaptive Notch, Typography Studio, Marginalia & Cartoon */}
+      <AdaptiveNotchPill />
+      <TypographyStudioDrawer />
+      <MarginNotesDrawer />
+      <EditorialCartoonModal />
+
+      {/* PRD Master Expansion Phase C Deliverable 2: Bias Radar & Claim Corroboration */}
+      <BiasRadarModal />
+      <ClaimCorroborationModal />
+
+      {/* PRD Master Expansion Phase D Deliverable 1: Knowledge Archive & Mind Map */}
+      <KnowledgeMindMapModal />
+      <HistoryFrontPageModal />
+      <WisdomSpacedRepetitionModal />
+
+      {/* PRD Master Expansion Phase D Deliverable 2: Emergency Panic Shredder */}
+      <PanicWipeDialog />
 
       {/* 7. Broadsheet Toast Notifications */}
       <Toaster

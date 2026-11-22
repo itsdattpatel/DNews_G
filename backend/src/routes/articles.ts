@@ -77,7 +77,7 @@ articlesRouter.get('/', (req: Request, res: Response) => {
         ${clusterId ? "AND a.cluster_id = ?" : ''}
         ${breaking ? "AND a.breaking_score >= CAST((SELECT value FROM settings WHERE key='alert_threshold') AS INTEGER)" : ''}
       GROUP BY a.id
-      ORDER BY a.published_at DESC, a.fetched_at DESC
+      ORDER BY MIN(a.published_at, datetime('now')) DESC, a.fetched_at DESC
       LIMIT ? OFFSET ?
     `;
     params.push(status);
