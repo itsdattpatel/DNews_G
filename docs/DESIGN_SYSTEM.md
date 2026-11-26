@@ -63,7 +63,27 @@
 --grain-opacity:        0.06;
 ```
 
-### 1.3 Category Ink-Stamp Colors
+### 1.3 E-Ink & Direct Sunlight Theme (`[data-theme="e-ink"]`)
+
+```css
+/* Base - High contrast 1-bit monochrome for e-paper & outdoor sunlight */
+--color-paper:          #FFFFFF;   /* pure white */
+--color-paper-alt:      #F4F4F4;   /* very light grey surface */
+--color-paper-border:   #000000;   /* solid black hairline / geometric rules */
+--color-ink:            #000000;   /* pure black text */
+--color-ink-secondary:  #222222;   /* high contrast dark */
+--color-ink-muted:      #444444;   /* readable dark grey */
+
+/* Accent */
+--color-accent:         #000000;   /* black inverse highlight */
+--color-accent-light:   #EAEAEA;
+--color-accent-dark:    #000000;
+
+/* Performance & Refresh: Zero transitions/animations/blurs */
+--grain-opacity:        0.00;      /* no grain overlay on e-ink */
+```
+
+### 1.4 Category Ink-Stamp Colors
 
 ```css
 --cat-world:            #2C4A7C;

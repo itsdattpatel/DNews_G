@@ -22,6 +22,7 @@ import {
   Archive,
 } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
+import { apiFetch } from '../../lib/api';
 
 export const ArchiveChat: React.FC = () => {
   const isArchiveChatOpen = useAppStore((s) => s.isArchiveChatOpen);
@@ -61,7 +62,7 @@ export const ArchiveChat: React.FC = () => {
     }
 
     try {
-      const res = await fetch('/api/search', {
+      const res = await apiFetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

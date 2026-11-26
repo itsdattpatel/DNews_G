@@ -19,6 +19,7 @@ import {
   type LibraryMindCardRecord,
 } from '../utils/libraryLive';
 import { Clock, Sparkles } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 export const MindHelpsSubpage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<MindCategory | 'all'>('all');
@@ -54,7 +55,7 @@ export const MindHelpsSubpage: React.FC = () => {
         params.append('q', globalSearchQuery.trim());
       }
 
-      const res = await fetch(`/api/library/mind/cards?${params.toString()}`);
+      const res = await apiFetch(`/api/library/mind/cards?${params.toString()}`);
       if (!res.ok) {
         throw new Error(`Failed to load psychological techniques (HTTP ${res.status})`);
       }

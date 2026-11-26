@@ -18,6 +18,7 @@ import {
   VolumeX,
   Radio,
 } from 'lucide-react';
+import { apiUrl } from '../../lib/api';
 
 function getCountryFlag(code?: string | null): string {
   if (!code || code.length !== 2) return '🌐';
@@ -79,7 +80,7 @@ export const TVMiniPlayer: React.FC<TVMiniPlayerProps> = ({
 
     const video = videoRef.current;
     const streamUrl = rawUrl.startsWith('http')
-      ? `/api/tv/proxy?url=${encodeURIComponent(rawUrl)}`
+      ? apiUrl(`/api/tv/proxy?url=${encodeURIComponent(rawUrl)}`)
       : rawUrl;
 
     if (Hls.isSupported()) {

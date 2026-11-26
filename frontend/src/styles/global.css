@@ -453,5 +453,44 @@
   animation: none !important;
 }
 
+/* ─── 9. E-Ink & Direct Sunlight 1-Bit Monochrome Mode (Phase J #45) ────── */
+html[data-theme="e-ink"],
+[data-theme="e-ink"] {
+  --color-paper:          #FFFFFF !important;
+  --color-paper-alt:      #F4F4F4 !important;
+  --color-paper-border:   #000000 !important;
+  --color-paper-card:     #F4F4F4 !important;
+  --color-ink-border:     #000000 !important;
+  --color-ink:            #000000 !important;
+  --color-ink-secondary:  #111111 !important;
+  --color-ink-muted:      #333333 !important;
+  --color-accent:         #000000 !important;
+  --color-accent-light:   #EAEAEA !important;
+  --color-accent-dark:    #000000 !important;
+  --color-positive:       #000000 !important;
+  --color-negative:       #000000 !important;
+  --grain-opacity:        0 !important;
+  --background:           #FFFFFF !important;
+  --foreground:           #000000 !important;
+  --card:                 #F4F4F4 !important;
+  --card-foreground:      #000000 !important;
+  --border:               #000000 !important;
+}
+
+html[data-theme="e-ink"] *,
+html[data-theme="e-ink"] *::before,
+html[data-theme="e-ink"] *::after {
+  transition: none !important;
+  animation: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+html[data-theme="e-ink"] img,
+html[data-theme="e-ink"] canvas {
+  filter: grayscale(100%) contrast(155%) !important;
+}
+
+
 
 

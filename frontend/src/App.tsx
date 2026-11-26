@@ -9,6 +9,7 @@ import { useArticles } from './hooks/useArticles';
 import { useSSE } from './hooks/useSSE';
 import { useAppStore } from './store/useAppStore';
 import { autonomousEngine } from './lib/autonomousEngine';
+import { apiFetch, getApiBaseUrl, shouldAttemptRemote } from './lib/api';
 import { LibraryRoot } from './library/LibraryRoot';
 
 if (typeof window !== 'undefined') {
@@ -47,6 +48,7 @@ export const App: React.FC = () => {
   const checkStartupStatus = useAppStore((s) => s.checkStartupStatus);
   const fetchUnreadAlertsCount = useAppStore((s) => s.fetchUnreadAlertsCount);
   const fetchCategoryCounts = useAppStore((s) => s.fetchCategoryCounts);
+  const fetchSystemHealth = useAppStore((s) => s.fetchSystemHealth);
   const reduceMotionOverride = useAppStore((s) => s.settings.reduce_motion_override ?? 'system');
 
   useEffect(() => {
@@ -54,27 +56,53 @@ export const App: React.FC = () => {
   }, [reduceMotionOverride]);
 
   useEffect(() => {
-    fetchSettings();
-    fetchQuota();
-    checkStartupStatus();
-    fetchUnreadAlertsCount();
-    fetchCategoryCounts();
+    let stopPolling: (() => void) | null = null;
+    let cancelled = false;
 
-    // Cache assigned Electron backend port if operating in packaged desktop container
-    if (typeof window !== 'undefined' && window.electronBridge?.getBackendPort) {
-      window.electronBridge.getBackendPort().then((port: number) => {
-        if (port) {
-          sessionStorage.setItem('dnews_backend_port', String(port));
+    const boot = async () => {
+      // Cache assigned Electron backend port if operating in packaged desktop container
+      if (typeof window !== 'undefined' && window.electronBridge?.getBackendPort) {
+        try {
+          const port = await window.electronBridge.getBackendPort();
+          if (port) {
+            sessionStorage.setItem('dnews_backend_port', String(port));
+          }
+        } catch {
+          // ignore IPC errors
         }
-      }).catch(() => {});
-    }
+      }
 
-    // Start background autonomous feed polling for mobile / offline resilience
-    const stopPolling = autonomousEngine.startAutoPolling(120000);
-    return () => {
-      stopPolling();
+      fetchSettings();
+      fetchQuota();
+      checkStartupStatus();
+      fetchUnreadAlertsCount();
+      fetchCategoryCounts();
+      fetchSystemHealth();
+
+      // Only run continuous client-side RSS proxy polling when no live Express backend is reachable
+      // (e.g. standalone Mobile APK or offline Electron/web fallback).
+      const baseUrl = getApiBaseUrl();
+      let backendReachable = false;
+      if (shouldAttemptRemote(baseUrl)) {
+        try {
+          const res = await apiFetch('/api/health');
+          backendReachable = res.ok;
+        } catch {
+          backendReachable = false;
+        }
+      }
+
+      if (!cancelled && !backendReachable) {
+        stopPolling = autonomousEngine.startAutoPolling(120000);
+      }
     };
-  }, [fetchSettings, fetchQuota, checkStartupStatus, fetchUnreadAlertsCount, fetchCategoryCounts]);
+
+    void boot();
+    return () => {
+      cancelled = true;
+      if (stopPolling) stopPolling();
+    };
+  }, [fetchSettings, fetchQuota, checkStartupStatus, fetchUnreadAlertsCount, fetchCategoryCounts, fetchSystemHealth]);
 
   // Native Electron System Tray & Notification IPC listeners
   useEffect(() => {

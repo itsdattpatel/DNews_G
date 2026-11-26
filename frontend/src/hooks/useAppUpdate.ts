@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 
-export const CURRENT_APP_VERSION = '1.0.6.1';
+export const CURRENT_APP_VERSION = '1.0.7';
 export const GITHUB_REPO = 'itsdattpatel/DNews_G';
 
 export interface ReleaseAsset {

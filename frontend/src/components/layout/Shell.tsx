@@ -24,6 +24,13 @@ import { HistoryFrontPageModal } from '../history/HistoryFrontPageModal';
 import { WisdomSpacedRepetitionModal } from '../wisdom/WisdomSpacedRepetitionModal';
 import { BiasRadarModal } from '../article/BiasRadarModal';
 import { ClaimCorroborationModal } from '../article/ClaimCorroborationModal';
+import { InvestigativeDeskDrawer } from '../investigative/InvestigativeDeskDrawer';
+import { EditorialIntelligenceDrawer } from '../editorial/EditorialIntelligenceDrawer';
+import { BroadcastMediaDrawer } from '../broadcast/BroadcastMediaDrawer';
+import { CartographyWarRoomDrawer } from '../cartography/CartographyWarRoomDrawer';
+import { MastheadMarketTicker } from '../cartography/MastheadMarketTicker';
+import { BroadsideBinderyDrawer } from '../bindery/BroadsideBinderyDrawer';
+import { SovereignEnclaveDrawer } from '../sovereign/SovereignEnclaveDrawer';
 import { BatMenuOverlay } from '../bat/BatMenuOverlay';
 import { NewsTicker } from './NewsTicker';
 import { ArticlePanel } from '../article/ArticlePanel';
@@ -63,6 +70,29 @@ export const Shell: React.FC = () => {
   const prevArticle = useAppStore((s) => s.prevArticle);
   const theme = useAppStore((s) => s.theme);
   const setLayoutPreset = useAppStore((s) => s.setLayoutPreset);
+  const isInvestigativeDeskOpen = useAppStore((s) => s.isInvestigativeDeskOpen);
+  const setInvestigativeDeskOpen = useAppStore((s) => s.setInvestigativeDeskOpen);
+  const isEditorialIntelligenceOpen = useAppStore((s) => s.isEditorialIntelligenceOpen);
+  const setEditorialIntelligenceOpen = useAppStore((s) => s.setEditorialIntelligenceOpen);
+  const editorialInitialTab = useAppStore((s) => s.editorialInitialTab);
+  const isBroadcastDeskOpen = useAppStore((s) => s.isBroadcastDeskOpen);
+  const setBroadcastDeskOpen = useAppStore((s) => s.setBroadcastDeskOpen);
+  const broadcastInitialTab = useAppStore((s) => s.broadcastInitialTab);
+  const isCartographyDeskOpen = useAppStore((s) => s.isCartographyDeskOpen);
+  const setCartographyDeskOpen = useAppStore((s) => s.setCartographyDeskOpen);
+  const cartographyInitialTab = useAppStore((s) => s.cartographyInitialTab);
+  const isBinderyDeskOpen = useAppStore((s) => s.isBinderyDeskOpen);
+  const setBinderyDeskOpen = useAppStore((s) => s.setBinderyDeskOpen);
+  const binderyInitialTab = useAppStore((s) => s.binderyInitialTab);
+  const isSovereignDeskOpen = useAppStore((s) => s.isSovereignDeskOpen);
+  const setSovereignDeskOpen = useAppStore((s) => s.setSovereignDeskOpen);
+  const sovereignInitialTab = useAppStore((s) => s.sovereignInitialTab);
+  const paperPatina = useAppStore((s) => s.paperPatina);
+  const fetchBinderyPreferences = useAppStore((s) => s.fetchBinderyPreferences);
+  const fetchSovereignSettings = useAppStore((s) => s.fetchSovereignSettings);
+  const capAlerts = useAppStore((s) => s.capAlerts);
+  const acknowledgeCapAlert = useAppStore((s) => s.acknowledgeCapAlert);
+  const selectedArticle = useAppStore((s) => s.selectedArticle);
 
   // Activate trackpad pinch-to-zoom and keyboard font scaling
   usePinchZoom();
@@ -77,7 +107,20 @@ export const Shell: React.FC = () => {
       const preset = THEME_CATALOG.find((t) => t.id === activeThemeId) || THEME_CATALOG[10];
       applyThemeToDOM(deriveThemePalette(preset.bg, preset.accent));
     }
+    fetchBinderyPreferences();
+    fetchSovereignSettings();
   }, []);
+
+  // Hardware Volume Button Page Turning Bridge (Phase J #46)
+  useEffect(() => {
+    const handleVolumeTurn = (e: Event) => {
+      const detail = (e as CustomEvent<{ direction?: 'prev' | 'next' }>).detail;
+      if (detail?.direction === 'prev') prevArticle();
+      else if (detail?.direction === 'next') nextArticle();
+    };
+    window.addEventListener('dnews-volume-key', handleVolumeTurn);
+    return () => window.removeEventListener('dnews-volume-key', handleVolumeTurn);
+  }, [nextArticle, prevArticle]);
 
 
   // Global Keyboard Shortcuts (PRD §6 & UI_SPEC §Keyboard Shortcuts)
@@ -141,6 +184,30 @@ export const Shell: React.FC = () => {
           e.preventDefault();
           useAppStore.getState().openLibrary();
           break;
+        case 'i':
+          e.preventDefault();
+          setInvestigativeDeskOpen(!useAppStore.getState().isInvestigativeDeskOpen);
+          break;
+        case 'e':
+          e.preventDefault();
+          setEditorialIntelligenceOpen(!useAppStore.getState().isEditorialIntelligenceOpen);
+          break;
+        case 'm':
+          e.preventDefault();
+          setBroadcastDeskOpen(!useAppStore.getState().isBroadcastDeskOpen);
+          break;
+        case 'w':
+          e.preventDefault();
+          setCartographyDeskOpen(!useAppStore.getState().isCartographyDeskOpen);
+          break;
+        case 'y':
+          e.preventDefault();
+          setBinderyDeskOpen(!useAppStore.getState().isBinderyDeskOpen);
+          break;
+        case 's':
+          e.preventDefault();
+          setSovereignDeskOpen(!useAppStore.getState().isSovereignDeskOpen);
+          break;
         case ',':
           e.preventDefault();
           useAppStore.getState().setSettingsOpen(true);
@@ -184,6 +251,7 @@ export const Shell: React.FC = () => {
     <div
       id="app-shell"
       className="flex flex-col w-full h-full h-[100dvh] max-w-full overflow-hidden bg-paper text-ink relative font-ui transition-colors duration-200 select-none"
+      style={paperPatina > 0 ? { filter: `sepia(${(paperPatina * 0.25).toFixed(1)}%)` } : undefined}
     >
       {/* 1. Master TopBar (z-40) */}
       <ErrorBoundary panelName="Top Bar">
@@ -195,10 +263,38 @@ export const Shell: React.FC = () => {
         <StatusStrip />
       </ErrorBoundary>
 
+      {/* 2.2 Masthead Commodity & Currency Ticker Tape (PRD Phase H #29) */}
+      <ErrorBoundary panelName="Masthead Market Ticker">
+        <MastheadMarketTicker />
+      </ErrorBoundary>
+
       {/* 2.5 In-App Update Notification Banner (PRD E Category 9) */}
       <ErrorBoundary panelName="Update Banner">
         <UpdateBanner />
       </ErrorBoundary>
+
+      {/* 2.6 CAP Emergency Broadcast Alert Ribbon (PRD Phase G #28) */}
+      {capAlerts?.length > 0 && !capAlerts[0].acknowledged && (
+        <div 
+          id="cap-emergency-ribbon"
+          className="w-full bg-[#C0392B] text-white px-3 py-1 flex items-center justify-between text-xs font-mono tracking-wider animate-pulse z-40 border-b border-black"
+        >
+          <div className="flex items-center space-x-2 truncate">
+            <span className="font-bold uppercase tracking-widest bg-black px-1.5 py-0.5 text-[10px]">
+              CIVIL EMERGENCY · {capAlerts[0].severity.toUpperCase()}
+            </span>
+            <span className="truncate font-semibold font-serif">
+              {capAlerts[0].headline} ({capAlerts[0].area_desc})
+            </span>
+          </div>
+          <button
+            onClick={() => acknowledgeCapAlert(capAlerts[0].id)}
+            className="ml-2 px-2 py-0.5 bg-black text-white text-[10px] uppercase font-bold hover:bg-neutral-800 transition-colors shrink-0"
+          >
+            Acknowledge
+          </button>
+        </div>
+      )}
 
       {/* 3. Bat Menu Overlay (Unfolds like broadsheet paper) */}
       <ErrorBoundary panelName="Bat Masthead Menu">
@@ -364,6 +460,53 @@ export const Shell: React.FC = () => {
 
       {/* PRD Master Expansion Phase D Deliverable 2: Emergency Panic Shredder */}
       <PanicWipeDialog />
+
+      {/* PRD Master Expansion Phase E: Investigative Journalism & Verification Desk */}
+      <InvestigativeDeskDrawer
+        isOpen={isInvestigativeDeskOpen}
+        onClose={() => setInvestigativeDeskOpen(false)}
+        activeArticle={selectedArticle}
+      />
+
+      {/* PRD Master Expansion Phase F: AI Editorial Intelligence & Socratic Analysis */}
+      <EditorialIntelligenceDrawer
+        isOpen={isEditorialIntelligenceOpen}
+        onClose={() => setEditorialIntelligenceOpen(false)}
+        activeArticle={selectedArticle}
+        initialTab={editorialInitialTab}
+      />
+
+      {/* PRD Master Expansion Phase G: Broadcast, Audio & Media Synthesis */}
+      <BroadcastMediaDrawer
+        isOpen={isBroadcastDeskOpen}
+        onClose={() => setBroadcastDeskOpen(false)}
+        activeArticle={selectedArticle}
+        initialTab={broadcastInitialTab}
+      />
+
+      {/* PRD Master Expansion Phase H: Cartography, Chokepoints & Data Markets */}
+      <CartographyWarRoomDrawer
+        isOpen={isCartographyDeskOpen}
+        onClose={() => setCartographyDeskOpen(false)}
+        activeArticle={selectedArticle}
+        initialTab={cartographyInitialTab}
+      />
+
+      {/* PRD Master Expansion Phase I: Broadside Bindery & Physical Artifacts */}
+      <BroadsideBinderyDrawer
+        isOpen={isBinderyDeskOpen}
+        onClose={() => setBinderyDeskOpen(false)}
+        activeArticle={selectedArticle}
+        initialTab={binderyInitialTab}
+      />
+
+      {/* PRD Master Expansion Phase J & K: Mobile OS Integration & Sovereign Enclave */}
+      <SovereignEnclaveDrawer
+        isOpen={isSovereignDeskOpen}
+        onClose={() => setSovereignDeskOpen(false)}
+        activeArticle={selectedArticle}
+        initialTab={sovereignInitialTab}
+      />
 
       {/* 7. Broadsheet Toast Notifications */}
       <Toaster

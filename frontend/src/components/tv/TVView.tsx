@@ -42,6 +42,7 @@ import {
 import { toast } from 'sonner';
 import { AddYouTubeChannelModal } from './AddYouTubeChannelModal';
 import { sseBus } from '../../lib/sseBus';
+import { apiFetch, apiUrl } from '../../lib/api';
 
 function getCountryFlag(code?: string | null): string {
   if (!code || code.length !== 2) return '🌐';
@@ -157,7 +158,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
   // Fetch subpages counts (live, faulty, stopped)
   const fetchSubpageCounts = async () => {
     try {
-      const res = await fetch('/api/tv/subpages/counts');
+      const res = await apiFetch('/api/tv/subpages/counts');
       if (res.ok) {
         const data = await res.json();
         setSubpageCounts(data);
@@ -168,7 +169,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
   // Fetch channels list with subpage filtering
   const fetchChannels = useCallback(async (opts?: { silent?: boolean }) => {
     try {
-      const res = await fetch(`/api/tv/channels?subpage=${subpage}&include_dead=true`);
+      const res = await apiFetch(`/api/tv/channels?subpage=${subpage}&include_dead=true`);
       if (res.ok) {
         const data = await res.json();
         const items: TvChannel[] = data.items || [];
@@ -190,7 +191,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
       }
 
       // Fetch all channels for quick switcher
-      const resAll = await fetch('/api/tv/channels?include_dead=true');
+      const resAll = await apiFetch('/api/tv/channels?include_dead=true');
       if (resAll.ok) {
         const allData = await resAll.json();
         setAllChannels(allData.items || []);
@@ -291,7 +292,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
 
     // Proxy HLS stream through backend to avoid CORS and mixed content
     const streamUrl = rawStreamUrl.startsWith('http')
-      ? `/api/tv/proxy?url=${encodeURIComponent(rawStreamUrl)}`
+      ? apiUrl(`/api/tv/proxy?url=${encodeURIComponent(rawStreamUrl)}`)
       : rawStreamUrl;
 
     if (Hls.isSupported()) {
@@ -403,7 +404,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
     if (!selectedChannel || isProbing) return;
     setIsProbing(true);
     try {
-      const res = await fetch(`/api/tv/channels/${selectedChannel.id}/health-check`, {
+      const res = await apiFetch(`/api/tv/channels/${selectedChannel.id}/health-check`, {
         method: 'POST',
       });
       if (res.ok) {
@@ -492,7 +493,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
     if (!selectedChannel) return;
     const rawUrl = selectedChannel.stream_url || selectedChannel.youtube_live_url || '';
     const streamUrl = rawUrl.startsWith('http')
-      ? `${window.location.origin}/api/tv/proxy?url=${encodeURIComponent(rawUrl)}`
+      ? apiUrl(`/api/tv/proxy?url=${encodeURIComponent(rawUrl)}`)
       : rawUrl;
 
     // Generate .m3u playlist download
@@ -531,7 +532,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
   const handleDeleteChannel = async (id: number) => {
     if (!window.confirm('Are you sure you want to permanently remove this stopped channel?')) return;
     try {
-      const res = await fetch(`/api/tv/channels/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/tv/channels/${id}`, { method: 'DELETE' });
       if (res.ok) {
         toast.success('Channel removed permanently');
         setChannels((prev) => prev.filter((c) => c.id !== id));
@@ -553,7 +554,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
         stream_url: editUrlInput.trim(),
         youtube_live_url: isYt ? editUrlInput.trim() : null,
       };
-      const res = await fetch(`/api/tv/channels/${editingChannel.id}`, {
+      const res = await apiFetch(`/api/tv/channels/${editingChannel.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -576,7 +577,7 @@ export const TVView: React.FC<{ forcedOpen?: boolean; forcedSelectedChannel?: Tv
     e.stopPropagation();
     try {
       const nextFav = !channel.is_favorite;
-      const res = await fetch(`/api/tv/channels/${channel.id}/favorite`, {
+      const res = await apiFetch(`/api/tv/channels/${channel.id}/favorite`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_favorite: nextFav }),

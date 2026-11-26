@@ -41,6 +41,8 @@ export const TopBar: React.FC = () => {
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
   const isIncognitoMode = useAppStore((s) => s.isIncognitoMode);
   const setIncognitoMode = useAppStore((s) => s.setIncognitoMode);
+  const mastheadTitle = useAppStore((s) => s.mastheadTitle);
+  const mastheadMotto = useAppStore((s) => s.mastheadMotto);
 
   return (
     <header
@@ -49,12 +51,7 @@ export const TopBar: React.FC = () => {
     >
       {/* 1. Masthead: Bat SVG Icon + Logotype */}
       <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-        <div className="block sm:hidden">
-          <BatIcon size={28} />
-        </div>
-        <div className="hidden sm:block">
-          <BatIcon size={34} />
-        </div>
+        <BatIcon size={32} className="sm:scale-105" />
         <button
           type="button"
           onClick={() => setCurrentView('reader')}
@@ -62,10 +59,10 @@ export const TopBar: React.FC = () => {
           title="Return to Reading Desk"
         >
           <span className="font-masthead text-lg sm:text-2xl md:text-3xl tracking-tight leading-none text-ink group-hover:text-ink/80 transition-colors whitespace-nowrap">
-            The World Desk
+            {mastheadTitle}
           </span>
           <span className="hidden sm:inline font-ui text-[0.5625rem] md:text-[0.6rem] font-bold uppercase tracking-widest text-ink-secondary whitespace-nowrap">
-            Global Dispatch &amp; Wire
+            {mastheadMotto}
           </span>
         </button>
       </div>

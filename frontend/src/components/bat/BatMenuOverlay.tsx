@@ -35,10 +35,15 @@ import {
   Network,
   GraduationCap,
   Calendar,
+  ShieldAlert,
+  Scale,
+  Compass,
+  Stamp,
+  KeyRound,
 } from 'lucide-react';
 
 interface MenuItem {
-  view: AppView | 'library' | 'history-frontpage' | 'wisdom-deck' | 'mindmap';
+  view: AppView | 'library' | 'history-frontpage' | 'wisdom-deck' | 'mindmap' | 'investigative' | 'editorial' | 'broadcast' | 'war-room' | 'bindery' | 'sovereign';
   label: string;
   icon: LucideIcon;
   shortcut?: string;
@@ -47,6 +52,12 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
   { view: 'reader', label: 'Main Reader', icon: BookOpen, shortcut: 'j / k', description: 'Dual-pane translated article text with verbatim evidence linking' },
+  { view: 'investigative', label: 'Investigative & OSINT Desk', icon: ShieldAlert, shortcut: 'i', description: 'Fact-checking, whistleblower drop, conflict timelines, and sanctions screening' },
+  { view: 'editorial', label: 'Editorial Intelligence Desk', icon: Scale, shortcut: 'e', description: "Devil's advocate counter-arguments, history rhymes, jargon demystifier, and Socratic inquiry" },
+  { view: 'broadcast', label: 'Broadcast & Media Soundstage', icon: Radio, shortcut: 'm', description: 'Two-host radio podcast briefings, pressroom soundscapes, and 1938 shortwave radio' },
+  { view: 'war-room', label: 'Cartography & Ticker War Room', icon: Compass, shortcut: 'w', description: 'Commodities tape, maritime chokepoints, climate anomalies, parliament sim & flights' },
+  { view: 'bindery', label: 'Broadside Bindery & Artifacts', icon: Stamp, shortcut: 'y', description: 'Printable folio PDFs, rubber stamps, custom masthead, paper patina & daily crossword' },
+  { view: 'sovereign', label: 'Sovereign & Mobile Enclave', icon: KeyRound, shortcut: 's', description: '1-bit E-Ink mode, vintage share clippings, P2P mesh sync, Wayback mirror, FIDO2 & HTML export' },
   { view: 'library', label: 'The Library', icon: Library, shortcut: 'l', description: 'Tranquil reading room: historical archives, sacred scriptures & mind helps' },
   { view: 'category', label: 'Category Rail', icon: Layers, shortcut: '/', description: 'Instant category filtering with outlet & country tags' },
   { view: 'compare', label: 'Compare Coverage', icon: GitCompare, description: 'Side-by-side international reporting on identical real-world events' },
@@ -92,10 +103,46 @@ export const BatMenuOverlay: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isBatMenuOpen, setBatMenuOpen]);
 
-  const handleSelect = (view: AppView | 'library' | 'history-frontpage' | 'wisdom-deck' | 'mindmap') => {
+  const handleSelect = (view: AppView | 'library' | 'history-frontpage' | 'wisdom-deck' | 'mindmap' | 'investigative' | 'editorial' | 'broadcast' | 'war-room' | 'bindery' | 'sovereign') => {
     if (view === 'library') {
       setBatMenuOpen(false);
       useAppStore.getState().openLibrary();
+      return;
+    }
+
+    if (view === 'investigative') {
+      setBatMenuOpen(false);
+      useAppStore.getState().setInvestigativeDeskOpen(true);
+      return;
+    }
+
+    if (view === 'editorial') {
+      setBatMenuOpen(false);
+      useAppStore.getState().setEditorialIntelligenceOpen(true);
+      return;
+    }
+
+    if (view === 'broadcast') {
+      setBatMenuOpen(false);
+      useAppStore.getState().setBroadcastDeskOpen(true);
+      return;
+    }
+
+    if (view === 'war-room') {
+      setBatMenuOpen(false);
+      useAppStore.getState().setCartographyDeskOpen(true);
+      return;
+    }
+
+    if (view === 'bindery') {
+      setBatMenuOpen(false);
+      useAppStore.getState().setBinderyDeskOpen(true);
+      return;
+    }
+
+    if (view === 'sovereign') {
+      setBatMenuOpen(false);
+      useAppStore.getState().setSovereignDeskOpen(true);
       return;
     }
 
@@ -189,15 +236,15 @@ export const BatMenuOverlay: React.FC = () => {
             animate={{ scaleY: 1, opacity: 1, y: 0 }}
             exit={{ scaleY: 0.8, opacity: 0, y: -10 }}
             transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-            className="relative z-10 w-full max-w-4xl mt-3 mx-4 bg-paper-alt border-2 border-ink shadow-overlay rounded-xs overflow-hidden text-ink"
+            className="relative z-10 w-full max-w-4xl max-h-[92dvh] flex flex-col mt-3 mx-4 bg-paper-alt border-2 border-ink shadow-overlay rounded-xs overflow-hidden text-ink"
           >
             {/* Broadsheet Masthead Header */}
-            <div className="border-b-2 border-ink p-6 bg-paper flex items-center justify-between">
+            <div className="border-b-2 border-ink p-4 sm:p-6 bg-paper flex items-center justify-between shrink-0">
               <div>
-                <span className="font-masthead text-4xl sm:text-5xl tracking-tight block text-ink">
+                <span className="font-masthead text-3xl sm:text-5xl tracking-tight block text-ink">
                   The World Desk
                 </span>
-                <span className="font-ui text-xs uppercase tracking-widest text-ink-secondary">
+                <span className="font-ui text-[11px] sm:text-xs uppercase tracking-widest text-ink-secondary">
                   Broadsheet Directory & Section Navigator · Vol. XCII No. 41
                 </span>
               </div>
@@ -211,29 +258,28 @@ export const BatMenuOverlay: React.FC = () => {
             </div>
 
             {/* Menu Grid */}
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[65vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 flex-1 min-h-0 overflow-y-auto">
               {MENU_ITEMS.map((item) => {
                 const isActive = currentView === item.view;
                 const Icon = item.icon;
                 const itemBtnId = item.view === 'photojournalism' ? 'btn-menu-photojournalism'
                   : item.view === 'custom-rss' ? 'btn-menu-custom-rss'
-                  : item.view === 'source-health' ? 'btn-menu-source-health'
-                  : item.view === 'entities' ? 'btn-menu-entities'
-                  : item.view === 'sunday-edition' ? 'btn-menu-sunday-edition'
-                  : item.view === 'history-frontpage' ? 'btn-menu-history-frontpage'
-                  : item.view === 'wisdom-deck' ? 'btn-menu-wisdom-deck'
-                  : item.view === 'mindmap' ? 'btn-menu-mindmap' : undefined;
+                    : item.view === 'source-health' ? 'btn-menu-source-health'
+                      : item.view === 'entities' ? 'btn-menu-entities'
+                        : item.view === 'sunday-edition' ? 'btn-menu-sunday-edition'
+                          : item.view === 'history-frontpage' ? 'btn-menu-history-frontpage'
+                            : item.view === 'wisdom-deck' ? 'btn-menu-wisdom-deck'
+                              : item.view === 'mindmap' ? 'btn-menu-mindmap' : undefined;
 
                 return (
                   <button
                     key={item.view}
                     id={itemBtnId}
                     onClick={() => handleSelect(item.view)}
-                    className={`flex flex-col text-left p-3.5 rounded-xs border transition-all ${
-                      isActive
-                        ? 'border-ink bg-paper font-semibold shadow-xs news-rule-t'
-                        : 'border-paper-border/80 bg-paper-alt/50 hover:bg-paper hover:border-ink hover:-translate-y-0.5'
-                    }`}
+                    className={`flex flex-col text-left p-3.5 rounded-xs border transition-all ${isActive
+                      ? 'border-ink bg-paper font-semibold shadow-xs news-rule-t'
+                      : 'border-paper-border/80 bg-paper-alt/50 hover:bg-paper hover:border-ink hover:-translate-y-0.5'
+                      }`}
                   >
                     <div className="flex items-center justify-between w-full mb-1">
                       <div className="flex items-center gap-2">
@@ -254,29 +300,61 @@ export const BatMenuOverlay: React.FC = () => {
               })}
             </div>
 
-            {/* Bottom Theme & Keyboard Helper Bar */}
-            <div className="border-t border-paper-border p-4 bg-paper flex flex-wrap items-center justify-between gap-4">
+            {/* Bottom Theme, Quick Mobile Filters & Keyboard Helper Bar */}
+            <div className="border-t border-paper-border p-3 sm:p-4 bg-paper flex flex-wrap items-center justify-between gap-3 shrink-0">
+              {/* Mobile Region Filter Strip (visible on < sm screens where TopBar hides select) */}
+              <div className="flex sm:hidden items-center gap-1.5 w-full overflow-x-auto pb-1 border-b border-paper-border/60">
+                <span className="font-mono text-[10px] uppercase font-bold text-ink-muted shrink-0 mr-1">
+                  Region:
+                </span>
+                {[
+                  { label: 'All', value: null },
+                  { label: 'India', value: 'India' },
+                  { label: 'USA', value: 'USA' },
+                  { label: 'China', value: 'China' },
+                  { label: 'Japan', value: 'Japan' },
+                  { label: 'Wildlife', value: 'Animals' },
+                ].map((r) => {
+                  const selected = useAppStore.getState().selectedCountry === r.value;
+                  return (
+                    <button
+                      key={r.label}
+                      type="button"
+                      onClick={() => {
+                        useAppStore.getState().setSelectedCountry(r.value);
+                        setBatMenuOpen(false);
+                      }}
+                      className={`px-2 py-1 rounded-xs border font-mono text-[10px] font-bold uppercase shrink-0 cursor-pointer ${
+                        selected
+                          ? 'bg-ink text-paper border-ink'
+                          : 'bg-paper-alt text-ink-secondary border-paper-border'
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Theme Switcher */}
               <div className="flex items-center gap-2 font-ui text-xs">
                 <span className="text-ink-muted uppercase font-bold tracking-wider">Edition:</span>
                 <button
                   onClick={() => setTheme('paper')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xs border text-xs font-semibold transition-colors ${
-                    theme === 'paper'
-                      ? 'border-ink bg-paper-alt text-ink shadow-xs'
-                      : 'border-transparent text-ink-muted hover:text-ink'
-                  }`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xs border text-xs font-semibold transition-colors ${theme === 'paper'
+                    ? 'border-ink bg-paper-alt text-ink shadow-xs'
+                    : 'border-transparent text-ink-muted hover:text-ink'
+                    }`}
                 >
                   <Sun size={13} className="text-amber-700" />
                   <span>Paper (Day)</span>
                 </button>
                 <button
                   onClick={() => setTheme('night')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xs border text-xs font-semibold transition-colors ${
-                    theme === 'night'
-                      ? 'border-ink bg-paper-alt text-ink shadow-xs'
-                      : 'border-transparent text-ink-muted hover:text-ink'
-                  }`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xs border text-xs font-semibold transition-colors ${theme === 'night'
+                    ? 'border-ink bg-paper-alt text-ink shadow-xs'
+                    : 'border-transparent text-ink-muted hover:text-ink'
+                    }`}
                 >
                   <Moon size={13} className="text-accent" />
                   <span>Night Edition</span>
@@ -298,7 +376,7 @@ export const BatMenuOverlay: React.FC = () => {
               </div>
 
               {/* Keyboard Shortcuts Hint */}
-              <div className="font-mono text-[0.6875rem] text-ink-muted">
+              <div className="hidden sm:block font-mono text-[0.6875rem] text-ink-muted">
                 Keys: <kbd className="px-1 border border-paper-border rounded-xs">b</kbd> menu · <kbd className="px-1 border border-paper-border rounded-xs">j</kbd>/<kbd className="px-1 border border-paper-border rounded-xs">k</kbd> article · <kbd className="px-1 border border-paper-border rounded-xs">g</kbd> globe · <kbd className="px-1 border border-paper-border rounded-xs">t</kbd> tv · <kbd className="px-1 border border-paper-border rounded-xs">Esc</kbd> close
               </div>
             </div>

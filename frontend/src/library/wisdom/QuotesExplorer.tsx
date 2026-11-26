@@ -24,6 +24,7 @@ import {
   User,
   Brain,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 const TRADITIONS = [
   { id: 'all', label: 'All Traditions' },
@@ -95,7 +96,7 @@ export const QuotesExplorer: React.FC = () => {
         params.append('q', globalSearchQuery.trim());
       }
 
-      const res = await fetch(`/api/library/wisdom/quotes?${params.toString()}`);
+      const res = await apiFetch(`/api/library/wisdom/quotes?${params.toString()}`);
       if (!res.ok) {
         throw new Error(`Failed to load quotes (HTTP ${res.status})`);
       }
@@ -185,7 +186,7 @@ export const QuotesExplorer: React.FC = () => {
   ) => {
     setSavingMeaning(true);
     try {
-      const res = await fetch(`/api/library/wisdom/quotes/${quoteId}`, {
+      const res = await apiFetch(`/api/library/wisdom/quotes/${quoteId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
@@ -219,7 +220,7 @@ export const QuotesExplorer: React.FC = () => {
   const handleQuoteOfTheDay = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/library/wisdom/quotes/today');
+      const res = await apiFetch('/api/library/wisdom/quotes/today');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.quote) {
@@ -236,7 +237,7 @@ export const QuotesExplorer: React.FC = () => {
   const handleRandomQuote = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/library/wisdom/quotes/random');
+      const res = await apiFetch('/api/library/wisdom/quotes/random');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.quote) {

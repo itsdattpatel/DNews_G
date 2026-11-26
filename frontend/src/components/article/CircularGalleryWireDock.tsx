@@ -20,14 +20,19 @@ import type { Article } from '../../types';
 export interface CircularGalleryWireDockProps {
   forcedArticles?: Article[];
   forcedSelectedArticleId?: number | null;
+  forcedPendingNewArticles?: Article[];
 }
 
 export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = ({
   forcedArticles,
   forcedSelectedArticleId,
+  forcedPendingNewArticles,
 }) => {
   const storeArticles = useAppStore((s) => s.articles);
   const articles = forcedArticles ?? storeArticles;
+  const storePendingNewArticles = useAppStore((s) => s.pendingNewArticles);
+  const pendingNewArticles = forcedPendingNewArticles ?? storePendingNewArticles;
+  const mergePendingNewArticles = useAppStore((s) => s.mergePendingNewArticles);
   const storeSelectedArticleId = useAppStore((s) => s.selectedArticleId);
   const selectedArticleId = forcedSelectedArticleId !== undefined ? forcedSelectedArticleId : storeSelectedArticleId;
   const selectArticleById = useAppStore((s) => s.selectArticleById);
@@ -148,10 +153,14 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
     return idx >= 0 ? idx : 0;
   }, [articles, selectedArticleId]);
 
-  // Synchronize gallery focus whenever selected story changes from desk
+  // Synchronize gallery focus silently whenever selected story shifts index without jumping
   useEffect(() => {
     if (galleryRef.current && activeIndex >= 0) {
-      galleryRef.current.focusIndex(activeIndex);
+      if (typeof galleryRef.current.syncIndex === 'function') {
+        galleryRef.current.syncIndex(activeIndex);
+      } else {
+        galleryRef.current.focusIndex(activeIndex);
+      }
     }
   }, [activeIndex]);
 
@@ -262,6 +271,27 @@ export const CircularGalleryWireDock: React.FC<CircularGalleryWireDockProps> = (
           : 'translate-y-0 opacity-100'
       }`}
     >
+      {/* 1.0 Buffered Live Arrivals Pill ("N new stories") */}
+      {pendingNewArticles.length > 0 && (
+        <div className="mb-1.5 pointer-events-auto z-40">
+          <button
+            id="btn-new-stories-pill"
+            type="button"
+            onClick={() => {
+              if (soundEnabled) broadsheetAudio.playPaperRustle();
+              mergePendingNewArticles();
+            }}
+            aria-label={`Load ${pendingNewArticles.length} new ${pendingNewArticles.length === 1 ? 'story' : 'stories'} into wire`}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xs bg-accent text-white font-ui text-xs font-bold uppercase tracking-wider shadow-md border border-ink hover:bg-accent/90 active:scale-95 transition-all cursor-pointer tabular-nums"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            <span>
+              {pendingNewArticles.length} new {pendingNewArticles.length === 1 ? 'story' : 'stories'}
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* 1.1 Auto-Advance Countdown Indicator on Active Focused Card */}
       {autoAdvanceEnabled && !isAutoAdvanceManualPaused && (
         <div

@@ -18,6 +18,7 @@ import {
   type HistoryEventRecord,
 } from '../utils/libraryLive';
 import { RefreshCw, Sparkles } from 'lucide-react';
+import { apiUrl } from '../../lib/api';
 
 export const HistorySubpage: React.FC = () => {
   const today = new Date();
@@ -53,9 +54,9 @@ export const HistorySubpage: React.FC = () => {
         if (globalSearchQuery && globalSearchQuery.trim()) params.append('q', globalSearchQuery.trim());
         if (selectedDecade !== 'all') params.append('decade', selectedDecade);
         if (selectedCountry !== 'all') params.append('country', selectedCountry);
-        url = `/api/library/history/search?${params.toString()}`;
+        url = apiUrl(`/api/library/history/search?${params.toString()}`);
       } else {
-        url = `/api/library/history/today?month=${month}&day=${day}`;
+        url = apiUrl(`/api/library/history/today?month=${month}&day=${day}`);
       }
 
       const res = await fetch(url);

@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Scroll,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 export interface ScriptureVerse {
   id: number;
@@ -96,7 +97,7 @@ export const VerseFolioCard: React.FC<VerseFolioCardProps> = ({
       if (onSaveMeaning) {
         await onSaveMeaning(verse.id, patch);
       } else {
-        await fetch(`/api/library/wisdom/verses/${verse.id}`, {
+        await apiFetch(`/api/library/wisdom/verses/${verse.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(patch),

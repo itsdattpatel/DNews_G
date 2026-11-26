@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useAppStore } from '../store/useAppStore';
 import type { Article, QuotaData, SSEEvent } from '../types';
 import { showDesktopNotification } from '../utils/notifications';
+import { apiFetch, apiUrl, getApiBaseUrl, shouldAttemptRemote } from '../lib/api';
 import {
   CappedIdSet,
   sseBus,
@@ -155,7 +156,7 @@ export function useSSE(options?: UseSSEOptions): {
             const fetched = await Promise.all(
               entries.map(async ([articleId, kind]) => {
                 try {
-                  const res = await fetch(`/api/articles/${articleId}`);
+                  const res = await apiFetch(`/api/articles/${articleId}`);
                   if (!res.ok) return null;
                   const article = (await res.json()) as Article;
                   return { article, kind };
@@ -325,8 +326,22 @@ export function useSSE(options?: UseSSEOptions): {
         eventSourceRef.current = null;
       }
 
+      const baseUrl = getApiBaseUrl();
+      if (!shouldAttemptRemote(baseUrl)) {
+        // Standalone native APK / offline autonomous mode without Remote Desk URL:
+        // avoid endless EventSource reconnect errors against local static bundle.
+        setConnected(true);
+        attemptsRef.current = 0;
+        setReconnectAttempts(0);
+        useAppStore.getState().setSseConnectionState({
+          status: 'connected',
+          reconnectAttempts: 0,
+        });
+        return;
+      }
+
       const cursor = lastEventIdRef.current;
-      const url = cursor > 0 ? `/api/sse?since=${cursor}` : '/api/sse';
+      const url = apiUrl(cursor > 0 ? `/api/sse?since=${cursor}` : '/api/sse');
       const es = new EventSource(url);
       eventSourceRef.current = es;
       useAppStore.getState().setSseConnectionState({
@@ -734,6 +749,13 @@ export function useSSE(options?: UseSSEOptions): {
       sseBus.emit('library_resync', { reason: 'online', timestamp: new Date().toISOString() });
     };
 
+    const unsubscribeResyncConnect = sseBus.subscribe('resync', (payload) => {
+      if (!isMounted) return;
+      if (payload.reason === 'remote_desk_connected' || payload.reason === 'remote_desk_cleared') {
+        connect();
+      }
+    });
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', handleOnline);
 
@@ -812,6 +834,7 @@ export function useSSE(options?: UseSSEOptions): {
       isMounted = false;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleOnline);
+      unsubscribeResyncConnect();
       unsubscribeCrossTab();
 
       if (reconnectTimeoutRef.current) {

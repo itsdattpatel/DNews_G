@@ -9,6 +9,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { getPdfDownloadFilename, formatBriefingDate } from '../../utils/briefing-pdf';
 import { FileText, Download, RotateCcw, X, Calendar, AlertCircle, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch } from '../../lib/api';
 
 export const DailyPdfDesk: React.FC = () => {
   const isPdfOpen = useAppStore((s) => s.isPdfOpen);
@@ -57,7 +58,7 @@ export const DailyPdfDesk: React.FC = () => {
     setIsEmpty(false);
 
     try {
-      const res = await fetch('/api/export/pdf', {
+      const res = await apiFetch('/api/export/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date: targetDate }),

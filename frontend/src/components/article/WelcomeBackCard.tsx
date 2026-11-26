@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, memo } from 'react';
 import { Newspaper, X, ArrowRight } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 export interface WelcomeBackCardProps {
   onViewDispatches?: () => void;
@@ -39,7 +40,7 @@ export const WelcomeBackCard = memo<WelcomeBackCardProps>(({
     }
 
     // Fetch session and downtime gap status from backend
-    fetch('/api/session/current')
+    apiFetch('/api/session/current')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!data || !data.downtime) return;

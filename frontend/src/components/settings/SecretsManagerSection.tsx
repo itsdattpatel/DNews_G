@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Check, X, RefreshCw, Key, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch } from '../../lib/api';
 
 export type ProviderName = 'gemini' | 'groq' | 'mistral' | 'cerebras';
 
@@ -85,7 +86,7 @@ export const SecretsManagerSection: React.FC = () => {
   // Fetch current provider key statuses
   const fetchKeyStatuses = async () => {
     try {
-      const res = await fetch('/api/settings/keys');
+      const res = await apiFetch('/api/settings/keys');
       if (res.ok) {
         const data = await res.json();
         if (data.providers) {
@@ -109,7 +110,7 @@ export const SecretsManagerSection: React.FC = () => {
 
     try {
       const rawKey = inputValues[provider].trim();
-      const res = await fetch('/api/settings/keys/test', {
+      const res = await apiFetch('/api/settings/keys/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -165,7 +166,7 @@ export const SecretsManagerSection: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const res = await fetch('/api/settings/keys', {
+      const res = await apiFetch('/api/settings/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keys: keysToSave }),

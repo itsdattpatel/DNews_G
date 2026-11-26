@@ -13,6 +13,7 @@ import {
   Clock,
   CheckCircle,
 } from 'lucide-react';
+import { apiUrl } from '../../lib/api';
 
 export interface HelplineEntry {
   id: number;
@@ -53,8 +54,8 @@ export const HelplinesModal: React.FC<HelplinesModalProps> = ({ isOpen, onClose 
       setLoading(true);
       try {
         const url = selectedCountry !== 'all'
-          ? `/api/library/mind/helplines?country=${encodeURIComponent(selectedCountry)}`
-          : '/api/library/mind/helplines';
+          ? apiUrl(`/api/library/mind/helplines?country=${encodeURIComponent(selectedCountry)}`)
+          : apiUrl('/api/library/mind/helplines');
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();

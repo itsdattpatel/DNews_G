@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { X, Youtube, Eye, CheckCircle2, AlertCircle, Info, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import type { TvChannel } from '../../types';
+import { apiFetch } from '../../lib/api';
 
 interface AddYouTubeChannelModalProps {
   isOpen: boolean;
@@ -49,7 +50,7 @@ export const AddYouTubeChannelModal: React.FC<AddYouTubeChannelModalProps> = ({
     setPreviewData(null);
 
     try {
-      const res = await fetch('/api/tv/preview-youtube', {
+      const res = await apiFetch('/api/tv/preview-youtube', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: cleanInput }),
@@ -108,7 +109,7 @@ export const AddYouTubeChannelModal: React.FC<AddYouTubeChannelModalProps> = ({
         payload.stream_url = previewData.embed_url;
       }
 
-      const res = await fetch('/api/tv/custom-channel', {
+      const res = await apiFetch('/api/tv/custom-channel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

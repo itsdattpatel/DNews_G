@@ -18,6 +18,7 @@ import {
   History,
 } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
+import { apiFetch } from '../../lib/api';
 
 interface TimelineArticle {
   id: number;
@@ -84,7 +85,7 @@ export const StoryTimeline: React.FC = () => {
         setSelectedEventIndex(0);
       }
 
-      fetch(`/api/clusters/${timelineClusterId}`)
+      apiFetch(`/api/clusters/${timelineClusterId}`)
         .then((res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load story timeline`);
           return res.json();

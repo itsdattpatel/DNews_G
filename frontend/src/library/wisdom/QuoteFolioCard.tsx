@@ -16,6 +16,7 @@ import {
   Quote as QuoteIcon,
   Compass,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 export interface WisdomQuote {
   id: number;
@@ -79,7 +80,7 @@ export const QuoteFolioCard: React.FC<QuoteFolioCardProps> = ({
       if (onSaveMeaning) {
         await onSaveMeaning(quote.id, patch);
       } else {
-        await fetch(`/api/library/wisdom/quotes/${quote.id}`, {
+        await apiFetch(`/api/library/wisdom/quotes/${quote.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(patch),

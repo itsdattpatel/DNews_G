@@ -32,6 +32,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch } from '../../lib/api';
 
 type ActiveTab = 'overview' | 'sources' | 'scheduler-queues' | 'ai-quotas' | 'errors' | 'storage-modes';
 
@@ -83,7 +84,7 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
     try {
       if (!opts?.silent) setIsLoading(true);
       setError(null);
-      const res = await fetch('/api/control-room/telemetry');
+      const res = await apiFetch('/api/control-room/telemetry');
       if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load telemetry`);
       const data = (await res.json()) as ControlRoomTelemetry;
       setTelemetry(data);
@@ -104,7 +105,7 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
       params.set('limit', String(MAX_IN_MEMORY_ERRORS));
 
-      const res = await fetch(`/api/control-room/errors?${params.toString()}`);
+      const res = await apiFetch(`/api/control-room/errors?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load errors`);
       const data = await res.json();
       setErrors(capList(data.items ?? [], MAX_IN_MEMORY_ERRORS));
@@ -163,7 +164,7 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
     try {
       setIsTriggeringCycle(true);
       toast.info('Initiating scheduled ingestion cycle across 24 feeds...');
-      const res = await fetch('/api/control-room/trigger-fetch', { method: 'POST' });
+      const res = await apiFetch('/api/control-room/trigger-fetch', { method: 'POST' });
       const data = await res.json();
       if (data.status === 'already_running') {
         toast.warning('A fetch cycle is currently already in progress.');
@@ -182,7 +183,7 @@ export const ControlRoomDesk: React.FC<ControlRoomDeskProps> = ({
   const handleClearErrors = async () => {
     if (!window.confirm('Clear all logged records from the system error ledger?')) return;
     try {
-      const res = await fetch('/api/control-room/errors/clear', {
+      const res = await apiFetch('/api/control-room/errors/clear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),

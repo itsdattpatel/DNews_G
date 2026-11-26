@@ -5,6 +5,8 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { autonomousEngine } from '../../lib/autonomousEngine';
+import { apiFetch, shouldAttemptRemote } from '../../lib/api';
 import { triggerHaptic } from '../../lib/haptics';
 import { Rss, Plus, Trash2, ArrowLeft, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import type { Category } from '../../types';
@@ -59,19 +61,54 @@ export const CustomRssStudio: React.FC = () => {
 
     setIsValidating(true);
     setValidationStatus('idle');
+    const cleanUrl = feedUrl.trim();
+    const cleanName = feedName.trim();
+    const cleanCountry = feedCountry.trim() || 'Global';
 
     try {
-      // Test URL format
-      new URL(feedUrl);
+      // 1. Validate URL syntax
+      new URL(cleanUrl);
 
-      // Simulate feed probe
-      await new Promise((r) => setTimeout(r, 800));
+      // 2. Real feed verification via backend or autonomous native/CORS probe
+      let verifiedRemote = false;
+      if (shouldAttemptRemote()) {
+        try {
+          const testRes = await apiFetch('/api/sources/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: cleanUrl }),
+          });
+          if (!testRes.ok) {
+            const errData = await testRes.json().catch(() => ({}));
+            throw new Error(errData.error || `Feed test failed (${testRes.status})`);
+          }
+          await apiFetch('/api/sources', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: cleanName,
+              url: cleanUrl,
+              country: cleanCountry,
+              fetch_type: 'rss',
+              region: cleanCountry,
+            }),
+          });
+          verifiedRemote = true;
+        } catch (err) {
+          throw err instanceof Error ? err : new Error('Failed to validate RSS feed.');
+        }
+      } else {
+        const probe = await autonomousEngine.validateFeedUrl(cleanUrl);
+        if (!probe.ok) {
+          throw new Error(probe.error || 'Could not reach a valid RSS/Atom XML feed.');
+        }
+      }
 
       const newFeed: CustomUserFeed = {
         id: `custom-feed-${Date.now()}`,
-        name: feedName.trim(),
-        url: feedUrl.trim(),
-        country: feedCountry.trim() || 'Global',
+        name: cleanName,
+        url: cleanUrl,
+        country: cleanCountry,
         category: feedCategory,
         addedAt: new Date().toISOString(),
       };
@@ -84,13 +121,36 @@ export const CustomRssStudio: React.FC = () => {
 
       triggerHaptic('bookmark');
       setValidationStatus('success');
-      setValidationMessage(`Syndicated feed “${feedName}” connected successfully!`);
+      setValidationMessage(`Syndicated feed “${cleanName}” verified and connected!`);
       setFeedUrl('');
       setFeedName('');
-    } catch {
+
+      // Immediately pull fresh dispatches from the newly added syndicate
+      if (verifiedRemote) {
+        void useAppStore.getState().performFullResync('custom_rss_added');
+      } else {
+        void autonomousEngine.pollLiveFeeds().then((added) => {
+          if (added.length > 0) {
+            const s = useAppStore.getState();
+            const local = autonomousEngine.getArticles({
+              category: s.selectedCategory,
+              country: s.selectedCountry,
+              breaking: s.isBreakingOnly,
+              q: s.searchQuery.trim(),
+              limit: 60,
+            });
+            s.setArticles(local.items, local.total);
+          }
+        });
+      }
+    } catch (err) {
       triggerHaptic('heavy');
       setValidationStatus('error');
-      setValidationMessage('Invalid URL format. Please provide a valid http:// or https:// RSS/Atom endpoint.');
+      setValidationMessage(
+        err instanceof Error
+          ? err.message
+          : 'Invalid URL format. Please provide a valid http:// or https:// RSS/Atom endpoint.',
+      );
     } finally {
       setIsValidating(false);
     }

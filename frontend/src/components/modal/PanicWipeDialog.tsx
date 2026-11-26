@@ -8,6 +8,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { triggerHaptic } from '../../lib/haptics';
 import { X, AlertOctagon, Flame, ShieldAlert, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch } from '../../lib/api';
 
 export const PanicWipeDialog: React.FC = () => {
   const isPanicWipeOpen = useAppStore((s) => s.isPanicWipeOpen);
@@ -38,7 +39,7 @@ export const PanicWipeDialog: React.FC = () => {
     triggerHaptic('heavy');
 
     try {
-      const res = await fetch('/api/security/panic-wipe', {
+      const res = await apiFetch('/api/security/panic-wipe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ confirmation: 'SHRED_ALL_DATA_FOREVER' }),

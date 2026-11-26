@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand';
 import { postCrossTabSync, type SseBusEventMap } from '../../lib/sseBus';
+import { apiFetch } from '../../lib/api';
 
 export type LibraryTab = 'history' | 'wisdom' | 'mind';
 export type WisdomSubTab = 'scriptures' | 'quotes';
@@ -108,7 +109,7 @@ export const useLibraryStore = create<LibraryStoreState>((set, get) => ({
   fetchBookmarks: async () => {
     set({ isLoadingBookmarks: true });
     try {
-      const res = await fetch('/api/library/bookmarks');
+      const res = await apiFetch('/api/library/bookmarks');
       if (res.ok) {
         const data = await res.json();
         set({ bookmarks: data.bookmarks ?? [] });
@@ -122,7 +123,7 @@ export const useLibraryStore = create<LibraryStoreState>((set, get) => ({
 
   toggleBookmark: async (itemType, itemId, note) => {
     try {
-      const res = await fetch('/api/library/bookmarks/toggle', {
+      const res = await apiFetch('/api/library/bookmarks/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ item_type: itemType, item_id: itemId, note }),
@@ -158,7 +159,7 @@ export const useLibraryStore = create<LibraryStoreState>((set, get) => ({
   deleteBookmark: async (id) => {
     const existing = get().bookmarks.find((b) => b.id === id);
     try {
-      const res = await fetch(`/api/library/bookmarks/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/library/bookmarks/${id}`, { method: 'DELETE' });
       if (res.ok) {
         set({ bookmarks: get().bookmarks.filter((b) => b.id !== id) });
         if (existing) {
@@ -217,7 +218,7 @@ export const useLibraryStore = create<LibraryStoreState>((set, get) => ({
 
   fetchRefreshStatus: async () => {
     try {
-      const res = await fetch('/api/library/refresh/status');
+      const res = await apiFetch('/api/library/refresh/status');
       if (res.ok) {
         const data = await res.json();
         set({ refreshStatus: data });
@@ -229,7 +230,7 @@ export const useLibraryStore = create<LibraryStoreState>((set, get) => ({
 
   triggerHistoryRefresh: async (monthDay) => {
     try {
-      const res = await fetch('/api/library/refresh/history', {
+      const res = await apiFetch('/api/library/refresh/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(monthDay ? { monthDay } : {}),
@@ -245,7 +246,7 @@ export const useLibraryStore = create<LibraryStoreState>((set, get) => ({
 
   fetchProvenance: async () => {
     try {
-      const res = await fetch('/api/library/provenance');
+      const res = await apiFetch('/api/library/provenance');
       if (res.ok) {
         const data = await res.json();
         set({ provenance: data });

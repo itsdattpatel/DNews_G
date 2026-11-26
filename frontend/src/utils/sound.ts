@@ -98,3 +98,58 @@ function synthesizeAlertChime(): void {
     // AudioContext blocked or not supported
   }
 }
+
+/** Mechanical Linotype & Platen Press Clack (Phase I #38) */
+export function playMechanicalPressClack(enabled = true): void {
+  if (!enabled) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    // Double mechanical platen strike: crisp metallic transient followed by low chassis resonance
+    [0, 0.042].forEach((offset, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = idx === 0 ? 'square' : 'triangle';
+      osc.frequency.setValueAtTime(idx === 0 ? 920 : 210, now + offset);
+      osc.frequency.exponentialRampToValueAtTime(idx === 0 ? 180 : 65, now + offset + 0.038);
+
+      gain.gain.setValueAtTime(idx === 0 ? 0.08 : 0.12, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.045);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.05);
+    });
+  } catch {
+    // AudioContext blocked
+  }
+}
+
+/** Heavy Rubber Ink Stamp Impression Thud (Phase I #37/#38) */
+export function playRubberStampThud(enabled = true): void {
+  if (!enabled) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(145, now);
+    osc.frequency.exponentialRampToValueAtTime(42, now + 0.09);
+
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.11);
+  } catch {
+    // AudioContext blocked
+  }
+}

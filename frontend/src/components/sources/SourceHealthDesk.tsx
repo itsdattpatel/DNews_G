@@ -3,8 +3,9 @@
  * Telegraph Source Health Scoreboard (PRD Master Expansion #36).
  * Live latency monitor, uptime scoreboard, and feed protocol status.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { apiFetch, shouldAttemptRemote } from '../../lib/api';
 import { triggerHaptic } from '../../lib/haptics';
 import { Radio, Search, RefreshCw, Globe, ArrowLeft } from 'lucide-react';
 import type { Source } from '../../types';
@@ -53,14 +54,26 @@ export const SourceHealthDesk: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRegion, setSelectedRegion] = useState<string>('All');
   const [isPingingAll, setIsPingingAll] = useState(false);
+  const [measuredLatencyMs, setMeasuredLatencyMs] = useState<number | null>(null);
 
-  // Load live sources from backend if available
-  useEffect(() => {
-    fetch('/api/sources')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: Source[] | null) => {
-        if (data && Array.isArray(data) && data.length > 0) {
-          const mapped: BureauSource[] = data.map((d, idx) => ({
+  const loadLiveSources = useCallback(async () => {
+    if (!shouldAttemptRemote()) {
+      setMeasuredLatencyMs(null);
+      return;
+    }
+    const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    try {
+      const res = await apiFetch('/api/sources');
+      const elapsed = Math.max(
+        1,
+        Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - start),
+      );
+      if (res.ok) {
+        setMeasuredLatencyMs(elapsed);
+        const data = (await res.json()) as { items?: Source[] } | Source[] | null;
+        const list = Array.isArray(data) ? data : data?.items;
+        if (list && list.length > 0) {
+          const mapped: BureauSource[] = list.map((d, idx) => ({
             id: d.id,
             slug: d.slug || `source-${d.id}`,
             name: d.name,
@@ -78,9 +91,16 @@ export const SourceHealthDesk: React.FC = () => {
           }));
           setSources(mapped);
         }
-      })
-      .catch(() => {});
+      }
+    } catch {
+      // Keep cached/fallback list
+    }
   }, []);
+
+  // Load live sources from backend if available
+  useEffect(() => {
+    void loadLiveSources();
+  }, [loadLiveSources]);
 
   const filteredSources = sources.filter((s: BureauSource) => {
     const matchesSearch =
@@ -96,8 +116,14 @@ export const SourceHealthDesk: React.FC = () => {
   const handlePingAll = async () => {
     triggerHaptic('refresh');
     setIsPingingAll(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setIsPingingAll(false);
+    try {
+      if (shouldAttemptRemote()) {
+        await apiFetch('/api/control-room/fetch-cycle', { method: 'POST' }).catch(() => {});
+        await loadLiveSources();
+      }
+    } finally {
+      setIsPingingAll(false);
+    }
   };
 
   return (
@@ -120,7 +146,7 @@ export const SourceHealthDesk: React.FC = () => {
           </button>
           <div className="flex items-center gap-2">
             <Radio size={22} className="text-accent animate-pulse" />
-            <h1 className="font-masthead text-2xl sm:text-3xl font-bold uppercase tracking-tight text-ink">
+            <h1 className="font-headline text-2xl sm:text-3xl font-bold uppercase tracking-tight text-ink">
               Telegraph Wire Health &amp; Latency Scoreboard
             </h1>
           </div>
@@ -147,8 +173,10 @@ export const SourceHealthDesk: React.FC = () => {
           <div className="text-xl font-bold text-ink mt-0.5">{sources.length} Outlets</div>
         </div>
         <div className="p-3 border-2 border-ink bg-paper-alt rounded-xs shadow-2xs">
-          <div className="text-[10px] text-ink-muted uppercase">Median Wire Latency</div>
-          <div className="text-xl font-bold text-positive mt-0.5">28 ms</div>
+          <div className="text-[10px] text-ink-muted uppercase">API Roundtrip</div>
+          <div className="text-xl font-bold text-positive mt-0.5 tabular-nums">
+            {measuredLatencyMs !== null ? `${measuredLatencyMs} ms` : 'Autonomous'}
+          </div>
         </div>
         <div className="p-3 border-2 border-ink bg-paper-alt rounded-xs shadow-2xs">
           <div className="text-[10px] text-ink-muted uppercase">Global Uptime</div>

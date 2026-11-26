@@ -26,6 +26,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch } from '../../lib/api';
 
 export const WatchlistDesk: React.FC = () => {
   const {
@@ -54,7 +55,7 @@ export const WatchlistDesk: React.FC = () => {
       setError(null);
     }
     try {
-      const res = await fetch('/api/watchlist');
+      const res = await apiFetch('/api/watchlist');
       if (!res.ok) {
         throw new Error(`Failed to load watchlist: HTTP ${res.status}`);
       }
@@ -121,7 +122,7 @@ export const WatchlistDesk: React.FC = () => {
   // Quick preset adder
   const handleAddPreset = async (preset: (typeof WATCHLIST_PRESETS)[0]) => {
     try {
-      const res = await fetch('/api/watchlist', {
+      const res = await apiFetch('/api/watchlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -152,7 +153,7 @@ export const WatchlistDesk: React.FC = () => {
     try {
       if (editingItem?.id && editingItem.id > 0) {
         // Update existing
-        const res = await fetch(`/api/watchlist/${editingItem.id}`, {
+        const res = await apiFetch(`/api/watchlist/${editingItem.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -165,7 +166,7 @@ export const WatchlistDesk: React.FC = () => {
         toast.success(`Updated monitor: ${formTopic}`);
       } else {
         // Create new
-        const res = await fetch('/api/watchlist', {
+        const res = await apiFetch('/api/watchlist', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -190,7 +191,7 @@ export const WatchlistDesk: React.FC = () => {
   // Toggle enable/disable
   const handleToggle = async (item: WatchlistItem) => {
     try {
-      const res = await fetch(`/api/watchlist/${item.id}`, {
+      const res = await apiFetch(`/api/watchlist/${item.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: !item.enabled }),
@@ -211,7 +212,7 @@ export const WatchlistDesk: React.FC = () => {
     if (!window.confirm(`Delete watchlist monitor for "${topic}"?`)) return;
 
     try {
-      const res = await fetch(`/api/watchlist/${id}`, {
+      const res = await apiFetch(`/api/watchlist/${id}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Failed to remove topic');

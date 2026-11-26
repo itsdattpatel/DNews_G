@@ -24,7 +24,7 @@ export function useArticles(): void {
       clearTimeout(debounceTimerRef.current);
     }
 
-    const fetchArticles = async () => {
+    const fetchArticles = async (isBackgroundSync = false) => {
       let loaded = false;
       const baseUrl = getApiBaseUrl();
 
@@ -49,7 +49,11 @@ export function useArticles(): void {
 
           if (res.ok) {
             const data = (await res.json()) as { total: number; items: Article[] };
-            setArticles(data.items, data.total);
+            if (isBackgroundSync && useAppStore.getState().articles.length > 0) {
+              useAppStore.getState().applyLiveArticlesBatch(data.items);
+            } else {
+              setArticles(data.items, data.total);
+            }
             loaded = true;
           }
         } catch (err) {
@@ -66,7 +70,11 @@ export function useArticles(): void {
           q: searchQuery.trim(),
           limit: 60,
         });
-        setArticles(local.items, local.total);
+        if (isBackgroundSync && useAppStore.getState().articles.length > 0) {
+          useAppStore.getState().applyLiveArticlesBatch(local.items);
+        } else {
+          setArticles(local.items, local.total);
+        }
       }
 
       useAppStore.getState().fetchCategoryCounts();
@@ -74,12 +82,12 @@ export function useArticles(): void {
 
     // Debounce search query changes by 350ms, run category/country changes immediately
     const delay = searchQuery ? 350 : 0;
-    debounceTimerRef.current = setTimeout(fetchArticles, delay);
+    debounceTimerRef.current = setTimeout(() => void fetchArticles(false), delay);
 
     // Periodic Background Re-Sync (PRD_FRESH_NEWS_PIPELINE):
-    // Refetches fresh dispatches every 45s ensuring live feed updates even if SSE drops
+    // Buffers fresh dispatches into pendingNewArticles instead of overwriting active reading queue
     const autoRefreshInterval = setInterval(() => {
-      void fetchArticles();
+      void fetchArticles(true);
     }, 45000);
 
     return () => {

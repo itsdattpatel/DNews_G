@@ -26,6 +26,7 @@ import {
   X,
   AlertTriangle,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 export const MorningBriefing: React.FC = () => {
   const isBriefingOpen = useAppStore((s) => s.isBriefingOpen);
@@ -84,7 +85,7 @@ export const MorningBriefing: React.FC = () => {
     const fetchBriefing = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch('/api/export/briefing');
+        const res = await apiFetch('/api/export/briefing');
         if (res.ok) {
           const data = await res.json();
           setBriefingText(data.text || '');

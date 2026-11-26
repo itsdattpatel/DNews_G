@@ -5,6 +5,7 @@
  * Implements strict "Date unverified" rules for missing, future, and stale dates (>30d).
  */
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../lib/api';
 
 export interface DateDisplayInfo {
   publishedRelative: string;      // "Published 2h ago" | "Date unverified"
@@ -42,7 +43,7 @@ export function getSynchronizedNow(): Date {
 export async function syncClockWithServer(): Promise<number> {
   try {
     const t0 = Date.now();
-    const res = await fetch('/api/time');
+    const res = await apiFetch('/api/time');
     if (!res.ok) return 0;
     const t1 = Date.now();
     const data = (await res.json()) as { utc: string; timestamp: number };

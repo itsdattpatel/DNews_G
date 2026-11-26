@@ -52,15 +52,15 @@ export const MobileBottomNav: React.FC = () => {
     <nav
       id="mobile-bottom-nav"
       aria-label="Mobile Navigation Bar"
-      className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-paper/95 backdrop-blur-md border-t-2 border-ink px-1 pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom,0px))] flex items-center justify-around select-none shadow-lg"
+      className="sm:hidden shrink-0 w-full z-40 bg-paper/95 backdrop-blur-md border-t-2 border-ink px-1 pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom,0px))] flex items-center justify-around select-none shadow-lg"
     >
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
         const isActive = item.isSettings
           ? isSettingsOpen
           : item.isLibrary
-          ? isLibraryOpen
-          : currentView === item.view && !isLibraryOpen && !isSettingsOpen;
+            ? isLibraryOpen
+            : currentView === item.view && !isLibraryOpen && !isSettingsOpen;
 
         return (
           <button
@@ -68,11 +68,10 @@ export const MobileBottomNav: React.FC = () => {
             id={item.id}
             type="button"
             onClick={() => handleTap(item)}
-            className={`flex flex-col items-center justify-center flex-1 py-1 px-1 min-h-[48px] rounded-xs transition-all cursor-pointer ${
-              isActive
-                ? 'text-paper bg-ink font-bold shadow-xs'
-                : 'text-ink-secondary hover:text-ink active:scale-95'
-            }`}
+            className={`flex flex-col items-center justify-center flex-1 py-1 px-1 min-h-[48px] rounded-xs transition-all cursor-pointer ${isActive
+              ? 'text-paper bg-ink font-bold shadow-xs'
+              : 'text-ink-secondary hover:text-ink active:scale-95'
+              }`}
             title={item.label}
           >
             <Icon size={18} className="shrink-0 mb-0.5" />

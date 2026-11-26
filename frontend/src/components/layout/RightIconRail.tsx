@@ -26,7 +26,13 @@ import {
   Sliders,
   Pin,
   PinOff,
+  ShieldAlert,
+  Scale,
+  Compass,
+  Stamp,
+  KeyRound,
 } from 'lucide-react';
+import { triggerHaptic } from '../../lib/haptics';
 
 interface RailItemProps {
   id: string;
@@ -167,6 +173,18 @@ export const RightIconRail: React.FC<RightIconRailProps> = ({
   const setAlertsOpen = useAppStore((s) => s.setAlertsOpen);
   const isThemeStudioOpen = useAppStore((s) => s.isThemeStudioOpen);
   const setThemeStudioOpen = useAppStore((s) => s.setThemeStudioOpen);
+  const isInvestigativeDeskOpen = useAppStore((s) => s.isInvestigativeDeskOpen);
+  const setInvestigativeDeskOpen = useAppStore((s) => s.setInvestigativeDeskOpen);
+  const isEditorialIntelligenceOpen = useAppStore((s) => s.isEditorialIntelligenceOpen);
+  const setEditorialIntelligenceOpen = useAppStore((s) => s.setEditorialIntelligenceOpen);
+  const isBroadcastDeskOpen = useAppStore((s) => s.isBroadcastDeskOpen);
+  const setBroadcastDeskOpen = useAppStore((s) => s.setBroadcastDeskOpen);
+  const isCartographyDeskOpen = useAppStore((s) => s.isCartographyDeskOpen);
+  const setCartographyDeskOpen = useAppStore((s) => s.setCartographyDeskOpen);
+  const isBinderyDeskOpen = useAppStore((s) => s.isBinderyDeskOpen);
+  const setBinderyDeskOpen = useAppStore((s) => s.setBinderyDeskOpen);
+  const isSovereignDeskOpen = useAppStore((s) => s.isSovereignDeskOpen);
+  const setSovereignDeskOpen = useAppStore((s) => s.setSovereignDeskOpen);
 
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
@@ -312,6 +330,96 @@ export const RightIconRail: React.FC<RightIconRailProps> = ({
             onClick={() => {
               setControlRoomOpen(true);
               setCurrentView('control-room');
+            }}
+          />
+
+          {/* Investigative & OSINT Desk (PRD Phase E) */}
+          <RailItem
+            id="btn-rail-investigative-desk"
+            icon={<ShieldAlert size={16} />}
+            label="Investigative Desk"
+            sublabel="Fact-Checking & OSINT"
+            shortcut="i"
+            isActive={isInvestigativeDeskOpen}
+            isPinned={isRailPinned}
+            onClick={() => {
+              triggerHaptic('selection');
+              setInvestigativeDeskOpen(!isInvestigativeDeskOpen);
+            }}
+          />
+
+          {/* AI Editorial Intelligence & Socratic Desk (PRD Phase F) */}
+          <RailItem
+            id="btn-rail-editorial-desk"
+            icon={<Scale size={16} />}
+            label="Editorial Intelligence"
+            sublabel="Socratic & Counter-Briefs"
+            shortcut="e"
+            isActive={isEditorialIntelligenceOpen}
+            isPinned={isRailPinned}
+            onClick={() => {
+              triggerHaptic('selection');
+              setEditorialIntelligenceOpen(!isEditorialIntelligenceOpen);
+            }}
+          />
+
+          {/* Broadcast & Media Soundstage (PRD Phase G) */}
+          <RailItem
+            id="btn-rail-broadcast-desk"
+            icon={<Radio size={16} />}
+            label="Broadcast Soundstage"
+            sublabel="Podcasts & Soundscapes"
+            shortcut="m"
+            isActive={isBroadcastDeskOpen}
+            isPinned={isRailPinned}
+            onClick={() => {
+              triggerHaptic('selection');
+              setBroadcastDeskOpen(!isBroadcastDeskOpen);
+            }}
+          />
+
+          {/* Cartography & Ticker War Room (PRD Phase H) */}
+          <RailItem
+            id="btn-rail-war-room"
+            icon={<Compass size={16} />}
+            label="Cartography War Room"
+            sublabel="Markets, Straits & Flights"
+            shortcut="w"
+            isActive={isCartographyDeskOpen}
+            isPinned={isRailPinned}
+            onClick={() => {
+              triggerHaptic('selection');
+              setCartographyDeskOpen(!isCartographyDeskOpen);
+            }}
+          />
+
+          {/* Broadside Bindery & Artifacts (PRD Phase I) */}
+          <RailItem
+            id="btn-rail-bindery"
+            icon={<Stamp size={16} />}
+            label="Broadside Bindery"
+            sublabel="PDF, Stamps & Crossword"
+            shortcut="y"
+            isActive={isBinderyDeskOpen}
+            isPinned={isRailPinned}
+            onClick={() => {
+              triggerHaptic('selection');
+              setBinderyDeskOpen(!isBinderyDeskOpen);
+            }}
+          />
+
+          {/* Sovereign Enclave & Mobile Power Tools (PRD Phase J & K) */}
+          <RailItem
+            id="btn-rail-sovereign"
+            icon={<KeyRound size={16} />}
+            label="Sovereign Enclave"
+            sublabel="FIDO2, E-Ink & Mesh"
+            shortcut="s"
+            isActive={isSovereignDeskOpen}
+            isPinned={isRailPinned}
+            onClick={() => {
+              triggerHaptic('selection');
+              setSovereignDeskOpen(!isSovereignDeskOpen);
             }}
           />
         </div>

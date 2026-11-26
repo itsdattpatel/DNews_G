@@ -16,6 +16,7 @@ import {
   RefreshCw,
   ExternalLink,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 export const EntityRelationshipDesk: React.FC = () => {
   const setCurrentView = useAppStore((s) => s.setCurrentView);
@@ -29,7 +30,7 @@ export const EntityRelationshipDesk: React.FC = () => {
   const fetchGraph = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/entities/graph');
+      const res = await apiFetch('/api/entities/graph');
       if (res.ok) {
         const json: EntityGraphResponse = await res.json();
         setData(json);

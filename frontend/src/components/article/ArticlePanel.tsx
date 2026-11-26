@@ -8,7 +8,13 @@
  */
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { ExternalLink, Globe2, Languages, BookOpen, Sparkles, Layers, Clock, Star, Radio, RefreshCw, Zap, ArrowDown, Type, Edit3, Printer, Image, Compass, ShieldCheck, Network, Download } from 'lucide-react';
+import { ExternalLink, Globe2, Languages, BookOpen, Sparkles, Layers, Clock, Star, Radio, RefreshCw, Zap, ArrowDown, Type, Edit3, Printer, Image, Compass, ShieldCheck, Network, Download, FolderLock, GitCompare, Building, Eye, CheckCircle2, Scale, History, GraduationCap, Mic, Music, GitBranch, Anchor, Stamp, Grid3X3, KeyRound, Sun, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
+import { InvestigativeDeskDrawer, type InvestigativeTab } from '../investigative/InvestigativeDeskDrawer';
+import type { EditorialTab } from '../editorial/EditorialIntelligenceDrawer';
+import type { BroadcastTab } from '../broadcast/BroadcastMediaDrawer';
+import type { CartographyTab } from '../cartography/CartographyWarRoomDrawer';
+import type { BinderyTab } from '../bindery/BroadsideBinderyDrawer';
+import type { SovereignTab } from '../sovereign/SovereignEnclaveDrawer';
 import { generateArticleMarkdown, downloadMarkdownFile } from '../../lib/exportToMarkdown';
 import { sanitizeUrl } from '../../lib/trackingShield';
 import { DualTimestamp } from '../common/DualTimestamp';
@@ -22,6 +28,7 @@ import { triggerHaptic } from '../../lib/haptics';
 import { renderBionicText } from '../../lib/bionicReading';
 import { getGlossaryEntry } from '../../lib/glossary';
 import { autonomousEngine } from '../../lib/autonomousEngine';
+import { apiFetch, shouldAttemptRemote } from '../../lib/api';
 import type { Article } from '../../types';
 
 // Ink-stamp category background & text colors per DESIGN_SYSTEM.md
@@ -81,11 +88,61 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
   const articleNotes = useAppStore((s) => s.articleNotes);
   const setIsEditorialCartoonOpen = useAppStore((s) => s.setIsEditorialCartoonOpen);
   const recordArticleRead = useAppStore((s) => s.recordArticleRead);
+  const recordReadingSeconds = useAppStore((s) => s.recordReadingSeconds);
+  const [isDeskToolsOpen, setIsDeskToolsOpen] = useState(false);
+  const countedArticleRef = useRef<number | null>(null);
   const summaryTier = useAppStore((s) => s.summaryTier);
   const setSummaryTier = useAppStore((s) => s.setSummaryTier);
   const setBiasRadarOpen = useAppStore((s) => s.setBiasRadarOpen);
   const setClaimCorroborationOpen = useAppStore((s) => s.setClaimCorroborationOpen);
   const setKnowledgeMindMapOpen = useAppStore((s) => s.setKnowledgeMindMapOpen);
+
+  // Investigative & Verification Desk Drawer (Phase E)
+  const [isInvestigativeDrawerOpen, setIsInvestigativeDrawerOpen] = useState(false);
+  const [investigativeInitialTab, setInvestigativeInitialTab] = useState<InvestigativeTab>('timeline');
+
+  const openInvestigativeDesk = (tab: InvestigativeTab) => {
+    triggerHaptic('selection');
+    setInvestigativeInitialTab(tab);
+    setIsInvestigativeDrawerOpen(true);
+  };
+
+  // AI Editorial Intelligence & Socratic Analysis Drawer (Phase F)
+  const openEditorialDesk = (tab: EditorialTab) => {
+    triggerHaptic('selection');
+    useAppStore.getState().setEditorialInitialTab(tab);
+    useAppStore.getState().setEditorialIntelligenceOpen(true);
+  };
+
+  // Broadcast, Audio & Media Synthesis Drawer (Phase G)
+  const openBroadcastDesk = (tab: BroadcastTab) => {
+    triggerHaptic('selection');
+    useAppStore.getState().setBroadcastInitialTab(tab);
+    useAppStore.getState().setBroadcastDeskOpen(true);
+  };
+
+  // Cartography, Chokepoints & Data Markets War Room (Phase H)
+  const openWarRoomDesk = (tab: CartographyTab) => {
+    triggerHaptic('selection');
+    useAppStore.getState().setCartographyInitialTab(tab);
+    useAppStore.getState().setCartographyDeskOpen(true);
+  };
+
+  // Broadside Bindery & Physical Artifacts (Phase I)
+  const openBinderyDesk = (tab: BinderyTab) => {
+    triggerHaptic('selection');
+    useAppStore.getState().setBinderyInitialTab(tab);
+    useAppStore.getState().setBinderyDeskOpen(true);
+  };
+
+  // Sovereign Archival & Mobile Power-User Enclave (Phase J & K)
+  const openSovereignDesk = (tab: SovereignTab) => {
+    triggerHaptic('selection');
+    useAppStore.getState().setSovereignInitialTab(tab);
+    useAppStore.getState().setSovereignDeskOpen(true);
+  };
+  const isEInkMode = useAppStore((s) => s.isEInkMode);
+  const toggleEInkMode = useAppStore((s) => s.toggleEInkMode);
 
   // Pull-to-refresh & Swipe-to-glide gestures (PRD Master Expansion #1, #2, #3)
   const [pullY, setPullY] = useState(0);
@@ -136,7 +193,6 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
       triggerHaptic('refresh');
       try {
         await handleManualFetchNow();
-        await autonomousEngine.pollLiveFeeds();
       } finally {
         setIsPullRefreshing(false);
         setPullY(0);
@@ -170,13 +226,34 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
   const handleManualFetchNow = async () => {
     setIsManualFetching(true);
     try {
-      await fetch('/api/control-room/fetch-cycle', { method: 'POST' });
-      const res = await fetch('/api/articles?limit=60&status=done');
-      if (res.ok) {
-        const data = (await res.json()) as { total: number; items: Article[] };
-        if (data.items?.length > 0) {
-          useAppStore.getState().setArticles(data.items, data.total);
+      let updatedFromRemote = false;
+      if (shouldAttemptRemote()) {
+        try {
+          await apiFetch('/api/control-room/fetch-cycle', { method: 'POST' });
+          const res = await apiFetch('/api/articles?limit=60&status=done');
+          if (res.ok) {
+            const data = (await res.json()) as { total: number; items: Article[] };
+            if (data.items?.length > 0) {
+              useAppStore.getState().setArticles(data.items, data.total);
+              updatedFromRemote = true;
+            }
+          }
+        } catch {
+          // Fall back to autonomous engine below
         }
+      }
+      if (!updatedFromRemote) {
+        await autonomousEngine.pollLiveFeeds();
+        const storeState = useAppStore.getState();
+        const local = autonomousEngine.getArticles({
+          category: storeState.selectedCategory,
+          country: storeState.selectedCountry,
+          breaking: storeState.isBreakingOnly,
+          q: storeState.searchQuery.trim(),
+          limit: 60,
+        });
+        storeState.setArticles(local.items, local.total);
+        storeState.fetchCategoryCounts();
       }
     } catch (err) {
       console.warn('[ArticlePanel] Manual fetch failed:', err);
@@ -228,16 +305,30 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
     return Array.from(new Set(titleWords)).slice(0, 5);
   }, [article]);
 
-  // Reset showOriginal and record reading habit when article changes
+  // Reset showOriginal and scroll position when article changes; track genuine active reading seconds
   useEffect(() => {
     setShowOriginal(false);
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
-    if (article?.id) {
-      recordArticleRead(article.id, primaryCategory, readTimeMin);
-    }
-  }, [article?.id]);
+    if (!article?.id) return;
+
+    const currentArticleId = article.id;
+    const category = (article.categories && article.categories[0]) || 'World';
+    let activeSeconds = 0;
+
+    const timer = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      activeSeconds += 1;
+      recordReadingSeconds(1);
+      if (activeSeconds >= 5 && countedArticleRef.current !== currentArticleId) {
+        countedArticleRef.current = currentArticleId;
+        recordArticleRead(currentArticleId, category);
+      }
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [article?.id, recordReadingSeconds, recordArticleRead]);
 
   // Loading Skeleton State
   if (isLoading) {
@@ -445,61 +536,417 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
           )}
         </div>
 
-        {/* Right Action Links: Layout Switcher, Translation Toggle & Original Publisher */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 scroll-smooth touch-pan-x shrink-0 max-w-full">
-          <div className="shrink-0">
-            <ReaderLayoutSwitcher />
+        {/* Right Action Links: Clean primary controls + collapsible Desk Tools tray */}
+        <div className="flex flex-col items-end gap-1.5 shrink-0 max-w-full">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 scroll-smooth touch-pan-x max-w-full">
+            <div className="shrink-0">
+              <ReaderLayoutSwitcher />
+            </div>
+
+            {/* Bionic Speed-Reading Toggle (PRD Master Expansion #10) */}
+            <button
+              id="btn-toggle-bionic-reading"
+              onClick={() => {
+                triggerHaptic('selection');
+                toggleBionicReading();
+              }}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap ${isBionicReadingEnabled
+                ? 'border-accent bg-accent/15 text-accent font-bold'
+                : 'border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-ink'
+                }`}
+              title={isBionicReadingEnabled ? 'Disable Bionic Speed-Reading' : 'Enable Bionic Speed-Reading (Fixation Stems)'}
+            >
+              <Zap size={13} className={isBionicReadingEnabled ? 'fill-accent' : ''} />
+              <span>{isBionicReadingEnabled ? 'Bionic ON' : 'Bionic'}</span>
+            </button>
+
+            {/* Typography Studio (PRD Master Expansion #14) */}
+            <button
+              id="btn-open-typography-studio"
+              onClick={() => {
+                triggerHaptic('selection');
+                setIsTypographyStudioOpen(true);
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+              title="Open Broadsheet Typography Studio"
+            >
+              <Type size={13} />
+              <span className="hidden sm:inline">Type</span>
+            </button>
+
+            {/* Margin Notes (PRD Master Expansion #13) */}
+            <button
+              id="btn-open-margin-notes"
+              onClick={() => {
+                triggerHaptic('selection');
+                setIsMarginNotesOpen(true);
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer relative shrink-0 whitespace-nowrap"
+              title="Open Editorial Margin Notes"
+            >
+              <Edit3 size={13} />
+              <span className="hidden sm:inline">Notes</span>
+              {(articleNotes[article.id]?.length || 0) > 0 && (
+                <span className="w-4 h-4 rounded-full bg-accent text-paper font-mono text-[9px] font-bold flex items-center justify-center -ml-0.5">
+                  {articleNotes[article.id].length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => toggleBookmark(article.id)}
+              className="p-1.5 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-amber-600 transition-colors shrink-0 cursor-pointer"
+              title={article.bookmarked ? 'Remove bookmark' : 'Bookmark story'}
+            >
+              <Star
+                size={13}
+                fill={article.bookmarked ? 'currentColor' : 'none'}
+                className={article.bookmarked ? 'text-amber-600' : 'text-ink-muted'}
+              />
+            </button>
+
+            {hasOriginal && (
+              isPlainMode ? (
+                <span
+                  id="tooltip-plainmode-trans-toggle"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border/60 bg-paper-alt/40 text-xs font-semibold text-ink-muted opacity-60 cursor-not-allowed shrink-0 whitespace-nowrap"
+                  title="Language switching disabled while in Plain Mode"
+                >
+                  <Languages size={13} />
+                  <span>Original ({article.language_detected?.toUpperCase()})</span>
+                </span>
+              ) : (
+                <button
+                  id="btn-language-toggle"
+                  onClick={() => setShowOriginal(!showOriginal)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                  title={showOriginal ? 'Switch to English translation' : 'Switch to original language text'}
+                >
+                  <Languages size={13} />
+                  <span>{showOriginal ? `Original (${article.language_detected?.toUpperCase()})` : 'English Edition'}</span>
+                </button>
+              )
+            )}
+
+            {article.url && (
+              <a
+                id="btn-article-publisher-link"
+                href={sanitizeUrl(article.url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors shrink-0 whitespace-nowrap"
+                title="View original article on publisher site (Zero-Tracking Shield Active)"
+              >
+                <span>Publisher</span>
+                <ExternalLink size={12} />
+              </a>
+            )}
+
+            {/* Collapsible Secondary Desk Tools Trigger */}
+            <button
+              id="btn-toggle-desk-tools"
+              type="button"
+              onClick={() => {
+                triggerHaptic('selection');
+                setIsDeskToolsOpen((v) => !v);
+              }}
+              aria-expanded={isDeskToolsOpen}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+                isDeskToolsOpen
+                  ? 'border-ink bg-ink text-paper'
+                  : 'border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-ink'
+              }`}
+              title="Toggle Investigative, Editorial, Cartography & Bindery Desk Tools"
+            >
+              <SlidersHorizontal size={12} />
+              <span>Desk Tools</span>
+              {isDeskToolsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
           </div>
 
-          {/* Bionic Speed-Reading Toggle (PRD Master Expansion #10) */}
-          <button
-            id="btn-toggle-bionic-reading"
-            onClick={() => {
-              triggerHaptic('selection');
-              toggleBionicReading();
-            }}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap ${isBionicReadingEnabled
-              ? 'border-accent bg-accent/15 text-accent font-bold'
-              : 'border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-ink'
-              }`}
-            title={isBionicReadingEnabled ? 'Disable Bionic Speed-Reading' : 'Enable Bionic Speed-Reading (Fixation Stems)'}
-          >
-            <Zap size={13} className={isBionicReadingEnabled ? 'fill-accent' : ''} />
-            <span>{isBionicReadingEnabled ? 'Bionic ON' : 'Bionic'}</span>
-          </button>
+          {isDeskToolsOpen && (
+            <div
+              id="desk-tools-tray"
+              className="flex flex-wrap items-center justify-end gap-1.5 pt-2 border-t border-paper-border/70 max-w-full"
+            >
 
-          {/* Typography Studio (PRD Master Expansion #14) */}
+          {/* Conflict Timeline (PRD Phase E #2) */}
           <button
-            id="btn-open-typography-studio"
-            onClick={() => {
-              triggerHaptic('selection');
-              setIsTypographyStudioOpen(true);
-            }}
+            id="btn-conflict-timeline"
+            onClick={() => openInvestigativeDesk('timeline')}
             className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-            title="Open Broadsheet Typography Studio"
+            title="Open Chronological Conflict Timeline"
           >
-            <Type size={13} />
-            <span className="hidden sm:inline">Type</span>
+            <Clock size={13} />
+            <span className="hidden sm:inline">Timeline</span>
           </button>
 
-          {/* Margin Notes (PRD Master Expansion #13) */}
+          {/* Contradiction Matrix (PRD Phase E #3) */}
           <button
-            id="btn-open-margin-notes"
+            id="btn-contradiction-matrix"
+            onClick={() => openInvestigativeDesk('contradiction')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Cross-Examine Wire Contradictions"
+          >
+            <GitCompare size={13} />
+            <span className="hidden sm:inline">Contradict</span>
+          </button>
+
+          {/* Corporate Ownership (PRD Phase E #4) */}
+          <button
+            id="btn-corporate-ownership"
+            onClick={() => openInvestigativeDesk('ownership')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Examine Corporate Ownership & Political Influence"
+          >
+            <Building size={13} />
+            <span className="hidden sm:inline">Ownership</span>
+          </button>
+
+          {/* Satellite OSINT (PRD Phase E #5) */}
+          <button
+            id="btn-satellite-osint"
+            onClick={() => openInvestigativeDesk('satellite')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Satellite & Geolocation OSINT Imagery"
+          >
+            <Eye size={13} />
+            <span className="hidden sm:inline">Satellite</span>
+          </button>
+
+          {/* Quote Authenticator (PRD Phase E #6) */}
+          <button
+            id="btn-quote-authenticator"
+            onClick={() => openInvestigativeDesk('quotes')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Authenticate Quotes Against Official Transcripts"
+          >
+            <CheckCircle2 size={13} />
+            <span className="hidden sm:inline">Quotes</span>
+          </button>
+
+          {/* Revision Diff Tracker (PRD Phase E #10) */}
+          <button
+            id="btn-revision-diff"
+            onClick={() => openInvestigativeDesk('revisions')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Inspect Article Revision Snapshots & Silent Diffs"
+          >
+            <RefreshCw size={13} />
+            <span className="hidden sm:inline">Diffs</span>
+          </button>
+
+          {/* Whistleblower Drop (PRD Phase E #1) */}
+          <button
+            id="btn-whistleblower-drop"
+            onClick={() => openInvestigativeDesk('drop')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Whistleblower Document Drop & Metadata Scrubber"
+          >
+            <FolderLock size={13} />
+            <span className="hidden sm:inline">Drop</span>
+          </button>
+
+          {/* Hairpin Divider Phase E | F */}
+          <div className="h-4 w-px bg-paper-border shrink-0 mx-0.5" />
+
+          {/* Devil's Advocate Counter-Brief (PRD Phase F #11) */}
+          <button
+            id="btn-devils-advocate"
+            onClick={() => openEditorialDesk('devils_advocate')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-accent text-xs font-semibold text-ink-secondary hover:text-accent transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Generate 'Devil's Advocate' Opposing Brief"
+          >
+            <Scale size={13} />
+            <span className="hidden sm:inline">Counter-Brief</span>
+          </button>
+
+          {/* Historical Rhymes (PRD Phase F #12) */}
+          <button
+            id="btn-history-rhymes"
+            onClick={() => openEditorialDesk('rhymes')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-accent text-xs font-semibold text-ink-secondary hover:text-accent transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Query 19th & 20th-Century Historical Precedents"
+          >
+            <History size={13} />
+            <span className="hidden sm:inline">History Rhymes</span>
+          </button>
+
+          {/* Socratic Tutor (PRD Phase F #20) */}
+          <button
+            id="btn-socratic-tutor"
+            onClick={() => openEditorialDesk('socratic_tutor')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-accent text-xs font-semibold text-ink-secondary hover:text-accent transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Launch Socratic Dialectical Inquiry with Senior Bureau Chief"
+          >
+            <GraduationCap size={13} />
+            <span className="hidden sm:inline">Socratic Tutor</span>
+          </button>
+
+          {/* Editorial Intelligence Desk (PRD Phase F 10-Feature Hub) */}
+          <button
+            id="btn-editorial-intelligence"
+            onClick={() => openEditorialDesk('devils_advocate')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-accent/40 bg-accent/10 hover:bg-accent/20 text-xs font-semibold text-accent transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Open 10-Feature AI Editorial Intelligence Desk"
+          >
+            <Sparkles size={13} />
+            <span className="hidden sm:inline">Editorial Desk</span>
+          </button>
+
+          {/* Hairpin Divider F | G */}
+          <div className="h-4 w-px bg-paper-border shrink-0 mx-0.5" />
+
+          {/* Two-Host Radio Podcast (PRD Phase G #21) */}
+          <button
+            id="btn-broadcast-podcast"
+            onClick={() => openBroadcastDesk('podcast')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Listen to Two-Host Radio Podcast Briefing"
+          >
+            <Mic size={13} />
+            <span className="hidden sm:inline">Radio Podcast</span>
+          </button>
+
+          {/* Pressroom Soundscapes (PRD Phase G #24) */}
+          <button
+            id="btn-broadcast-soundscape"
+            onClick={() => openBroadcastDesk('soundscapes')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Configure Procedural Pressroom Soundscapes"
+          >
+            <Music size={13} />
+            <span className="hidden sm:inline">Soundscapes</span>
+          </button>
+
+          {/* Broadcast & Media Desk (PRD Phase G Hub) */}
+          <button
+            id="btn-broadcast-desk"
+            onClick={() => openBroadcastDesk('podcast')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-amber-800/40 bg-amber-800/10 hover:bg-amber-800/20 text-xs font-semibold text-amber-900 dark:text-amber-300 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Open Broadcast, Audio & Media Soundstage"
+          >
+            <Radio size={13} />
+            <span className="hidden sm:inline">Broadcast Desk</span>
+          </button>
+
+          {/* Hairpin Divider G | H */}
+          <div className="h-4 w-px bg-paper-border shrink-0 mx-0.5" />
+
+          {/* Supply Chain Impact Flowchart (PRD Phase H #32) */}
+          <button
+            id="btn-war-room-supply-chain"
+            onClick={() => openWarRoomDesk('supply_chain')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="View Supply Chain Disruption Flowchart (DAG)"
+          >
+            <GitBranch size={13} />
+            <span className="hidden sm:inline">Supply Chain</span>
+          </button>
+
+          {/* Maritime Chokepoints (PRD Phase H #30) */}
+          <button
+            id="btn-war-room-chokepoints"
+            onClick={() => openWarRoomDesk('chokepoints')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Monitor Global Maritime Chokepoints & Sea-Lanes"
+          >
+            <Anchor size={13} />
+            <span className="hidden sm:inline">Chokepoints</span>
+          </button>
+
+          {/* Cartography & Ticker War Room (PRD Phase H Hub) */}
+          <button
+            id="btn-war-room-desk"
+            onClick={() => openWarRoomDesk('markets')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-ink/40 bg-paper-alt hover:border-ink text-xs font-semibold text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Open Cartography, Chokepoints & Data Markets War Room (Shortcut: W)"
+          >
+            <Compass size={13} />
+            <span className="hidden sm:inline">War Room</span>
+          </button>
+
+          {/* Hairpin Divider H | I */}
+          <div className="h-4 w-px bg-paper-border shrink-0 mx-0.5" />
+
+          {/* Rubber Stamps & Redactor (PRD Phase I #37) */}
+          <button
+            id="btn-bindery-stamps"
+            onClick={() => openBinderyDesk('stamps')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-accent text-xs font-semibold text-ink-secondary hover:text-accent transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Apply Rubber Ink Stamps & Redactions"
+          >
+            <Stamp size={13} />
+            <span className="hidden sm:inline">Stamps</span>
+          </button>
+
+          {/* Daily Cryptic Crossword (PRD Phase I #42) */}
+          <button
+            id="btn-bindery-crossword"
+            onClick={() => openBinderyDesk('crossword')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Open Daily Broadsheet Cryptic Crossword"
+          >
+            <Grid3X3 size={13} />
+            <span className="hidden sm:inline">Crossword</span>
+          </button>
+
+          {/* Broadside Bindery Studio (PRD Phase I Hub) */}
+          <button
+            id="btn-bindery-desk"
+            onClick={() => openBinderyDesk('pdf')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-ink/40 bg-paper-alt hover:border-ink text-xs font-semibold text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Open Broadside Bindery & Physical Printshop (Shortcut: Y)"
+          >
+            <Printer size={13} />
+            <span className="hidden sm:inline">Bindery</span>
+          </button>
+
+          {/* Hairpin Divider I | J-K */}
+          <div className="h-4 w-px bg-paper-border shrink-0 mx-0.5" />
+
+          {/* Quick-Share Vintage Clipping (PRD Phase J #44) */}
+          <button
+            id="btn-share-vintage-clip"
+            onClick={() => openSovereignDesk('clipping')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-accent text-xs font-semibold text-ink-secondary hover:text-accent transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Generate 1080x1080 Vintage Newspaper Clipping Card"
+          >
+            <Image size={13} />
+            <span className="hidden sm:inline">Share Clip</span>
+          </button>
+
+          {/* E-Ink 1-Bit Quick Toggle (PRD Phase J #45) */}
+          <button
+            id="btn-toggle-eink"
             onClick={() => {
               triggerHaptic('selection');
-              setIsMarginNotesOpen(true);
+              toggleEInkMode();
             }}
-            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer relative shrink-0 whitespace-nowrap"
-            title="Open Editorial Margin Notes"
+            className={`inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap ${
+              isEInkMode
+                ? 'border-ink bg-ink text-paper font-bold'
+                : 'border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-ink'
+            }`}
+            title="Toggle 1-Bit Monochrome E-Ink Mode"
           >
-            <Edit3 size={13} />
-            <span className="hidden sm:inline">Notes</span>
-            {(articleNotes[article.id]?.length || 0) > 0 && (
-              <span className="w-4 h-4 rounded-full bg-accent text-paper font-mono text-[9px] font-bold flex items-center justify-center -ml-0.5">
-                {articleNotes[article.id].length}
-              </span>
-            )}
+            <Sun size={13} />
+            <span className="hidden sm:inline">{isEInkMode ? 'E-Ink ON' : 'E-Ink'}</span>
           </button>
+
+          {/* Sovereign Enclave Hub (PRD Phase J & K Hub) */}
+          <button
+            id="btn-sovereign-enclave"
+            onClick={() => openSovereignDesk('fido2')}
+            className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-ink/40 bg-paper-alt hover:border-ink text-xs font-semibold text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            title="Open Mobile & Sovereign Enclave Desk (Shortcut: S)"
+          >
+            <KeyRound size={13} />
+            <span className="hidden sm:inline">Enclave</span>
+          </button>
+
+          {/* Hairpin Divider B | C */}
+          <div className="h-4 w-px bg-paper-border shrink-0 mx-0.5" />
 
           {/* Print Front Page PDF (PRD Master Expansion #9) */}
           <button
@@ -592,54 +1039,7 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
             <Download size={13} />
             <span className="hidden sm:inline">Export</span>
           </button>
-
-          <button
-            onClick={() => toggleBookmark(article.id)}
-            className="p-1.5 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-ink-secondary hover:text-amber-600 transition-colors shrink-0"
-            title={article.bookmarked ? 'Remove bookmark' : 'Bookmark story'}
-          >
-            <Star
-              size={13}
-              fill={article.bookmarked ? 'currentColor' : 'none'}
-              className={article.bookmarked ? 'text-amber-600' : 'text-ink-muted'}
-            />
-          </button>
-
-          {hasOriginal && (
-            isPlainMode ? (
-              <span
-                id="tooltip-plainmode-trans-toggle"
-                className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border/60 bg-paper-alt/40 text-xs font-semibold text-ink-muted opacity-60 cursor-not-allowed shrink-0 whitespace-nowrap"
-                title="Language switching disabled while in Plain Mode"
-              >
-                <Languages size={13} />
-                <span>Original ({article.language_detected?.toUpperCase()})</span>
-              </span>
-            ) : (
-              <button
-                id="btn-language-toggle"
-                onClick={() => setShowOriginal(!showOriginal)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-                title={showOriginal ? 'Switch to English translation' : 'Switch to original language text'}
-              >
-                <Languages size={13} />
-                <span>{showOriginal ? `Original (${article.language_detected?.toUpperCase()})` : 'English Edition'}</span>
-              </button>
-            )
-          )}
-
-          {article.url && (
-            <a
-              id="btn-article-publisher-link"
-              href={sanitizeUrl(article.url)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2.5 py-1 min-h-[30px] rounded-xs border border-paper-border bg-paper-alt hover:border-ink text-xs font-semibold text-ink-secondary hover:text-ink transition-colors shrink-0 whitespace-nowrap"
-              title="View original article on publisher site (Zero-Tracking Shield Active)"
-            >
-              <span>Publisher</span>
-              <ExternalLink size={12} />
-            </a>
+            </div>
           )}
         </div>
       </div>
@@ -1078,6 +1478,14 @@ export const ArticlePanel: React.FC<ArticlePanelProps> = ({
       <EntityDossierDrawer
         entityName={selectedEntityForDossier}
         onClose={() => setSelectedEntityForDossier(null)}
+      />
+
+      {/* Investigative & Verification Desk Drawer (Phase E) */}
+      <InvestigativeDeskDrawer
+        isOpen={isInvestigativeDrawerOpen}
+        onClose={() => setIsInvestigativeDrawerOpen(false)}
+        activeArticle={article}
+        initialTab={investigativeInitialTab}
       />
     </div>
   );

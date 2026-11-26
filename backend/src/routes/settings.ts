@@ -74,6 +74,7 @@ const SETTINGS_SCHEMA: Record<string, { type: 'int' | 'bool' | 'str' | 'float'; 
 
   // News & Sources
   refresh_interval_minutes: { type: 'int', min: 1, max: 60 },
+  max_articles_per_cycle: { type: 'int', min: 10, max: 1000 },
   live_refresh_interval_sec: { type: 'int', min: 2, max: 30 },
   default_country_filter: { type: 'str' },
   category_filter_list: { type: 'str' },
@@ -385,7 +386,8 @@ const SETTINGS_DEFAULTS: Record<string, string> = {
   reading_mode_enabled: '1',
 
   // News & Sources
-  refresh_interval_minutes: '15',
+  refresh_interval_minutes: '30',
+  max_articles_per_cycle: '200',
   live_refresh_interval_sec: '5',
   default_country_filter: '',
   category_filter_list: 'all',

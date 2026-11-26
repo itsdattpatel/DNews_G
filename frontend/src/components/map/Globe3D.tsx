@@ -63,6 +63,12 @@ interface Globe3DProps {
   articles: Article[];
   isNight: boolean;
   wildlifeOverlay: boolean;
+  chokepointsOverlay?: boolean;
+  climateOverlay?: boolean;
+  flightsOverlay?: boolean;
+  chokepointsData?: any[];
+  climateData?: any[];
+  flightsData?: any[];
   autoRotate: boolean;
   onAutoRotateChange?: (autoRotate: boolean) => void;
   onCountrySelect: (countryKey: string) => void;
@@ -89,6 +95,12 @@ export const Globe3D: React.FC<Globe3DProps> = memo(({
   articles,
   isNight,
   wildlifeOverlay,
+  chokepointsOverlay = false,
+  climateOverlay = false,
+  flightsOverlay = false,
+  chokepointsData = [],
+  climateData = [],
+  flightsData = [],
   autoRotate,
   onAutoRotateChange,
   onCountrySelect,
@@ -208,7 +220,7 @@ export const Globe3D: React.FC<Globe3DProps> = memo(({
     });
   }, [statsList, wildlifeCountries]);
 
-  // 5. Arcs for International News Hubs
+  // 5. Arcs for International News Hubs & Diplomatic Flight Vectors
   const newsArcs = useMemo<NewsArc[]>(() => {
     const hubs = ['India', 'USA', 'China', 'Japan', 'United Kingdom', 'Australia'];
     const activeHubs = hubs.filter((h) => countryStats[h]?.articleCount > 0);
@@ -231,19 +243,101 @@ export const Globe3D: React.FC<Globe3DProps> = memo(({
         }
       }
     }
-    return arcs;
-  }, [countryStats]);
 
-  // 6. Arrival Pulse Rings for Fresh / Breaking News
+    if (flightsOverlay && flightsData.length > 0) {
+      for (const fl of flightsData) {
+        arcs.push({
+          startLat: fl.origin_lat,
+          startLng: fl.origin_lng,
+          endLat: fl.dest_lat,
+          endLng: fl.dest_lng,
+          label: `✈ ${fl.callsign}: ${fl.origin} → ${fl.destination}`,
+        });
+      }
+    }
+    return arcs;
+  }, [countryStats, flightsOverlay, flightsData]);
+
+  // 6. Arrival Pulse Rings for Breaking News & Climate Thermal Anomalies
   const arrivalRings = useMemo<ArrivalRing[]>(() => {
-    return statsList
+    const rings = statsList
       .filter((st) => st.breakingCount > 0 || st.highestBreakingScore >= 75)
       .map((st) => ({
         lat: st.centroid[1],
         lng: st.centroid[0],
         countryKey: st.countryKey,
       }));
-  }, [statsList]);
+
+    if (climateOverlay && climateData.length > 0) {
+      for (const cl of climateData) {
+        rings.push({
+          lat: cl.lat,
+          lng: cl.lng,
+          countryKey: `CLIMATE: ${cl.title} (+${cl.delta_celsius}°C)`,
+        });
+      }
+    }
+
+    if (chokepointsOverlay && chokepointsData.length > 0) {
+      for (const cp of chokepointsData) {
+        if (cp.status === 'Disrupted' || cp.status === 'Elevated Tension') {
+          rings.push({
+            lat: cp.lat,
+            lng: cp.lng,
+            countryKey: `STRAIT: ${cp.name}`,
+          });
+        }
+      }
+    }
+    return rings;
+  }, [statsList, climateOverlay, climateData, chokepointsOverlay, chokepointsData]);
+
+  // Combined Labels Layer (Countries + Active Phase H Overlays)
+  const combinedLabels = useMemo(() => {
+    const base = pinMarkers.map((p) => ({
+      ...p,
+      kind: 'country' as const,
+      labelDisplay: `${wildlifeOverlay && p.isWildlife ? '▲ ' : ''}${p.displayName}: ${p.articleCount}`,
+    }));
+
+    if (chokepointsOverlay && chokepointsData.length > 0) {
+      for (const cp of chokepointsData) {
+        base.push({
+          countryKey: cp.slug,
+          displayName: cp.name,
+          lat: cp.lat,
+          lng: cp.lng,
+          articleCount: cp.matchedDispatches || 1,
+          topCategory: 'World',
+          isWildlife: cp.status === 'Disrupted',
+          isBreaking: cp.status === 'Disrupted' || cp.status === 'Elevated Tension',
+          stats: null as any,
+          kind: 'country' as const,
+          labelDisplay: `⚓ ${cp.name} [${cp.status}]`,
+        });
+      }
+    }
+
+    if (flightsOverlay && flightsData.length > 0) {
+      for (const fl of flightsData) {
+        base.push({
+          countryKey: fl.callsign,
+          displayName: fl.callsign,
+          lat: fl.cur_lat,
+          lng: fl.cur_lng,
+          articleCount: 1,
+          topCategory: 'Politics',
+          isWildlife: false,
+          isBreaking: false,
+          stats: null as any,
+          kind: 'country' as const,
+          labelDisplay: `✈ ${fl.callsign} (${fl.mission_type})`,
+        });
+      }
+    }
+
+    return base;
+  }, [pinMarkers, wildlifeOverlay, chokepointsOverlay, chokepointsData, flightsOverlay, flightsData]);
 
   // 7. FPS Watchdog
   useEffect(() => {
@@ -570,13 +664,11 @@ export const Globe3D: React.FC<Globe3DProps> = memo(({
             onPointClick={(d: any) => {
               handleCountryClick(d.countryKey, d.lat, d.lng);
             }}
-            // Labels Data Layer (Broadsheet Typography & Story Counts)
-            labelsData={pinMarkers}
+            // Labels Data Layer (Broadsheet Typography, Story Counts & Chokepoints/Flights)
+            labelsData={combinedLabels}
             labelLat={(d: any) => d.lat}
             labelLng={(d: any) => d.lng}
-            labelText={(d: any) =>
-              `${wildlifeOverlay && d.isWildlife ? '▲ ' : ''}${d.displayName}: ${d.articleCount}`
-            }
+            labelText={(d: any) => d.labelDisplay}
             labelSize={1.5}
             labelDotRadius={(d: any) => Math.min(2.0, 0.8 + 0.3 * Math.log(1 + d.articleCount))}
             labelDotOrientation="right"

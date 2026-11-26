@@ -20,7 +20,8 @@ import {
   applyThemeToDOM,
 } from '../styles/themes';
 import { autonomousEngine } from '../lib/autonomousEngine';
-import { getApiBaseUrl } from '../lib/api';
+import { getApiBaseUrl, apiFetch, shouldAttemptRemote, api } from '../lib/api';
+import { soundscapeEngine } from '../lib/soundscapes';
 
 function buildOverlayViewPatch(
   state: AppState,
@@ -160,6 +161,73 @@ interface AppState {
   setIncognitoMode: (active: boolean) => void;
   isPanicWipeOpen: boolean;
   setPanicWipeOpen: (open: boolean) => void;
+  isInvestigativeDeskOpen: boolean;
+  setInvestigativeDeskOpen: (open: boolean) => void;
+  isEditorialIntelligenceOpen: boolean;
+  setEditorialIntelligenceOpen: (open: boolean) => void;
+  editorialInitialTab: 'devils_advocate' | 'rhymes' | 'prism' | 'legislation' | 'narrative_arc' | 'factchecker' | 'demystifier' | 'sentiment_drift' | 'executive_dossier' | 'socratic_tutor';
+  setEditorialInitialTab: (tab: 'devils_advocate' | 'rhymes' | 'prism' | 'legislation' | 'narrative_arc' | 'factchecker' | 'demystifier' | 'sentiment_drift' | 'executive_dossier' | 'socratic_tutor') => void;
+
+  // Broadcast, Audio & Media Synthesis (Phase G, Features 21-28)
+  isBroadcastDeskOpen: boolean;
+  setBroadcastDeskOpen: (open: boolean) => void;
+  broadcastInitialTab: 'podcast' | 'subtitles' | 'chapters' | 'soundscapes' | 'shortwave' | 'reel' | 'speed' | 'cap';
+  setBroadcastInitialTab: (tab: 'podcast' | 'subtitles' | 'chapters' | 'soundscapes' | 'shortwave' | 'reel' | 'speed' | 'cap') => void;
+  capAlerts: any[];
+  fetchCapAlerts: () => Promise<void>;
+  acknowledgeCapAlert: (id: number) => Promise<void>;
+  isSoundscapePlaying: boolean;
+  soundscapeLevels: { rain: number; press: number; hearth: number };
+  setSoundscapeLevels: (levels: { rain: number; press: number; hearth: number }) => void;
+  toggleSoundscapePlayback: () => void;
+  isShortwaveMode: boolean;
+  toggleShortwaveMode: () => void;
+  playbackSpeed: number;
+  setPlaybackSpeed: (speed: number) => void;
+
+  // Cartography, Chokepoints & Data Markets (Phase H, Features 29-35)
+  isCartographyDeskOpen: boolean;
+  setCartographyDeskOpen: (open: boolean) => void;
+  cartographyInitialTab: 'markets' | 'chokepoints' | 'climate' | 'supply_chain' | 'epidemics' | 'elections' | 'flights';
+  setCartographyInitialTab: (tab: 'markets' | 'chokepoints' | 'climate' | 'supply_chain' | 'epidemics' | 'elections' | 'flights') => void;
+  showMastheadTicker: boolean;
+  toggleMastheadTicker: () => void;
+  marketTickers: any[];
+  fetchMarketTickers: (refresh?: boolean) => Promise<void>;
+
+  // Broadside Bindery & Physical Artifacts (Phase I, Features 36-42)
+  isBinderyDeskOpen: boolean;
+  setBinderyDeskOpen: (open: boolean) => void;
+  binderyInitialTab: 'pdf' | 'stamps' | 'press_audio' | 'masthead' | 'patina' | 'bookplate' | 'crossword';
+  setBinderyInitialTab: (tab: 'pdf' | 'stamps' | 'press_audio' | 'masthead' | 'patina' | 'bookplate' | 'crossword') => void;
+  mastheadTitle: string;
+  mastheadMotto: string;
+  paperPatina: number;
+  pressAudioEnabled: boolean;
+  exlibrisInitials: string;
+  exlibrisMotto: string;
+  fetchBinderyPreferences: () => Promise<void>;
+  updateBinderyPreferences: (patch: {
+    masthead_title?: string;
+    masthead_motto?: string;
+    paper_patina?: number;
+    press_audio_enabled?: boolean;
+    exlibris_initials?: string;
+    exlibris_motto?: string;
+  }) => Promise<void>;
+
+  // Mobile Power-User & Archival Sovereignty (Phase J & K, Features 43-50)
+  isSovereignDeskOpen: boolean;
+  setSovereignDeskOpen: (open: boolean) => void;
+  sovereignInitialTab: 'widget' | 'clipping' | 'eink' | 'mesh' | 'wayback' | 'fido2' | 'html_archive';
+  setSovereignInitialTab: (tab: 'widget' | 'clipping' | 'eink' | 'mesh' | 'wayback' | 'fido2' | 'html_archive') => void;
+  isEInkMode: boolean;
+  toggleEInkMode: () => Promise<void>;
+  volumeKeyNavEnabled: boolean;
+  toggleVolumeKeyNav: () => Promise<void>;
+  enclaveLocked: boolean;
+  setEnclaveLocked: (locked: boolean) => void;
+  fetchSovereignSettings: () => Promise<void>;
 
   // Typography Studio (PRD Master Expansion #14)
   readerFontFamily: 'source-serif' | 'playfair' | 'garamond' | 'lora' | 'cormorant';
@@ -182,11 +250,13 @@ interface AppState {
   readingStats: {
     totalArticlesRead: number;
     totalMinutesRead: number;
+    totalSecondsRead?: number;
     streakDays: number;
     lastReadDate: string;
     categoryCounts: Record<string, number>;
   };
-  recordArticleRead: (articleId: number, category: string, readTimeMin: number) => void;
+  recordArticleRead: (articleId: number, category: string, readTimeMin?: number) => void;
+  recordReadingSeconds: (seconds: number) => void;
 
   // Editorial Cartoon Modal (PRD Master Expansion #16)
   isEditorialCartoonOpen: boolean;
@@ -325,6 +395,7 @@ interface AppState {
   setTvMiniPlayerOpen: (open: boolean) => void;
 
   // S2: System Health Indicator
+  sourcesCount: number;
   systemHealth: {
     status: 'healthy' | 'degraded' | 'error';
     label: string;
@@ -513,7 +584,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const currentSelected = get().selectedArticleId;
     let nextSelected = get().selectedArticle;
 
-    if (!nextSelected && bounded.length > 0) {
+    if (bounded.length === 0) {
+      nextSelected = null;
+    } else if (!nextSelected) {
       nextSelected = bounded[0] ?? null;
     } else if (currentSelected) {
       const match = bounded.find((a) => a.id === currentSelected);
@@ -523,6 +596,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           ...match,
           body_english: match.body_english ?? nextSelected?.body_english,
         } as Article;
+      } else {
+        nextSelected = bounded[0] ?? null;
       }
     }
 
@@ -564,28 +639,33 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   selectArticleById: async (id: number) => {
     playButtonSound(get().settings.sound_enabled);
-    try {
-      const res = await fetch(`/api/articles/${id}`);
-      if (res.ok) {
-        const fullArticle = (await res.json()) as Article;
-        set({
-          selectedArticle: fullArticle,
-          selectedArticleId: id,
-        });
+    if (shouldAttemptRemote()) {
+      try {
+        const res = await apiFetch(`/api/articles/${id}`);
+        if (res.ok) {
+          const fullArticle = (await res.json()) as Article;
+          set({
+            selectedArticle: fullArticle,
+            selectedArticleId: id,
+          });
+          return;
+        }
+      } catch {
+        // fall through to local cache
       }
-    } catch {
-      // fallback to in-memory card
-      const found = get().articles.find((a) => a.id === id);
-      if (found) {
-        set({ selectedArticle: found, selectedArticleId: id });
-      }
+    }
+    const found =
+      get().articles.find((a) => a.id === id) ?? autonomousEngine.getArticle(id);
+    if (found) {
+      set({ selectedArticle: found, selectedArticleId: id });
     }
   },
 
   enrichArticlePass2: async (id: number) => {
     playButtonSound(get().settings.sound_enabled);
+    if (!shouldAttemptRemote()) return;
     try {
-      const res = await fetch(`/api/articles/${id}/enrich-pass2`, { method: 'POST' });
+      const res = await apiFetch(`/api/articles/${id}/enrich-pass2`, { method: 'POST' });
       if (res.ok) {
         const enriched = (await res.json()) as Article;
         set((state) => ({
@@ -703,8 +783,25 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   toggleBookmark: async (articleId: number) => {
     playButtonSound(get().settings.sound_enabled);
+    const current =
+      get().articles.find((a) => a.id === articleId)?.bookmarked ??
+      (get().selectedArticle?.id === articleId ? get().selectedArticle?.bookmarked : false) ??
+      false;
+    const optimisticNext = !current;
+
+    if (!shouldAttemptRemote()) {
+      autonomousEngine.toggleBookmark(articleId, optimisticNext);
+      get().applyBookmarkUpdate(articleId, optimisticNext);
+      postCrossTabSync({
+        type: 'bookmark_update',
+        article_id: articleId,
+        bookmarked: optimisticNext,
+      });
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/articles/${articleId}/bookmark`, {
+      const res = await apiFetch(`/api/articles/${articleId}/bookmark`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -718,7 +815,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
       }
     } catch (err) {
-      console.error('Failed to toggle bookmark:', err);
+      autonomousEngine.toggleBookmark(articleId, optimisticNext);
+      get().applyBookmarkUpdate(articleId, optimisticNext);
+      console.error('Failed to toggle bookmark remotely, saved locally:', err);
     }
   },
 
@@ -778,6 +877,163 @@ export const useAppStore = create<AppState>((set, get) => ({
   setIncognitoMode: (active) => set({ isIncognitoMode: active }),
   isPanicWipeOpen: false,
   setPanicWipeOpen: (open) => set({ isPanicWipeOpen: open }),
+  isInvestigativeDeskOpen: false,
+  setInvestigativeDeskOpen: (open) => set({ isInvestigativeDeskOpen: open }),
+  isEditorialIntelligenceOpen: false,
+  setEditorialIntelligenceOpen: (open) => set({ isEditorialIntelligenceOpen: open }),
+  editorialInitialTab: 'devils_advocate',
+  setEditorialInitialTab: (tab) => set({ editorialInitialTab: tab }),
+
+  // Broadcast, Audio & Media Synthesis (Phase G, Features 21-28)
+  isBroadcastDeskOpen: false,
+  setBroadcastDeskOpen: (open) => set({ isBroadcastDeskOpen: open }),
+  broadcastInitialTab: 'podcast',
+  setBroadcastInitialTab: (tab) => set({ broadcastInitialTab: tab }),
+  capAlerts: [],
+  fetchCapAlerts: async () => {
+    try {
+      const res = await api.getCapAlerts();
+      set({ capAlerts: res.alerts });
+    } catch {}
+  },
+  acknowledgeCapAlert: async (id) => {
+    try {
+      await api.acknowledgeCapAlert(id);
+      set((state) => ({ capAlerts: state.capAlerts.map(a => a.id === id ? { ...a, acknowledged: 1 } : a) }));
+    } catch {}
+  },
+  isSoundscapePlaying: false,
+  soundscapeLevels: { rain: 40, press: 30, hearth: 25 },
+  setSoundscapeLevels: (levels) => {
+    set({ soundscapeLevels: levels });
+    soundscapeEngine.setSoundscapeLevels(levels);
+  },
+  toggleSoundscapePlayback: () => {
+    const next = !get().isSoundscapePlaying;
+    set({ isSoundscapePlaying: next });
+    if (next) {
+      soundscapeEngine.startSoundscapes(get().soundscapeLevels);
+    } else {
+      soundscapeEngine.stopSoundscapes();
+    }
+  },
+  isShortwaveMode: false,
+  toggleShortwaveMode: () => {
+    const next = !get().isShortwaveMode;
+    set({ isShortwaveMode: next });
+    soundscapeEngine.toggleShortwaveRadio(next);
+  },
+  playbackSpeed: 1.0,
+  setPlaybackSpeed: (speed) => set({ playbackSpeed: speed }),
+
+  // Cartography, Chokepoints & Data Markets (Phase H, Features 29-35)
+  isCartographyDeskOpen: false,
+  setCartographyDeskOpen: (open) => set({ isCartographyDeskOpen: open }),
+  cartographyInitialTab: 'markets',
+  setCartographyInitialTab: (tab) => set({ cartographyInitialTab: tab }),
+  showMastheadTicker: true,
+  toggleMastheadTicker: () => set((state) => ({ showMastheadTicker: !state.showMastheadTicker })),
+  marketTickers: [],
+  fetchMarketTickers: async (refresh = false) => {
+    try {
+      const res = await api.getMarketTickers(refresh);
+      set({ marketTickers: res.tickers });
+    } catch {}
+  },
+
+  // Broadside Bindery & Physical Artifacts (Phase I, Features 36-42)
+  isBinderyDeskOpen: false,
+  setBinderyDeskOpen: (open) => set({ isBinderyDeskOpen: open }),
+  binderyInitialTab: 'stamps',
+  setBinderyInitialTab: (tab) => set({ binderyInitialTab: tab }),
+  mastheadTitle: 'The World Desk',
+  mastheadMotto: 'Global Dispatch & Wire',
+  paperPatina: 15,
+  pressAudioEnabled: true,
+  exlibrisInitials: 'W.D.',
+  exlibrisMotto: 'VERITAS PER ATRA ET PAPYRUM',
+  fetchBinderyPreferences: async () => {
+    try {
+      const prefs = await api.getBinderyPreferences();
+      if (prefs) {
+        set({
+          mastheadTitle: prefs.masthead_title,
+          mastheadMotto: prefs.masthead_motto,
+          paperPatina: prefs.paper_patina,
+          pressAudioEnabled: Boolean(prefs.press_audio_enabled),
+          exlibrisInitials: prefs.exlibris_initials,
+          exlibrisMotto: prefs.exlibris_motto,
+        });
+      }
+    } catch {}
+  },
+  updateBinderyPreferences: async (patch) => {
+    try {
+      const updated = await api.updateBinderyPreferences(patch);
+      set({
+        mastheadTitle: updated.masthead_title,
+        mastheadMotto: updated.masthead_motto,
+        paperPatina: updated.paper_patina,
+        pressAudioEnabled: Boolean(updated.press_audio_enabled),
+        exlibrisInitials: updated.exlibris_initials,
+        exlibrisMotto: updated.exlibris_motto,
+      });
+    } catch {}
+  },
+
+  // Mobile Power-User & Archival Sovereignty (Phase J & K, Features 43-50)
+  isSovereignDeskOpen: false,
+  setSovereignDeskOpen: (open) => set({ isSovereignDeskOpen: open }),
+  sovereignInitialTab: 'clipping',
+  setSovereignInitialTab: (tab) => set({ sovereignInitialTab: tab }),
+  isEInkMode: false,
+  toggleEInkMode: async () => {
+    const next = !get().isEInkMode;
+    set({ isEInkMode: next });
+    if (typeof document !== 'undefined') {
+      if (next) {
+        document.documentElement.setAttribute('data-theme', 'e-ink');
+      } else {
+        document.documentElement.setAttribute('data-theme', get().theme === 'night' ? 'night' : 'paper');
+      }
+    }
+    try {
+      await api.updateSovereignSettings({ e_ink_mode: next });
+    } catch {}
+  },
+  volumeKeyNavEnabled: false,
+  toggleVolumeKeyNav: async () => {
+    const next = !get().volumeKeyNavEnabled;
+    set({ volumeKeyNavEnabled: next });
+    if (typeof window !== 'undefined') {
+      (window as any).__DNEWS_VOLUME_NAV__ = next;
+    }
+    try {
+      await api.updateSovereignSettings({ volume_key_nav: next });
+    } catch {}
+  },
+  enclaveLocked: false,
+  setEnclaveLocked: (locked) => set({ enclaveLocked: locked }),
+  fetchSovereignSettings: async () => {
+    try {
+      const s = await api.getSovereignSettings();
+      if (s) {
+        const eInk = Boolean(s.e_ink_mode);
+        const vol = Boolean(s.volume_key_nav);
+        set({
+          isEInkMode: eInk,
+          volumeKeyNavEnabled: vol,
+          enclaveLocked: Boolean(s.enclave_locked),
+        });
+        if (typeof window !== 'undefined') {
+          (window as any).__DNEWS_VOLUME_NAV__ = vol;
+        }
+        if (typeof document !== 'undefined' && eInk) {
+          document.documentElement.setAttribute('data-theme', 'e-ink');
+        }
+      }
+    } catch {}
+  },
 
   // Typography Studio (PRD Master Expansion #14)
   readerFontFamily: (() => {
@@ -883,18 +1139,30 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('dnews_reading_stats');
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const totalSec =
+            typeof parsed.totalSecondsRead === 'number'
+              ? parsed.totalSecondsRead
+              : (parsed.totalMinutesRead || 0) * 60;
+          return {
+            ...parsed,
+            totalSecondsRead: totalSec,
+            totalMinutesRead: Math.floor(totalSec / 60),
+          };
+        }
       } catch {}
     }
     return {
       totalArticlesRead: 0,
       totalMinutesRead: 0,
+      totalSecondsRead: 0,
       streakDays: 1,
       lastReadDate: new Date().toISOString().slice(0, 10),
       categoryCounts: {},
     };
   })(),
-  recordArticleRead: (_articleId, category, readTimeMin) => {
+  recordArticleRead: (_articleId, category) => {
     set((state) => {
       const today = new Date().toISOString().slice(0, 10);
       const prev = state.readingStats;
@@ -911,9 +1179,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
 
+      const prevSec =
+        typeof prev.totalSecondsRead === 'number'
+          ? prev.totalSecondsRead
+          : (prev.totalMinutesRead || 0) * 60;
+
       const updated = {
         totalArticlesRead: prev.totalArticlesRead + 1,
-        totalMinutesRead: prev.totalMinutesRead + (readTimeMin || 1),
+        totalSecondsRead: prevSec,
+        totalMinutesRead: Math.floor(prevSec / 60),
         streakDays: newStreak,
         lastReadDate: today,
         categoryCounts: {
@@ -922,6 +1196,29 @@ export const useAppStore = create<AppState>((set, get) => ({
         },
       };
 
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('dnews_reading_stats', JSON.stringify(updated));
+        }
+      } catch {}
+      return { readingStats: updated };
+    });
+  },
+  recordReadingSeconds: (seconds) => {
+    const delta = Math.floor(seconds);
+    if (!delta || delta <= 0) return;
+    set((state) => {
+      const prev = state.readingStats;
+      const prevSec =
+        typeof prev.totalSecondsRead === 'number'
+          ? prev.totalSecondsRead
+          : (prev.totalMinutesRead || 0) * 60;
+      const nextSec = prevSec + delta;
+      const updated = {
+        ...prev,
+        totalSecondsRead: nextSec,
+        totalMinutesRead: Math.floor(nextSec / 60),
+      };
       try {
         if (typeof window !== 'undefined') {
           localStorage.setItem('dnews_reading_stats', JSON.stringify(updated));
@@ -953,7 +1250,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     reading_mode_enabled: true,
 
     // News & Sources
-    refresh_interval_minutes: 15,
+    refresh_interval_minutes: 30,
+    max_articles_per_cycle: 200,
     live_refresh_interval_sec: 5,
     default_country_filter: '',
     category_filter_list: 'all',
@@ -1030,7 +1328,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchSettings: async () => {
     try {
-      const res = await fetch('/api/settings');
+      const res = await apiFetch('/api/settings');
       if (res.ok) {
         const data = (await res.json()) as AppSettings;
         set((state) => ({
@@ -1064,7 +1362,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         : {}),
     }));
     try {
-      const res = await fetch('/api/settings', {
+      const res = await apiFetch('/api/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -1093,7 +1391,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   checkStartupStatus: async () => {
     try {
-      const res = await fetch('/api/startup-status');
+      const res = await apiFetch('/api/startup-status');
       if (res.ok) {
         const data = (await res.json()) as StartupStatus;
         const dismissed =
@@ -1111,7 +1409,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   triggerBackfill: async () => {
-    const res = await fetch('/api/backfill', { method: 'POST' });
+    const res = await apiFetch('/api/backfill', { method: 'POST' });
     if (!res.ok) {
       throw new Error(`Backfill failed with status ${res.status}`);
     }
@@ -1119,7 +1417,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // Refresh articles so backfilled dispatches immediately show in the CardStrip
     try {
-      const artRes = await fetch('/api/articles?limit=50&offset=0');
+      const artRes = await apiFetch('/api/articles?limit=50&offset=0');
       if (artRes.ok) {
         const artData = (await artRes.json()) as { items: Article[]; total: number };
         get().setArticles(artData.items, artData.total);
@@ -1148,7 +1446,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchQuota: async () => {
     try {
-      const res = await fetch('/api/quota');
+      const res = await apiFetch('/api/quota');
       if (res.ok) {
         const data = (await res.json()) as QuotaData;
         set({ quota: data, currentProvider: data.current_provider });
@@ -1414,7 +1712,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   fetchFeedCounter: async () => {
     try {
-      const res = await fetch('/api/feed/counter');
+      const res = await apiFetch('/api/feed/counter');
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -1524,6 +1822,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTvMiniPlayerOpen: (open) => set({ isTvMiniPlayerOpen: open }),
 
   // S2: System Health Indicator
+  sourcesCount: 0,
   systemHealth: {
     status: 'healthy',
     label: 'OK',
@@ -1537,19 +1836,30 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   fetchSystemHealth: async () => {
     try {
-      const res = await fetch('/api/control-room/telemetry');
+      const res = await apiFetch('/api/control-room/telemetry');
       if (res.ok) {
         const data = await res.json();
         const plain = get().settings.plain_mode_enabled;
         const hasErrors = (data.error_count_last_hour || 0) > 5;
         const isDegraded = (data.error_count_last_hour || 0) > 0;
+        const totalSources =
+          typeof data.source_summary?.total === 'number'
+            ? data.source_summary.total
+            : Array.isArray(data.sources)
+            ? data.sources.length
+            : typeof data.total_sources_configured === 'number'
+            ? data.total_sources_configured
+            : 0;
         set({
+          ...(totalSources > 0 ? { sourcesCount: totalSources } : {}),
           systemHealth: {
             status: hasErrors ? 'error' : isDegraded ? 'degraded' : 'healthy',
             label: hasErrors ? 'Degraded' : isDegraded ? 'Degraded' : 'OK',
             details: {
-              rss: `${data.total_sources_configured || 24} Feeds Synced`,
-              ai: plain ? 'Plain Mode (Zero AI)' : (data.primary_provider || 'Gemini Online'),
+              rss: `${totalSources || 24} Feeds Synced`,
+              ai: plain
+                ? 'Plain Mode (Zero AI)'
+                : (data.ai_providers?.current_provider || data.primary_provider || 'Gemini Online'),
               scheduler: 'Heartbeat Nominal',
               db: 'SQLite WAL Connected',
               tv: 'HLS & YouTube Active',
@@ -1607,7 +1917,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   fetchConnectivity: async () => {
     try {
-      const res = await fetch('/api/connectivity');
+      const res = await apiFetch('/api/connectivity');
       if (res.ok) {
         const data = await res.json();
         if (typeof data.isOnline === 'boolean') {
@@ -1628,7 +1938,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   fetchUnreadAlertsCount: async () => {
     try {
-      const res = await fetch('/api/alerts?acknowledged=false&limit=100');
+      const res = await apiFetch('/api/alerts?acknowledged=false&limit=100');
       if (res.ok) {
         const data = (await res.json()) as { items?: unknown[] };
         set({ unreadAlertsCount: Array.isArray(data.items) ? data.items.length : 0 });
@@ -1736,6 +2046,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     } = get();
 
     try {
+      const replaceDirectly =
+        reason === 'remote_desk_connected' ||
+        reason === 'remote_desk_cleared' ||
+        reason === 'notch_ping' ||
+        reason === 'manual';
+
       const baseUrl = getApiBaseUrl();
       const params = new URLSearchParams();
       params.set('limit', '60');
@@ -1745,27 +2061,32 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (isBreakingOnly) params.set('breaking', 'true');
       if (searchQuery.trim()) params.set('q', searchQuery.trim());
 
-      const articlesPromise = fetch(`${baseUrl}/api/articles?${params.toString()}`)
-        .then(async (res) => {
-          if (!res.ok) throw new Error('Not ok');
-          const data = (await res.json()) as { total: number; items: Article[] };
-          const stateSnapshot = get();
-          if (stateSnapshot.articles.length > 0 && stateSnapshot.autoAdvanceQueueIds.length > 0) {
-            stateSnapshot.applyLiveArticlesBatch(data.items);
-          } else {
-            stateSnapshot.setArticles(data.items, data.total);
-          }
-        })
-        .catch(() => {
-          const local = autonomousEngine.getArticles({
-            category: selectedCategory,
-            country: selectedCountry,
-            breaking: isBreakingOnly,
-            q: searchQuery.trim(),
-            limit: 60,
-          });
-          set({ articles: local.items, totalArticles: local.total });
+      const articlesPromise = (shouldAttemptRemote(baseUrl)
+        ? fetch(`${baseUrl}/api/articles?${params.toString()}`).then(async (res) => {
+            if (!res.ok) throw new Error('Not ok');
+            const data = (await res.json()) as { total: number; items: Article[] };
+            const stateSnapshot = get();
+            if (
+              !replaceDirectly &&
+              stateSnapshot.articles.length > 0 &&
+              stateSnapshot.autoAdvanceQueueIds.length > 0
+            ) {
+              stateSnapshot.applyLiveArticlesBatch(data.items);
+            } else {
+              stateSnapshot.setArticles(data.items, data.total);
+            }
+          })
+        : Promise.reject(new Error('autonomous_mode'))
+      ).catch(() => {
+        const local = autonomousEngine.getArticles({
+          category: selectedCategory,
+          country: selectedCountry,
+          breaking: isBreakingOnly,
+          q: searchQuery.trim(),
+          limit: 60,
         });
+        get().setArticles(local.items, local.total);
+      });
 
       const selectedPromise = selectedArticleId
         ? fetch(`${baseUrl}/api/articles/${selectedArticleId}`)

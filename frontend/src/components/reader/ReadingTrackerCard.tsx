@@ -7,23 +7,44 @@ import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Flame, Clock, BookOpen, Award } from 'lucide-react';
 
-export const ReadingTrackerCard: React.FC = () => {
-  const stats = useAppStore((s) => s.readingStats);
+export const ReadingTrackerCard: React.FC<{
+  statsOverride?: {
+    totalArticlesRead: number;
+    totalMinutesRead: number;
+    totalSecondsRead?: number;
+    streakDays: number;
+    lastReadDate: string;
+    categoryCounts: Record<string, number>;
+  };
+}> = ({ statsOverride }) => {
+  const storeStats = useAppStore((s) => s.readingStats);
+  const stats = statsOverride ?? storeStats;
 
   const topCategories = Object.entries(stats.categoryCounts || {})
     .sort(([, a], [, b]) => b - a)
     .slice(0, 3);
+
+  const totalSec =
+    typeof (stats as any).totalSecondsRead === 'number'
+      ? (stats as any).totalSecondsRead
+      : (stats.totalMinutesRead || 0) * 60;
+  const displayMins = Math.floor(totalSec / 60);
+  const displayRemSec = totalSec % 60;
+  const formattedReadTime =
+    totalSec > 0 && displayMins < 60
+      ? `${displayMins}m ${displayRemSec}s`
+      : `${stats.totalMinutesRead} min`;
 
   return (
     <div
       id="reading-tracker-card"
       className="p-4 bg-paper-alt border-2 border-ink rounded-xs shadow-xs my-4 text-ink select-none"
     >
-      {/* Masthead Header */}
+      {/* Card Header (Playfair Display for clean crisp legibility) */}
       <div className="flex items-center justify-between pb-2 mb-3 border-b border-paper-border">
         <div className="flex items-center gap-2">
           <Award size={14} className="text-accent" />
-          <h3 className="font-masthead text-xs font-bold uppercase tracking-wider text-ink">
+          <h3 className="font-headline text-sm font-bold uppercase tracking-wider text-ink">
             Daily Telegraph Reading Log
           </h3>
         </div>
@@ -40,7 +61,7 @@ export const ReadingTrackerCard: React.FC = () => {
             <BookOpen size={10} />
             <span>Dispatches Read</span>
           </div>
-          <div className="font-bold text-ink text-base mt-0.5">{stats.totalArticlesRead}</div>
+          <div className="font-bold text-ink text-base mt-0.5 tabular-nums">{stats.totalArticlesRead}</div>
         </div>
 
         <div className="p-2.5 border border-paper-border bg-paper rounded-xs">
@@ -48,7 +69,7 @@ export const ReadingTrackerCard: React.FC = () => {
             <Clock size={10} />
             <span>Reading Time</span>
           </div>
-          <div className="font-bold text-ink text-base mt-0.5">{stats.totalMinutesRead} min</div>
+          <div className="font-bold text-ink text-base mt-0.5 tabular-nums">{formattedReadTime}</div>
         </div>
 
         <div className="p-2.5 border border-paper-border bg-paper rounded-xs col-span-2 sm:col-span-1">

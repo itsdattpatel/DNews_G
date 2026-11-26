@@ -24,6 +24,12 @@ import { controlRoomRouter } from './routes/controlRoom';
 import { entitiesRouter } from './routes/entities';
 import { libraryRouter } from './library';
 import { securityRouter } from './routes/security';
+import investigativeRouter from './routes/investigative';
+import editorialAiRouter from './routes/editorialAi';
+import broadcastRouter from './routes/broadcast';
+import cartographyRouter from './routes/cartography';
+import binderyRouter from './routes/bindery';
+import sovereignRouter from './routes/sovereign';
 import { getStartupGap } from './fetch/scheduler';
 import { backfillMissedWindow } from './fetch/backfill';
 import { getCurrentSession, getDowntimeGap } from './services/sessionManager';
@@ -67,6 +73,12 @@ export function createApp(): Express {
   app.use('/api/entities', entitiesRouter);
   app.use('/api/library', libraryRouter);
   app.use('/api/security', securityRouter);
+  app.use('/api/investigate', investigativeRouter);
+  app.use('/api/editorial', editorialAiRouter);
+  app.use('/api/broadcast', broadcastRouter);
+  app.use('/api/cartography', cartographyRouter);
+  app.use('/api/bindery', binderyRouter);
+  app.use('/api/sovereign', sovereignRouter);
 
   // Clock synchronization endpoint (PRD A Category 1B)
   app.get('/api/time', (_req, res) => {

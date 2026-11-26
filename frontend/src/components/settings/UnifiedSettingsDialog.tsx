@@ -40,6 +40,8 @@ import {
 import { toast } from 'sonner';
 import { SecretsManagerSection } from './SecretsManagerSection';
 import { useAppUpdate } from '../../hooks/useAppUpdate';
+import { apiFetch, shouldAttemptRemote } from '../../lib/api';
+import { autonomousEngine } from '../../lib/autonomousEngine';
 
 interface BackupRecord {
   filename: string;
@@ -188,7 +190,8 @@ const SECTION_DEFAULTS: Record<SettingsSectionId, Partial<AppSettings>> = {
     gallery_auto_drop_delay: 2.5,
   },
   news_sources: {
-    refresh_interval_minutes: 15,
+    refresh_interval_minutes: 30,
+    max_articles_per_cycle: 200,
     live_refresh_interval_sec: 5,
     default_country_filter: '',
     category_filter_list: 'all',
@@ -286,12 +289,53 @@ export const UnifiedSettingsDialog: React.FC<{
   });
   const [remoteDeskStatus, setRemoteDeskStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isFetchingBatch, setIsFetchingBatch] = useState(false);
+  const [batchFetchResult, setBatchFetchResult] = useState<{
+    newCount: number;
+    fetched: number;
+    cappedAt: number;
+  } | null>(null);
+
+  const handleFetchNextBatch = async () => {
+    if (isFetchingBatch) return;
+    const cap = storeSettings.max_articles_per_cycle ?? 200;
+    setIsFetchingBatch(true);
+    setBatchFetchResult(null);
+    try {
+      if (shouldAttemptRemote()) {
+        const res = await apiFetch('/api/control-room/trigger-fetch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ force: true, maxArticles: cap, advanceCursor: true }),
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const newCount = Number(data.newCount ?? data.fetched ?? 0);
+        const fetched = Number(data.fetched ?? newCount);
+        setBatchFetchResult({ newCount, fetched, cappedAt: Number(data.cappedAt ?? cap) });
+        toast.success(`Fetched ${newCount} new dispatches (batch cap ${cap}).`);
+      } else {
+        const pulled = await autonomousEngine.pollLiveFeeds(cap);
+        if (pulled.length > 0) {
+          useAppStore.getState().applyLiveArticlesBatch(pulled);
+        }
+        setBatchFetchResult({ newCount: pulled.length, fetched: pulled.length, cappedAt: cap });
+        toast.success(`Standalone wire gathered ${pulled.length} dispatches (stopped at ${cap}).`);
+      }
+    } catch (err) {
+      toast.error(`Failed to fetch next ${cap} stories: ${err instanceof Error ? err.message : 'Network error'}`);
+    } finally {
+      setIsFetchingBatch(false);
+    }
+  };
 
   const handleToggleProxy = async (enabled: boolean) => {
     const next = { ...proxyConfig, enabled };
     setProxyConfig(next);
     try {
-      await fetch('/api/security/proxy', {
+      await apiFetch('/api/security/proxy', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
@@ -305,7 +349,7 @@ export const UnifiedSettingsDialog: React.FC<{
   const handlePinIpfs = async () => {
     setIsPinningIpfs(true);
     try {
-      const res = await fetch('/api/security/ipfs-pin', { method: 'POST' });
+      const res = await apiFetch('/api/security/ipfs-pin', { method: 'POST' });
       const pin = await res.json();
       setIpfsHistory((prev) => [pin, ...prev]);
       toast.success(`Broadsheet pinned to IPFS: ${pin.cid.slice(0, 16)}...`);
@@ -374,9 +418,9 @@ export const UnifiedSettingsDialog: React.FC<{
       const fetchAuxData = async () => {
         try {
           const [telRes, unenrichedRes, backupsRes] = await Promise.all([
-            fetch('/api/settings/two-pass-telemetry'),
-            fetch('/api/settings/unenriched-count'),
-            fetch('/api/backups'),
+            apiFetch('/api/settings/two-pass-telemetry'),
+            apiFetch('/api/settings/unenriched-count'),
+            apiFetch('/api/backups'),
           ]);
           if (telRes.ok) setTwoPassTelemetry(await telRes.json());
           if (unenrichedRes.ok) {
@@ -387,8 +431,8 @@ export const UnifiedSettingsDialog: React.FC<{
             const data = await backupsRes.json();
             setBackups(data.backups ?? []);
           }
-          fetch('/api/security/proxy').then(r => r.ok && r.json()).then(data => data && setProxyConfig(data)).catch(() => {});
-          fetch('/api/security/ipfs-archive').then(r => r.ok && r.json()).then(data => data?.items && setIpfsHistory(data.items)).catch(() => {});
+          apiFetch('/api/security/proxy').then(r => r.ok && r.json()).then(data => data && setProxyConfig(data)).catch(() => {});
+          apiFetch('/api/security/ipfs-archive').then(r => r.ok && r.json()).then(data => data?.items && setIpfsHistory(data.items)).catch(() => {});
         } catch {
           // offline safe
         }
@@ -413,7 +457,7 @@ export const UnifiedSettingsDialog: React.FC<{
   const handleSummarizeBatch = async () => {
     setIsSummarizing(true);
     try {
-      const res = await fetch('/api/settings/summarize-unenriched', {
+      const res = await apiFetch('/api/settings/summarize-unenriched', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: storeSettings.enrich_batch_size || 20 }),
@@ -421,7 +465,7 @@ export const UnifiedSettingsDialog: React.FC<{
       if (res.ok) {
         const result = await res.json();
         toast.success(`Catch-up enriched ${result.summarized_count} articles.`);
-        const cRes = await fetch('/api/settings/unenriched-count');
+        const cRes = await apiFetch('/api/settings/unenriched-count');
         if (cRes.ok) {
           const cData = await cRes.json();
           setUnenrichedCount(cData.count ?? 0);
@@ -440,7 +484,7 @@ export const UnifiedSettingsDialog: React.FC<{
   const handleCreateBackup = async () => {
     setIsCreatingBackup(true);
     try {
-      const res = await fetch('/api/backups', {
+      const res = await apiFetch('/api/backups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trigger: 'manual' }),
@@ -449,7 +493,7 @@ export const UnifiedSettingsDialog: React.FC<{
         const data = await res.json();
         toast.success(`Backup snapshot created: ${data.backup?.filename || 'Snapshot'}`);
         // Refresh backups
-        const bRes = await fetch('/api/backups');
+        const bRes = await apiFetch('/api/backups');
         if (bRes.ok) {
           const bData = await bRes.json();
           setBackups(bData.backups ?? []);
@@ -472,7 +516,7 @@ export const UnifiedSettingsDialog: React.FC<{
     }
     setIsRestoring(true);
     try {
-      const res = await fetch('/api/backups/restore', {
+      const res = await apiFetch('/api/backups/restore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename: restoreTarget.filename, confirmation: 'RESTORE' }),
@@ -496,7 +540,7 @@ export const UnifiedSettingsDialog: React.FC<{
   // Export Settings JSON
   const handleExportSettings = async () => {
     try {
-      const res = await fetch('/api/settings/export');
+      const res = await apiFetch('/api/settings/export');
       if (res.ok) {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
@@ -522,7 +566,7 @@ export const UnifiedSettingsDialog: React.FC<{
     try {
       const text = await file.text();
       const payload = JSON.parse(text);
-      const res = await fetch('/api/settings/import', {
+      const res = await apiFetch('/api/settings/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -808,6 +852,52 @@ export const UnifiedSettingsDialog: React.FC<{
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* Batch Wire Ingestion Control (200-Article Cycle Cap) */}
+                  <div className="p-3 bg-[var(--color-paper-card,#f4efe6)] border border-[var(--color-ink-border,#d1d5db)] rounded-xs space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-ink-border,#d1d5db)] pb-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-serif font-bold text-xs uppercase tracking-wide">
+                            News Wire Batch Dispatch
+                          </span>
+                          <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-paper border border-paper-border rounded-2xs">
+                            {storeSettings.max_articles_per_cycle ?? 200} / {storeSettings.refresh_interval_minutes ?? 30}m
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[var(--color-ink-muted,#6b7280)] mt-0.5">
+                          Scheduled wire syncs gather up to {storeSettings.max_articles_per_cycle ?? 200} news articles every{' '}
+                          {storeSettings.refresh_interval_minutes ?? 30} minutes so your edition never overflows.
+                        </p>
+                      </div>
+                      <button
+                        id="btn-fetch-next-200"
+                        type="button"
+                        onClick={handleFetchNextBatch}
+                        disabled={isFetchingBatch}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider bg-ink text-paper hover:bg-accent transition-colors rounded-xs disabled:opacity-50 cursor-pointer shrink-0"
+                      >
+                        <RefreshCw size={12} className={isFetchingBatch ? 'animate-spin' : ''} />
+                        <span>
+                          {isFetchingBatch
+                            ? `Fetching up to ${storeSettings.max_articles_per_cycle ?? 200}...`
+                            : `Fetch Next ${storeSettings.max_articles_per_cycle ?? 200}`}
+                        </span>
+                      </button>
+                    </div>
+                    {batchFetchResult && (
+                      <div
+                        id="batch-fetch-result"
+                        className="flex items-center gap-1.5 text-[11px] font-mono text-positive"
+                      >
+                        <Check size={12} />
+                        <span>
+                          Gathered {batchFetchResult.newCount} new articles ({batchFetchResult.fetched} processed, cap{' '}
+                          {batchFetchResult.cappedAt}).
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Remote Desk Server & Autonomous Mode Desk */}
@@ -1388,11 +1478,11 @@ export const UnifiedSettingsDialog: React.FC<{
                           </span>
                         </div>
                         <div className="text-[var(--color-ink-muted,#6b7280)] text-[11px]">
-                          Minutes between background RSS & GDELT wire syncs (1 to 60 minutes).
+                          Minutes between background RSS & GDELT wire syncs (1 to 60 minutes, default 30m).
                         </div>
                       </div>
                       <span className="font-mono text-sm font-bold px-2 py-0.5 bg-[var(--color-paper-card,#f4efe6)] border border-[var(--color-ink-border,#d1d5db)] rounded-xs">
-                        {storeSettings.refresh_interval_minutes || 15}m
+                        {storeSettings.refresh_interval_minutes || 30}m
                       </span>
                     </div>
                     <input
@@ -1401,8 +1491,36 @@ export const UnifiedSettingsDialog: React.FC<{
                       min={1}
                       max={60}
                       step={1}
-                      value={storeSettings.refresh_interval_minutes || 15}
+                      value={storeSettings.refresh_interval_minutes || 30}
                       onChange={(e) => saveSetting({ refresh_interval_minutes: parseInt(e.target.value, 10) })}
+                      className="w-full accent-[var(--color-ink,#111827)] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Max Articles Per Sync Cycle */}
+                  <div className="py-2 border-b border-[var(--color-ink-border,#e5e7eb)]">
+                    <div className="flex justify-between items-center mb-1">
+                      <div>
+                        <div className="font-semibold text-sm font-serif">Articles Per Sync Cycle Cap</div>
+                        <div className="text-[var(--color-ink-muted,#6b7280)] text-[11px]">
+                          Maximum articles ingested per scheduled 30-minute run or manual batch pull (25 to 500, default 200).
+                        </div>
+                      </div>
+                      <span
+                        id="value-max-articles-per-cycle"
+                        className="font-mono text-sm font-bold tabular-nums px-2 py-0.5 bg-[var(--color-paper-card,#f4efe6)] border border-[var(--color-ink-border,#d1d5db)] rounded-xs"
+                      >
+                        {storeSettings.max_articles_per_cycle ?? 200}
+                      </span>
+                    </div>
+                    <input
+                      id="slider-max-articles-per-cycle"
+                      type="range"
+                      min={25}
+                      max={500}
+                      step={25}
+                      value={storeSettings.max_articles_per_cycle ?? 200}
+                      onChange={(e) => saveSetting({ max_articles_per_cycle: parseInt(e.target.value, 10) })}
                       className="w-full accent-[var(--color-ink,#111827)] cursor-pointer"
                     />
                   </div>

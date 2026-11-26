@@ -295,6 +295,7 @@ export interface AppSettings {
 
   // News & Sources
   refresh_interval_minutes: number;
+  max_articles_per_cycle?: number;
   live_refresh_interval_sec?: number;
   default_country_filter?: string;
   category_filter_list?: string;

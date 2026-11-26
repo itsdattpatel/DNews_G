@@ -6,8 +6,8 @@
 import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import './CircularGallery.css';
 
-const DEFAULT_FONT = 'bold 30px Figtree';
-const DEFAULT_FONT_URL = 'https://fonts.googleapis.com/css2?family=Figtree:wght@400;700&display=swap';
+const DEFAULT_FONT = 'bold 30px Georgia, serif';
+const DEFAULT_FONT_URL = '';
 const SEGMENTS_X = 32;
 const SEGMENTS_Y = 24;
 const INTRO_SECONDS = 1.4;
@@ -69,6 +69,7 @@ export interface CircularGalleryProps {
 
 export interface CircularGalleryHandle {
   focusIndex: (index: number) => void;
+  syncIndex: (index: number) => void;
   openIndex: (index: number) => void;
   close: () => void;
 }
@@ -338,7 +339,10 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
 
   useImperativeHandle(ref, () => ({
     focusIndex: (index: number) => {
-      engineRef.current?.focus(index);
+      engineRef.current?.sync(index);
+    },
+    syncIndex: (index: number) => {
+      engineRef.current?.sync(index);
     },
     openIndex: (index: number) => {
       engineRef.current?.open(index);
@@ -348,10 +352,10 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
     }
   }));
 
-  // Synchronize controlled activeIndex if passed
+  // Synchronize controlled activeIndex silently (zero animated jump & zero onActiveChange)
   useEffect(() => {
     if (activeIndex !== undefined && activeIndex !== active && engineRef.current) {
-      engineRef.current.focus(activeIndex);
+      engineRef.current.sync(activeIndex);
     }
   }, [activeIndex]);
 
@@ -746,14 +750,20 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
 
     const nearest = () => Math.round(state.target / Math.max(state.spacing, 1));
 
-    const setSlot = (slot: number, announce = true) => {
+    const setSlot = (slot: number, announce = true, immediate = false) => {
       const s = settingsRef.current;
+      if (!s.items.length) return;
       state.target = slot * state.spacing;
+      if (immediate) {
+        state.scroll = state.target;
+      }
       if (slot !== state.active) {
         state.active = slot;
         const index = wrap(slot, s.items.length);
-        if (announce) setActive(index);
-        s.onActiveChange?.(index);
+        setActive(index);
+        if (announce) {
+          s.onActiveChange?.(index);
+        }
       }
       wake();
     };
@@ -783,9 +793,30 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
       last = now;
 
       if (s.items !== lastItems) {
+        // Keep focused card aligned by item ID when live dispatches shift array indices
+        const prevList = Array.isArray(lastItems) ? lastItems : [];
+        const prevItem =
+          prevList.length > 0 ? prevList[wrap(state.active, prevList.length)] : null;
+        const prevId = prevItem?.id;
+
         lastItems = s.items;
         prune(s.items);
         s.items.forEach((item) => textureFor(item.image));
+
+        if (prevId !== undefined && s.items.length > 0) {
+          const shiftedIndex = s.items.findIndex((it) => it.id === prevId);
+          if (shiftedIndex >= 0) {
+            const count = s.items.length;
+            const curMod = wrap(state.active, count);
+            const delta = shiftedIndex - curMod;
+            if (delta !== 0) {
+              state.active += delta;
+              state.scroll += delta * state.spacing;
+              state.target += delta * state.spacing;
+            }
+            setActive(shiftedIndex);
+          }
+        }
       }
 
       const idle = now - state.lastInput > 1800;
@@ -1159,7 +1190,8 @@ export const CircularGallery = forwardRef<CircularGalleryHandle, CircularGallery
     engineRef.current = {
       wake,
       open: (index: number) => openSlot(slotFor(index)),
-      focus: (index: number) => setSlot(slotFor(index), false),
+      focus: (index: number) => setSlot(slotFor(index), false, true),
+      sync: (index: number) => setSlot(slotFor(index), false, true),
       close
     };
 

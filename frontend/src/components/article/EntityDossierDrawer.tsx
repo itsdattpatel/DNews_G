@@ -15,6 +15,7 @@ import {
   Flame,
   ArrowRight,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 interface DossierArticle {
   id: number;
@@ -64,7 +65,7 @@ export const EntityDossierDrawer: React.FC<EntityDossierDrawerProps> = ({
     setLoading(true);
     setError(null);
 
-    fetch(`/api/entities/dossier?name=${encodeURIComponent(entityName)}`)
+    apiFetch(`/api/entities/dossier?name=${encodeURIComponent(entityName)}`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();

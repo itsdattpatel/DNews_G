@@ -33,7 +33,11 @@ import {
   ArrowRight,
   Search,
   RotateCw,
+  Anchor,
+  Thermometer,
+  Plane,
 } from 'lucide-react';
+import { api } from '../../lib/api';
 
 // Lazy-load 3D Globe so Three.js and react-globe.gl are isolated from main bundle
 const Globe3D = lazy(() => import('./Globe3D'));
@@ -97,11 +101,26 @@ export const WorldMap: React.FC<WorldMapProps> = ({ forceOpen }) => {
   const [wildlifeOverlay, setWildlifeOverlay] = useState(
     settings.map_wildlife_layer !== false,
   );
+  const [chokepointsOverlay, setChokepointsOverlay] = useState(true);
+  const [climateOverlay, setClimateOverlay] = useState(false);
+  const [flightsOverlay, setFlightsOverlay] = useState(false);
+  const [chokepointsData, setChokepointsData] = useState<any[]>([]);
+  const [climateData, setClimateData] = useState<any[]>([]);
+  const [flightsData, setFlightsData] = useState<any[]>([]);
   const [autoRotate, setAutoRotate] = useState(
     settings.globe_autorotate !== false,
   );
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
+
+  useEffect(() => {
+    if (!isGlobeOpen) return;
+    Promise.allSettled([
+      api.getMaritimeChokepoints().then((r) => setChokepointsData(r.chokepoints)),
+      api.getClimateAnomalies().then((r) => setClimateData(r.anomalies)),
+      api.getDiplomaticFlights().then((r) => setFlightsData(r.flights)),
+    ]);
+  }, [isGlobeOpen]);
 
   // Close on Escape
   useEffect(() => {
@@ -220,7 +239,55 @@ export const WorldMap: React.FC<WorldMapProps> = ({ forceOpen }) => {
               }`}
             >
               <ShieldAlert size={13} />
-              <span>Wildlife Layer: {wildlifeOverlay ? 'ACTIVE' : 'OFF'}</span>
+              <span>Wildlife Layer: {wildlifeOverlay ? 'ON' : 'OFF'}</span>
+            </button>
+
+            {/* Phase H #30: Maritime Chokepoints Layer */}
+            <button
+              id="btn-toggle-chokepoints-overlay"
+              type="button"
+              onClick={() => setChokepointsOverlay((prev) => !prev)}
+              title="Toggle Maritime Chokepoints & Sea-Lane Risks"
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xs border text-xs font-bold transition-all shadow-xs ${
+                chokepointsOverlay
+                  ? 'border-ink bg-ink text-paper'
+                  : 'border-paper-border bg-paper hover:border-ink text-ink-secondary'
+              }`}
+            >
+              <Anchor size={12} />
+              <span className="hidden lg:inline">Straits</span>
+            </button>
+
+            {/* Phase H #31: Climate Anomaly Overlay */}
+            <button
+              id="btn-toggle-climate-overlay"
+              type="button"
+              onClick={() => setClimateOverlay((prev) => !prev)}
+              title="Toggle NOAA/Copernicus Thermal & Climate Anomalies"
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xs border text-xs font-bold transition-all shadow-xs ${
+                climateOverlay
+                  ? 'border-ink bg-ink text-paper'
+                  : 'border-paper-border bg-paper hover:border-ink text-ink-secondary'
+              }`}
+            >
+              <Thermometer size={12} />
+              <span className="hidden lg:inline">Climate</span>
+            </button>
+
+            {/* Phase H #35: Diplomatic Flights Overlay */}
+            <button
+              id="btn-toggle-flights-overlay"
+              type="button"
+              onClick={() => setFlightsOverlay((prev) => !prev)}
+              title="Toggle VIP Diplomatic & Relief Flights"
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xs border text-xs font-bold transition-all shadow-xs ${
+                flightsOverlay
+                  ? 'border-ink bg-ink text-paper'
+                  : 'border-paper-border bg-paper hover:border-ink text-ink-secondary'
+              }`}
+            >
+              <Plane size={12} />
+              <span className="hidden lg:inline">Flights</span>
             </button>
 
             {/* Projection Selector Toggle */}
@@ -286,6 +353,12 @@ export const WorldMap: React.FC<WorldMapProps> = ({ forceOpen }) => {
                 articles={mapArticles}
                 isNight={isNight}
                 wildlifeOverlay={wildlifeOverlay}
+                chokepointsOverlay={chokepointsOverlay}
+                climateOverlay={climateOverlay}
+                flightsOverlay={flightsOverlay}
+                chokepointsData={chokepointsData}
+                climateData={climateData}
+                flightsData={flightsData}
                 autoRotate={autoRotate}
                 onAutoRotateChange={setAutoRotate}
                 onCountrySelect={handleCountryClick}
@@ -458,6 +531,68 @@ export const WorldMap: React.FC<WorldMapProps> = ({ forceOpen }) => {
                     </Marker>
                   );
                 })}
+
+                {/* Phase H #30: Maritime Chokepoints Layer on 2D Map */}
+                {chokepointsOverlay && chokepointsData.map((cp) => (
+                  <Marker
+                    key={`cp-${cp.slug}`}
+                    coordinates={[cp.lng, cp.lat]}
+                    onClick={() => {
+                      useAppStore.getState().setCartographyInitialTab('chokepoints');
+                      useAppStore.getState().setCartographyDeskOpen(true);
+                      setGlobeOpen(false);
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <polygon
+                      points="0,-7 7,0 0,7 -7,0"
+                      fill={cp.status === 'Disrupted' || cp.status === 'Elevated Tension' ? '#C0392B' : '#1D6B38'}
+                      stroke="#FAF7F0"
+                      strokeWidth={1.2}
+                    />
+                    <text
+                      y={16}
+                      textAnchor="middle"
+                      className="font-mono text-[8px] font-bold fill-current text-ink select-none"
+                    >
+                      ⚓ {cp.name.replace('Strait of ', '').replace(' Corridor', '')}
+                    </text>
+                  </Marker>
+                ))}
+
+                {/* Phase H #31: Climate Anomaly Rings on 2D Map */}
+                {climateOverlay && climateData.map((cl) => (
+                  <Marker key={`cl-${cl.slug}`} coordinates={[cl.lng, cl.lat]}>
+                    <circle
+                      r={14}
+                      fill="rgba(192, 57, 43, 0.2)"
+                      stroke="#C0392B"
+                      strokeWidth={1.2}
+                      strokeDasharray="2 2"
+                    />
+                    <text
+                      y={4}
+                      textAnchor="middle"
+                      className="font-mono text-[8px] font-bold fill-current text-accent select-none"
+                    >
+                      +{cl.delta_celsius.toFixed(1)}°C
+                    </text>
+                  </Marker>
+                ))}
+
+                {/* Phase H #35: Diplomatic Flight Markers on 2D Map */}
+                {flightsOverlay && flightsData.map((fl) => (
+                  <Marker key={`fl-${fl.callsign}`} coordinates={[fl.cur_lng, fl.cur_lat]}>
+                    <circle r={4} fill="#1A1208" stroke="#FAF7F0" strokeWidth={1} />
+                    <text
+                      y={-8}
+                      textAnchor="middle"
+                      className="font-mono text-[8px] font-bold fill-current text-ink select-none"
+                    >
+                      ✈ {fl.callsign}
+                    </text>
+                  </Marker>
+                ))}
               </ZoomableGroup>
             </ComposableMap>
 

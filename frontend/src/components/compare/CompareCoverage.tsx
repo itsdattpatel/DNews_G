@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { DualTimestamp } from '../common/DualTimestamp';
 import { ConfirmationBadge } from '../common/ConfirmationBadge';
+import { apiFetch } from '../../lib/api';
 
 export interface Point2D {
   x: number;
@@ -115,7 +116,7 @@ export const CompareCoverage: React.FC = () => {
         setError(null);
       }
 
-      fetch(`/api/clusters/${compareClusterId}`)
+      apiFetch(`/api/clusters/${compareClusterId}`)
         .then((res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load cluster`);
           return res.json();

@@ -32,6 +32,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch } from '../../lib/api';
 
 interface BackupRecord {
   filename: string;
@@ -69,7 +70,7 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
 
   const fetchTwoPassTelemetry = async () => {
     try {
-      const res = await fetch('/api/settings/two-pass-telemetry');
+      const res = await apiFetch('/api/settings/two-pass-telemetry');
       if (res.ok) {
         const data = await res.json();
         setTwoPassTelemetry(data);
@@ -82,7 +83,7 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
   const fetchBackups = async () => {
     setIsLoadingBackups(true);
     try {
-      const res = await fetch('/api/backups');
+      const res = await apiFetch('/api/backups');
       if (res.ok) {
         const data = await res.json();
         setBackups(data.backups ?? []);
@@ -100,7 +101,7 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
       setFormData(storeSettings);
       fetchBackups();
       fetchTwoPassTelemetry();
-      fetch('/api/settings/unenriched-count')
+      apiFetch('/api/settings/unenriched-count')
         .then((res) => res.json())
         .then((data) => setUnenrichedCount(data.count ?? 0))
         .catch(() => {});
@@ -110,7 +111,7 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
   const handleSummarizeUnenriched = async () => {
     setIsSummarizing(true);
     try {
-      const res = await fetch('/api/settings/summarize-unenriched', {
+      const res = await apiFetch('/api/settings/summarize-unenriched', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ limit: 20 }),
@@ -132,7 +133,7 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
   const handleCreateBackup = async () => {
     setIsCreatingBackup(true);
     try {
-      const res = await fetch('/api/backups/create', {
+      const res = await apiFetch('/api/backups/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trigger: 'manual' }),
@@ -152,7 +153,7 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
     if (!restoreTarget || restoreConfirmInput !== 'RESTORE') return;
     setIsRestoring(true);
     try {
-      const res = await fetch('/api/backups/restore', {
+      const res = await apiFetch('/api/backups/restore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -167,7 +168,7 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
       setRestoreConfirmInput('');
       fetchBackups();
       // Reload settings & state
-      const freshSettings = await fetch('/api/settings').then((r) => r.json());
+      const freshSettings = await apiFetch('/api/settings').then((r) => r.json());
       setFormData(freshSettings);
       updateStoreSettings(freshSettings);
     } catch (err: any) {
@@ -179,7 +180,7 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
 
   const handleExportSettings = async () => {
     try {
-      const res = await fetch('/api/settings/export');
+      const res = await apiFetch('/api/settings/export');
       if (!res.ok) throw new Error('Export failed');
       const data = await res.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -204,7 +205,7 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
     try {
       const text = await file.text();
       const json = JSON.parse(text);
-      const res = await fetch('/api/settings/import', {
+      const res = await apiFetch('/api/settings/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(json),
@@ -214,7 +215,7 @@ export const SettingsMenu: React.FC<{ forceOpen?: boolean }> = ({ forceOpen }) =
         throw new Error(data.error || 'Import failed');
       }
       toast.success(`Settings imported: ${data.applied_count} preference(s) updated.`);
-      const freshSettings = await fetch('/api/settings').then((r) => r.json());
+      const freshSettings = await apiFetch('/api/settings').then((r) => r.json());
       setFormData(freshSettings);
       updateStoreSettings(freshSettings);
     } catch (err: any) {

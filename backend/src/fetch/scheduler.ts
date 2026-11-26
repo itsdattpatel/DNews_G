@@ -18,6 +18,7 @@ type FetchCallback = (articles: ArticleRaw[]) => Promise<void>;
 
 let _timer: ReturnType<typeof setInterval> | null = null;
 let _onFetch: FetchCallback | null = null;
+let _sourceCursor = 0;
 
 // Telemetry State
 let _isCycleRunning = false;
@@ -42,9 +43,14 @@ export function stopScheduler(): void {
 }
 
 export function getIntervalMs(): number {
-  const minutes = parseInt(getSetting('refresh_interval_minutes', '5'), 10);
-  const clamped = Math.min(60, Math.max(1, minutes));
+  const minutes = parseInt(getSetting('refresh_interval_minutes', '30'), 10);
+  const clamped = Math.min(60, Math.max(1, isNaN(minutes) ? 30 : minutes));
   return clamped * 60 * 1000;
+}
+
+export function getMaxArticlesPerCycle(): number {
+  const maxArticles = parseInt(getSetting('max_articles_per_cycle', '200'), 10);
+  return Math.min(1000, Math.max(10, isNaN(maxArticles) ? 200 : maxArticles));
 }
 
 function scheduleNext(): void {
@@ -106,41 +112,67 @@ async function fetchSingleSource(source: (typeof SOURCES)[0]): Promise<ArticleRa
   }
 }
 
-async function runFetchCycle(force: boolean = false): Promise<void> {
+export interface FetchCycleOptions {
+  maxArticles?: number;
+  advanceCursor?: boolean;
+}
+
+async function runFetchCycle(force: boolean = false, opts: FetchCycleOptions = {}): Promise<number> {
   if (!force && !getConnectivityWatchdog().isCurrentlyOnline()) {
     console.log('[Scheduler] Fetch cycle suspended — offline mode active (watchdog checking every 15s)');
-    return;
+    return getMaxArticlesPerCycle();
   }
 
   if (_isCycleRunning) {
     console.log('[Scheduler] Fetch cycle already running, skipping overlapping invocation');
-    return;
+    return getMaxArticlesPerCycle();
   }
 
   _isCycleRunning = true;
   _lastCycleStartedAt = new Date().toISOString();
   const cycleStartMs = Date.now();
+  const maxCap =
+    typeof opts.maxArticles === 'number' && opts.maxArticles > 0
+      ? Math.min(1000, Math.floor(opts.maxArticles))
+      : getMaxArticlesPerCycle();
 
   try {
-    // Sort sources so tier1 priority sources are fetched first for fast first-paint
+    // Sort sources so tier1 priority sources come first, then rotate using _sourceCursor
     const enabledSources = SOURCES.filter((s) => s.enabled).sort((a, b) => {
       const pA = a.priority === 'tier1' ? 1 : 2;
       const pB = b.priority === 'tier1' ? 1 : 2;
       return pA - pB;
     });
 
-    console.log(`[Scheduler] Fetch cycle started — ${enabledSources.length} sources`);
+    const startOffset = enabledSources.length > 0 ? _sourceCursor % enabledSources.length : 0;
+    const orderedSources =
+      startOffset > 0
+        ? [...enabledSources.slice(startOffset), ...enabledSources.slice(0, startOffset)]
+        : enabledSources;
+
+    console.log(`[Scheduler] Fetch cycle started — ${orderedSources.length} sources (cap: ${maxCap}, offset: ${startOffset})`);
     const allArticles: ArticleRaw[] = [];
     let totalNewCount = 0;
+    let processedSources = 0;
 
-    // Fetch in concurrent batches of 6 sources so initial articles land within seconds
+    // Fetch in concurrent batches of 6 sources and halt cleanly once maxCap is reached
     const BATCH_SIZE = 6;
-    for (let i = 0; i < enabledSources.length; i += BATCH_SIZE) {
-      const batch = enabledSources.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < orderedSources.length; i += BATCH_SIZE) {
+      if (totalNewCount >= maxCap) {
+        break;
+      }
+
+      const batch = orderedSources.slice(i, i + BATCH_SIZE);
+      processedSources += batch.length;
       const batchResults = await Promise.all(batch.map((s) => fetchSingleSource(s)));
-      const batchArticles = batchResults.flat();
+      let batchArticles = batchResults.flat();
 
       if (batchArticles.length > 0) {
+        const remainingCapacity = Math.max(0, maxCap - totalNewCount);
+        if (batchArticles.length > remainingCapacity) {
+          batchArticles = batchArticles.slice(0, remainingCapacity);
+        }
+
         allArticles.push(...batchArticles);
         const batchNew = await insertPendingArticles(batchArticles);
         totalNewCount += batchNew;
@@ -154,6 +186,15 @@ async function runFetchCycle(force: boolean = false): Promise<void> {
           }
         }
       }
+
+      if (totalNewCount >= maxCap) {
+        console.log(`[Scheduler] Cycle cap (${maxCap}) reached after ${processedSources} sources — stopping batch.`);
+        break;
+      }
+    }
+
+    if (enabledSources.length > 0 && (opts.advanceCursor || totalNewCount >= maxCap)) {
+      _sourceCursor = (startOffset + Math.max(1, processedSources)) % enabledSources.length;
     }
 
     _lastCycleArticlesFetched = allArticles.length;
@@ -162,13 +203,14 @@ async function runFetchCycle(force: boolean = false): Promise<void> {
     _lastCycleCompletedAt = new Date().toISOString();
     _nextCycleExpectedAt = new Date(Date.now() + getIntervalMs()).toISOString();
 
-    console.log(`[Scheduler] Cycle complete — ${allArticles.length} fetched, ${totalNewCount} new in ${_lastCycleDurationMs}ms`);
+    console.log(`[Scheduler] Cycle complete — ${allArticles.length} fetched, ${totalNewCount} new (cap=${maxCap}) in ${_lastCycleDurationMs}ms`);
 
     // Broadcast SSE update so Control Room and client surfaces reflect cycle completion
     emitSseEvent('control_room_update', {
       type: 'fetch_cycle_completed',
       articlesFetched: allArticles.length,
       newArticles: totalNewCount,
+      cappedAt: maxCap,
       durationMs: _lastCycleDurationMs,
       completedAt: _lastCycleCompletedAt,
     });
@@ -178,13 +220,19 @@ async function runFetchCycle(force: boolean = false): Promise<void> {
   } finally {
     _isCycleRunning = false;
   }
+
+  return maxCap;
 }
 
-/** Manually trigger an immediate fetch cycle on demand from the Control Room */
-export async function triggerManualFetchCycle(force: boolean = false): Promise<{
+/** Manually trigger an immediate fetch cycle on demand from the Control Room or Settings */
+export async function triggerManualFetchCycle(
+  force: boolean = false,
+  opts: FetchCycleOptions = {},
+): Promise<{
   status: 'completed' | 'already_running' | 'offline';
   fetched: number;
   newCount: number;
+  cappedAt: number;
   durationMs: number;
 }> {
   if (!force && !getConnectivityWatchdog().isCurrentlyOnline()) {
@@ -193,25 +241,36 @@ export async function triggerManualFetchCycle(force: boolean = false): Promise<{
       status: 'offline',
       fetched: 0,
       newCount: 0,
+      cappedAt:
+        typeof opts.maxArticles === 'number' && opts.maxArticles > 0
+          ? Math.min(1000, Math.floor(opts.maxArticles))
+          : 200,
       durationMs: 0,
     };
   }
+
+  const effectiveCap =
+    typeof opts.maxArticles === 'number' && opts.maxArticles > 0
+      ? Math.min(1000, Math.floor(opts.maxArticles))
+      : getMaxArticlesPerCycle();
 
   if (_isCycleRunning) {
     return {
       status: 'already_running',
       fetched: _lastCycleArticlesFetched,
       newCount: _lastCycleNewArticles,
+      cappedAt: effectiveCap,
       durationMs: _lastCycleDurationMs ?? 0,
     };
   }
 
   const startMs = Date.now();
-  await runFetchCycle(force);
+  const cappedAt = await runFetchCycle(force, opts);
   return {
     status: 'completed',
     fetched: _lastCycleArticlesFetched,
     newCount: _lastCycleNewArticles,
+    cappedAt,
     durationMs: Date.now() - startMs,
   };
 }

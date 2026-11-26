@@ -20,6 +20,7 @@ import {
   Shuffle,
   Filter,
 } from 'lucide-react';
+import { apiFetch, apiUrl } from '../../lib/api';
 
 export interface ScriptureBook {
   id: number;
@@ -73,7 +74,7 @@ export const ScriptureReader: React.FC<ScriptureReaderProps> = () => {
   // 1. Fetch Holy Books Registry
   const loadBooks = useCallback(async () => {
     try {
-      const res = await fetch('/api/library/wisdom/books');
+      const res = await apiFetch('/api/library/wisdom/books');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.books?.length > 0) {
@@ -108,7 +109,7 @@ export const ScriptureReader: React.FC<ScriptureReaderProps> = () => {
         params.append('q', activeQuery);
       }
 
-      const res = await fetch(`/api/library/wisdom/verses?${params.toString()}`);
+      const res = await apiFetch(`/api/library/wisdom/verses?${params.toString()}`);
       if (!res.ok) {
         throw new Error(`Failed to load verses (HTTP ${res.status})`);
       }
@@ -200,7 +201,7 @@ export const ScriptureReader: React.FC<ScriptureReaderProps> = () => {
   ) => {
     setSavingMeaning(true);
     try {
-      const res = await fetch(`/api/library/wisdom/verses/${verseId}`, {
+      const res = await apiFetch(`/api/library/wisdom/verses/${verseId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
@@ -234,7 +235,7 @@ export const ScriptureReader: React.FC<ScriptureReaderProps> = () => {
   const handleVerseOfTheDay = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/library/wisdom/verses/today');
+      const res = await apiFetch('/api/library/wisdom/verses/today');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.verse) {
@@ -253,8 +254,8 @@ export const ScriptureReader: React.FC<ScriptureReaderProps> = () => {
     setLoading(true);
     try {
       const url = selectedBookSlug
-        ? `/api/library/wisdom/verses/random?book=${encodeURIComponent(selectedBookSlug)}`
-        : '/api/library/wisdom/verses/random';
+        ? apiUrl(`/api/library/wisdom/verses/random?book=${encodeURIComponent(selectedBookSlug)}`)
+        : apiUrl('/api/library/wisdom/verses/random');
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
