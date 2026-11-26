@@ -5,31 +5,34 @@
  * Allows one-click download of the latest Android APK or release archive.
  */
 import React from 'react';
-import { useAppUpdate } from '../../hooks/useAppUpdate';
+import { useAppUpdate, getUpdateUiCopy, type UpdateInfo } from '../../hooks/useAppUpdate';
 import { broadsheetAudio } from '../../utils/broadsheetAudio';
 import { Download, X } from 'lucide-react';
 
-export const AppUpdateBanner: React.FC = () => {
+export const AppUpdateBanner: React.FC<{ forcedUpdate?: Partial<UpdateInfo> }> = ({
+  forcedUpdate,
+}) => {
+  const hookUpdate = useAppUpdate();
+  const effectiveUpdate = { ...hookUpdate, ...forcedUpdate };
   const {
     isUpdateAvailable,
     isDismissed,
     latestVersion,
     currentVersion,
     releaseTitle,
+    platform,
     apkAsset,
+    exeAsset,
+    platformAsset,
     downloadAndInstall,
     dismissUpdate,
-  } = useAppUpdate();
+  } = effectiveUpdate;
 
   if (!isUpdateAvailable || isDismissed) {
     return null;
   }
 
-  const formatFileSize = (bytes: number) => {
-    if (!bytes) return '';
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(1)} MB`;
-  };
+  const copy = getUpdateUiCopy({ platform, apkAsset, exeAsset, platformAsset });
 
   const handleDownload = () => {
     broadsheetAudio.playTeletypeClick();
@@ -78,12 +81,8 @@ export const AppUpdateBanner: React.FC = () => {
             </span>
           </div>
           <p className="font-body text-xs text-ink-secondary leading-snug">
-            Your current desk edition is <span className="font-mono font-bold text-ink">v{currentVersion}</span>. 
-            {apkAsset ? (
-              <span> A new mobile APK ({formatFileSize(apkAsset.size)}) is ready for download.</span>
-            ) : (
-              <span> An updated release build is available on GitHub.</span>
-            )}
+            Your current desk edition is <span className="font-mono font-bold text-ink">v{currentVersion}</span>.
+            <span>{copy.bannerDetailText}</span>
           </p>
         </div>
 
@@ -91,10 +90,10 @@ export const AppUpdateBanner: React.FC = () => {
         <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
           <button
             onClick={handleDownload}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-ink text-paper hover:bg-ink-secondary font-mono text-xs font-bold border border-ink shadow-sm transition-all active:translate-y-0.5"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-ink text-paper hover:bg-ink-secondary font-mono text-xs font-bold border border-ink shadow-sm transition-all active:translate-y-0.5 cursor-pointer"
           >
             <Download size={13} />
-            <span>{apkAsset ? 'DOWNLOAD APK' : 'VIEW UPDATE'}</span>
+            <span>{copy.bannerButtonLabel}</span>
           </button>
           <button
             onClick={handleDismiss}

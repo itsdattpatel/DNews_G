@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SecretsManagerSection } from './SecretsManagerSection';
-import { useAppUpdate } from '../../hooks/useAppUpdate';
+import { useAppUpdate, getUpdateUiCopy, type UpdateInfo } from '../../hooks/useAppUpdate';
 import { apiFetch, shouldAttemptRemote } from '../../lib/api';
 import { autonomousEngine } from '../../lib/autonomousEngine';
 
@@ -248,7 +248,8 @@ const SECTION_DEFAULTS: Record<SettingsSectionId, Partial<AppSettings>> = {
 export const UnifiedSettingsDialog: React.FC<{
   forceOpen?: boolean;
   initialSection?: SettingsSectionId;
-}> = ({ forceOpen, initialSection }) => {
+  forcedUpdate?: Partial<UpdateInfo>;
+}> = ({ forceOpen, initialSection, forcedUpdate }) => {
   const storeSettingsOpen = useAppStore((s) => s.isSettingsOpen);
   const isSettingsOpen = forceOpen ?? storeSettingsOpen;
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
@@ -257,7 +258,9 @@ export const UnifiedSettingsDialog: React.FC<{
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const setPanicWipeOpen = useAppStore((s) => s.setPanicWipeOpen);
-  const appUpdate = useAppUpdate();
+  const hookAppUpdate = useAppUpdate();
+  const appUpdate = { ...hookAppUpdate, ...forcedUpdate };
+  const updateUiCopy = getUpdateUiCopy(appUpdate);
 
   // Active section & search
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(initialSection ?? 'general');
@@ -829,16 +832,15 @@ export const UnifiedSettingsDialog: React.FC<{
                             Extra Edition available: {appUpdate.latestVersion}
                           </p>
                           <p className="text-ink text-[10px]">
-                            {appUpdate.apkAsset
-                              ? `Direct APK package available (${(appUpdate.apkAsset.size / (1024 * 1024)).toFixed(1)} MB).`
-                              : 'New release assets published on repository.'}
+                            {updateUiCopy.summaryText}
                           </p>
                           <button
+                            id="btn-download-platform-update"
                             onClick={appUpdate.downloadAndInstall}
-                            className="flex items-center gap-1.5 px-3 py-1 bg-accent text-white font-mono text-xs font-bold rounded-xs shadow-sm hover:bg-accent-dark transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1 bg-accent text-white font-mono text-xs font-bold rounded-xs shadow-sm hover:bg-accent-dark transition-colors cursor-pointer"
                           >
                             <Download size={13} />
-                            <span>Download APK Update</span>
+                            <span>{updateUiCopy.settingsButtonLabel}</span>
                           </button>
                         </div>
                       ) : appUpdate.error ? (
